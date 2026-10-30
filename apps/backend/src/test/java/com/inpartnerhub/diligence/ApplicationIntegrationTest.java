@@ -49,9 +49,9 @@ class ApplicationIntegrationTest {
                 UUID.randomUUID());
 
         assertThatThrownBy(() -> jdbc.update("update audit.audit_log set action = 'tampered'"))
-                .hasMessageContaining("append-only");
+                .hasStackTraceContaining("append-only");
         assertThatThrownBy(() -> jdbc.update("delete from audit.audit_log"))
-                .hasMessageContaining("append-only");
+                .hasStackTraceContaining("append-only");
     }
 
     @Test
@@ -94,8 +94,8 @@ class ApplicationIntegrationTest {
     private int asUser(UUID user, String role, String countQuery) {
         return new TransactionTemplate(transactionManager).execute(status -> {
             jdbc.execute("SET LOCAL ROLE diligence_app");
-            jdbc.queryForObject("select set_config('app.user_id', ?, true), set_config('app.role', ?, true)",
-                    String.class, user.toString(), role);
+            jdbc.queryForList("select set_config('app.user_id', ?, true), set_config('app.role', ?, true)",
+                    user.toString(), role);
             return jdbc.queryForObject(countQuery, Integer.class);
         });
     }

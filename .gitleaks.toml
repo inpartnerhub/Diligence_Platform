@@ -1,0 +1,7 @@
+# gitleaks configuration: default rules plus allowlists for documented, non-secret placeholders.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholder values in *.env.example and docs (must be replaced locally, never real secrets)"
+regexes = ['''change-me[\w.-]*''']

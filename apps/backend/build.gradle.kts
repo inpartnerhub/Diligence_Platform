@@ -23,6 +23,7 @@ dependencies {
     // Web & API
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-restclient") // Keycloak Admin API client
     implementation(libs.springdoc.webmvc.ui)
 
     // Security (Keycloak / OIDC resource server)

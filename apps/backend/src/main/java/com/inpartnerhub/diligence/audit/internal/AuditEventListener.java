@@ -3,6 +3,7 @@ package com.inpartnerhub.diligence.audit.internal;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ class AuditEventListener {
     private final JsonMapper json;
     private final Clock clock;
 
+    @Autowired
     AuditEventListener(AuditLogRepository repository, JsonMapper json) {
         this(repository, json, Clock.systemUTC());
     }
