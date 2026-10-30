@@ -2,7 +2,7 @@
 spring-boot = "4.1.2"
 spring-dependency-management = "1.1.7"
 spring-modulith = "2.1.2"
-springdoc = "3.0.3"
+springdoc = "3.2.0"
 sentry = "8.62.0"
 aws-sdk = "2.57.7"
 opensearch-java = "3.10.0"
