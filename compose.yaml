@@ -86,7 +86,7 @@ services:
 
   tika:
     # The -full image bundles Tesseract OCR, used automatically for image-based documents.
-    image: apache/tika:3.2.3.0-full
+    image: apache/tika:4.1.0-2-full
     ports: ["127.0.0.1:9998:9998"]
 
   clamav:
