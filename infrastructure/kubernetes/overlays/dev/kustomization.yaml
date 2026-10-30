@@ -9,9 +9,9 @@ labels:
     includeSelectors: false
 images:
   # CI sets immutable digests: kustomize edit set image diligence-backend=ghcr.io/...@sha256:...
-  - name: ghcr.io/example/diligence-backend
+  - name: ghcr.io/inpartnerhub/diligence-backend
     newTag: "0.1.0"
-  - name: ghcr.io/example/diligence-frontend
+  - name: ghcr.io/inpartnerhub/diligence-frontend
     newTag: "0.1.0"
 patches:
   - target: { kind: Namespace, name: diligence }

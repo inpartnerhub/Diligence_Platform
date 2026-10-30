@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: diligence-frontend
+  namespace: diligence
   labels: { app.kubernetes.io/name: diligence-frontend, app.kubernetes.io/component: web }
 spec:
   replicas: 2
@@ -24,14 +25,14 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: frontend
-          image: ghcr.io/example/diligence-frontend:latest # pinned by overlays / CI
+          image: ghcr.io/inpartnerhub/diligence-frontend:0.1.0 # overridden per overlay; CI pins immutable sha tags
           ports: [{ name: http, containerPort: 3000 }]
           envFrom:
             - configMapRef: { name: diligence-frontend-config }
             - secretRef: { name: diligence-frontend-secrets }
           resources:
             requests: { cpu: 200m, memory: 256Mi }
-            limits: { memory: 512Mi }
+            limits: { cpu: "1", memory: 512Mi }
           livenessProbe:
             httpGet: { path: /api/health, port: http }
             periodSeconds: 10

@@ -7,12 +7,22 @@ locals {
   tags = merge(var.tags, { project = "diligence", environment = var.environment, managed-by = "terraform" })
 }
 
+# Shared customer-managed key for CloudWatch log groups (VPC flow logs, EKS control plane, OpenSearch).
+module "log_key" {
+  source                = "../../modules/kms-key"
+  alias                 = "${local.name}-logs"
+  description           = "Encryption key for ${local.name} CloudWatch log groups"
+  allow_cloudwatch_logs = true
+  tags                  = local.tags
+}
+
 module "network" {
   source             = "../../modules/network"
   name               = local.name
   cidr               = var.vpc_cidr
   azs                = var.availability_zones
   single_nat_gateway = var.environment != "prod"
+  log_kms_key_arn    = module.log_key.arn
   tags               = local.tags
 }
 
@@ -24,6 +34,7 @@ module "cluster" {
   node_instance_types = var.node_instance_types
   node_min_size       = var.node_min_size
   node_max_size       = var.node_max_size
+  log_kms_key_arn     = module.log_key.arn
   tags                = local.tags
 }
 
@@ -35,7 +46,6 @@ module "postgresql" {
   allowed_security_group_ids = [module.cluster.node_security_group_id]
   instance_class             = var.db_instance_class
   multi_az                   = var.environment == "prod"
-  deletion_protection        = var.environment == "prod"
   tags                       = local.tags
 }
 
@@ -68,6 +78,7 @@ module "opensearch" {
   allowed_security_group_ids = [module.cluster.node_security_group_id]
   instance_count             = var.environment == "prod" ? 3 : 1
   instance_type              = var.environment == "prod" ? "r7g.large.search" : "t3.medium.search"
+  log_kms_key_arn            = module.log_key.arn
   tags                       = local.tags
 }
 
@@ -83,12 +94,14 @@ resource "vault_kv_secret_v2" "backend_infrastructure" {
   mount = "kv"
   name  = "diligence/${var.environment}/backend/infrastructure"
   data_json = jsonencode({
-    DB_URL            = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
-    REDIS_HOST        = module.redis.primary_endpoint
-    REDIS_PASSWORD    = module.redis.auth_token
-    RABBITMQ_HOST     = trimprefix(split(":", module.rabbitmq.amqps_endpoint)[1], "//")
-    RABBITMQ_USERNAME = module.rabbitmq.username
-    RABBITMQ_PASSWORD = module.rabbitmq.password
-    OPENSEARCH_URL    = module.opensearch.endpoint
+    DB_URL              = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
+    REDIS_HOST          = module.redis.primary_endpoint
+    REDIS_PASSWORD      = module.redis.auth_token
+    RABBITMQ_HOST       = trimprefix(split(":", module.rabbitmq.amqps_endpoint)[1], "//")
+    RABBITMQ_USERNAME   = module.rabbitmq.username
+    RABBITMQ_PASSWORD   = module.rabbitmq.password
+    OPENSEARCH_URL      = module.opensearch.endpoint
+    OPENSEARCH_USERNAME = module.opensearch.master_user_name
+    OPENSEARCH_PASSWORD = module.opensearch.master_user_password
   })
 }

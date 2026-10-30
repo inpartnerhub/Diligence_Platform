@@ -11,6 +11,12 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
+// Security overrides of Spring Boot managed versions. Remove each one once the Boot BOM ships the fix.
+// amqp-client 5.30.0: CVE-2026-63337, CVE-2026-69219, CVE-2026-69220, CVE-2026-75516 (HIGH), fixed in ≤ 5.34.0.
+extra["rabbit-amqp-client.version"] = "5.37.0"
+// opentelemetry-api 1.62.0: CVE-2026-118259 (MEDIUM), fixed in 1.67.0.
+extra["opentelemetry.version"] = "1.67.0"
+
 dependencyManagement {
     imports {
         mavenBom(libs.spring.modulith.bom.get().toString())

@@ -14,13 +14,12 @@ data:
   S3_REGION: eu-central-1
   S3_BUCKET: diligence-documents
   S3_PATH_STYLE: "false"
-  KEYCLOAK_BASE_URL: https://auth.example.com
-  KEYCLOAK_REALM: diligence
+  IDP_BASE_URL: https://auth.example.com
+  IDP_REALM: diligence
   APP_BASE_URL: https://app.example.com
   SMTP_HOST: email-smtp.example.com
   SMTP_PORT: "587"
   SMTP_STARTTLS: "true"
-  MAIL_FROM: Diligence Platform <no-reply@example.com>
   TIKA_URL: http://tika.diligence-processing.svc:9998
   GOTENBERG_URL: http://gotenberg.diligence-processing.svc:3000
   CLAMAV_HOST: clamav.diligence-processing.svc

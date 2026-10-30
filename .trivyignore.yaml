@@ -1,0 +1,10 @@
+# Accepted findings. Every entry needs a statement and is reviewed with the security officer; prefer fixing.
+misconfigurations:
+  - id: AWS-0104
+    paths:
+      - "terraform-aws-modules/eks/aws/node_groups.tf"
+    statement: >-
+      Upstream EKS module: worker nodes need outbound HTTPS to container registries, AWS APIs and managed
+      services through the NAT gateway. Pod egress is restricted by default-deny Kubernetes NetworkPolicies
+      (infrastructure/kubernetes/base/common/network-policies.yaml); replacing this with VPC endpoints plus an
+      egress proxy is tracked for the hardening phase.

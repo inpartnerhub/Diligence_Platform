@@ -5,7 +5,7 @@ Amazon OpenSearch, S3). Modules have narrow interfaces so a different cloud can 
 
 ```
 terraform/
-├── modules/            # Single-purpose, reusable building blocks (no provider config)
+├── modules/            # Single-purpose, reusable building blocks (no provider config); kms-key is shared
 ├── stacks/diligence/    # Composition of modules for one environment + Vault secret publication
 └── environments/       # Root modules: state backend, providers, per-environment sizing
     ├── dev/  staging/  prod/
@@ -30,4 +30,11 @@ terraform apply tfplan
   The RDS master password is managed by RDS in Secrets Manager. Application secrets never appear in Kubernetes manifests.
 - Cluster add-ons (Kong Ingress Controller, Vault Secrets Operator, cert-manager, kube-prometheus-stack,
   OpenTelemetry Collector, Tika and ClamAV workloads) are installed via GitOps/Helm, not by this Terraform.
-- `prod` changes require a reviewed plan in the pull request (see `.github/workflows/terraform.yml`).
+- Encryption: customer-managed KMS keys (rotation on) for documents (S3), PostgreSQL storage and Performance
+  Insights, and one shared key for CloudWatch log groups.
+- Logging: VPC flow logs, all EKS control-plane log types, OpenSearch audit/application/slow logs, S3 server access
+  logs (separate bucket). OpenSearch runs with fine-grained access control; its master credentials go to Vault.
+- RDS deletion protection is on in every environment; disable it explicitly to tear an environment down.
+- Trivy findings that cannot be fixed in code are documented in `.trivyignore.yaml` or inline `#trivy:ignore`
+  comments with the reason.
+- `prod` changes require a reviewed plan in the pull request.

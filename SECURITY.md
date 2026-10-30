@@ -28,7 +28,7 @@ Only the latest release deployed from `main` receives security fixes.
 | Server-side RBAC, tested against cross-project access (IDOR) | `@PreAuthorize`, ABAC `AccessPolicy`, PostgreSQL RLS per project; `AdminEndpointSecurityTest`, `rowLevelSecurityEnforcesInformationBarrier` | ✅ foundation |
 | Information barriers (Bab 3) | RLS: target never sees findings, client sees released findings / issued reports / own questions only | ✅ |
 | Immutable audit log, stored separately, exportable | `audit` schema, insert-only grants + triggers rejecting UPDATE/DELETE/TRUNCATE; search API | ✅ (export: sprint 15–16) |
-| Encryption in transit (TLS 1.2+) and at rest (AES-256) | TLS at Kong/ingress, `sslmode=verify-full`, encrypted RDS/ElastiCache/OpenSearch/MQ/S3 (KMS) | ✅ IaC |
+| Encryption in transit (TLS 1.2+) and at rest (AES-256) | TLS at Kong/ingress, `sslmode=verify-full`; customer-managed KMS keys (rotated) for S3 documents, RDS and log groups; encrypted ElastiCache/OpenSearch/MQ | ✅ IaC |
 | Watermark, download/print restrictions, access logging | `Watermarker` port, `dr.folder.download_allowed/print_allowed` (deny by default) | ⏳ sprint 7–8 |
 | Malware scan on every upload, type validation, size limit | ClamAV pipeline (Bab 8.3), 100 MB limit at Kong and Spring | ⏳ sprint 5–6 |
 | IP / location restriction, anomalous login detection | Keycloak events + alerting; per-project IP allow-list | ⏳ phase 2 |
@@ -82,8 +82,11 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 - Non-root containers (UID 10001), read-only root filesystem, all capabilities dropped, `restricted` Pod Security.
 - Default-deny NetworkPolicies; backend reachable only from Kong; management port only from monitoring.
 - Data services are private; API docs disabled in production.
-- Supply chain: Dependabot, dependency review, Trivy (images + IaC), SBOM and provenance, SonarQube. Before
-  production also pin Actions to SHAs, sign images (cosign) and verify at admission.
+- Infrastructure logging: VPC flow logs, EKS control-plane logs, OpenSearch audit logs, S3 access logs.
+- Supply chain: Dependabot, dependency review, Trivy (images + IaC), SBOM and provenance, SonarQube. Images come
+  only from GHCR (trusted registry list in `.trivy/data`). Accepted scanner findings live in `.trivyignore.yaml`
+  with a written justification. Before production also pin Actions to SHAs, sign images (cosign) and verify at
+  admission.
 
 ## Local stack caveat
 

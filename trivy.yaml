@@ -1,0 +1,4 @@
+# Trivy configuration used by .github/workflows/security.yml (filesystem, IaC and secret scan).
+rego:
+  data:
+    - .trivy/data

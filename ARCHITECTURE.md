@@ -40,7 +40,7 @@ How the Diligence Platform is structured and how its parts interact. Requirement
 | Module boundaries | Spring Modulith (verified by `ModularityTests`) | `apps/backend/src/main/java/.../<module>/package-info.java` |
 | Relational data | PostgreSQL 17, Hibernate (validate only), Flyway, row-level security | `database/migrations`, `application.yml` |
 | Cache / sessions | Redis (Valkey in AWS) | `application.yml`, `REDIS_URL` |
-| Object storage | S3 API (MinIO locally) via AWS SDK v2 | `dataroom/internal/S3DocumentStorage` |
+| Object storage | S3 API (SeaweedFS locally) via AWS SDK v2 | `dataroom/internal/S3DocumentStorage` |
 | Search | OpenSearch via opensearch-java | `search/internal/OpenSearchConfiguration` |
 | Messaging | RabbitMQ (quorum queues, DLQs) + Modulith transactional outbox | `ingestion/internal/IngestionMessagingConfiguration` |
 | Text extraction / OCR | Apache Tika Server (`-full` image bundles Tesseract) | `ingestion` ports, `TIKA_URL` |

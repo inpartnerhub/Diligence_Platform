@@ -27,8 +27,9 @@ variable "backup_retention_days" {
   default = 14
 }
 variable "deletion_protection" {
-  type    = bool
-  default = true
+  type        = bool
+  default     = true
+  description = "Keep enabled in every environment; disable explicitly (and temporarily) only to tear an environment down."
 }
 variable "tags" {
   type    = map(string)

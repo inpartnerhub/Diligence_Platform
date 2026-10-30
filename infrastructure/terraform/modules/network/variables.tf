@@ -10,3 +10,11 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "log_kms_key_arn" {
+  type        = string
+  description = "KMS key for the flow log CloudWatch log group."
+}
+variable "log_retention_days" {
+  type    = number
+  default = 365
+}

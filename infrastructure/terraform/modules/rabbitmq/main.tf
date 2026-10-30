@@ -4,11 +4,13 @@ resource "random_password" "broker" {
 }
 
 resource "aws_security_group" "this" {
-  name   = "${var.name}-rabbitmq"
-  vpc_id = var.vpc_id
-  tags   = var.tags
+  name        = "${var.name}-rabbitmq"
+  description = "RabbitMQ (AMQPS) access for ${var.name} application nodes"
+  vpc_id      = var.vpc_id
+  tags        = var.tags
 
   ingress {
+    description     = "RabbitMQ (AMQPS) from application nodes"
     from_port       = 5671
     to_port         = 5671
     protocol        = "tcp"
@@ -16,6 +18,8 @@ resource "aws_security_group" "this" {
   }
 }
 
+# Amazon MQ supports audit logs only for the ActiveMQ engine; for RabbitMQ only general logs exist (enabled below).
+#trivy:ignore:AWS-0070
 resource "aws_mq_broker" "this" {
   broker_name                = var.name
   engine_type                = "RabbitMQ"

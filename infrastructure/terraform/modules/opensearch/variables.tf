@@ -22,3 +22,15 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "master_user_name" {
+  type    = string
+  default = "diligence_admin"
+}
+variable "log_kms_key_arn" {
+  type        = string
+  description = "KMS key for the OpenSearch CloudWatch log groups."
+}
+variable "log_retention_days" {
+  type    = number
+  default = 365
+}

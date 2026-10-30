@@ -44,8 +44,8 @@ jobs:
             kustomize_bin=./kustomize
           fi
           $kustomize_bin edit set image \
-            "ghcr.io/example/diligence-backend=$REGISTRY/diligence-backend:${{ inputs.image-tag }}" \
-            "ghcr.io/example/diligence-frontend=$REGISTRY/diligence-frontend:${{ inputs.image-tag }}"
+            "ghcr.io/inpartnerhub/diligence-backend=$REGISTRY/diligence-backend:${{ inputs.image-tag }}" \
+            "ghcr.io/inpartnerhub/diligence-frontend=$REGISTRY/diligence-frontend:${{ inputs.image-tag }}"
       - name: Diff
         run: kubectl diff -k "$OVERLAY" || true
       - name: Apply

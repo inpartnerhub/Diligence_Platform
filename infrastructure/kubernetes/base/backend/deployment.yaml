@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: diligence-backend
+  namespace: diligence
   labels: { app.kubernetes.io/name: diligence-backend, app.kubernetes.io/component: api }
 spec:
   replicas: 2
@@ -31,7 +32,7 @@ spec:
           labelSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
       containers:
         - name: backend
-          image: ghcr.io/example/diligence-backend:latest # pinned by overlays / CI
+          image: ghcr.io/inpartnerhub/diligence-backend:0.1.0 # overridden per overlay; CI pins immutable sha tags
           imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 8080 }
@@ -45,7 +46,7 @@ spec:
               value: deployment.environment=$(APP_ENVIRONMENT)
           resources:
             requests: { cpu: 500m, memory: 1Gi }
-            limits: { memory: 1Gi }
+            limits: { cpu: "2", memory: 1Gi }
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: management }
             periodSeconds: 5

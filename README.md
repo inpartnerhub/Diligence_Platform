@@ -58,7 +58,7 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 
 ```bash
 cp .env.example .env            # replace every "change-me" value (see comments for how to generate secrets)
-make up                         # PostgreSQL, Redis, RabbitMQ, MinIO, OpenSearch, Tika, Gotenberg, ClamAV,
+make up                         # PostgreSQL, Redis, RabbitMQ, SeaweedFS (S3), OpenSearch, Tika, Gotenberg, ClamAV,
                                 # Keycloak, Kong, Vault, Mailpit
 make keycloak-bootstrap         # admin-api client secret + local admin and PM users from .env
 make backend-run                # backend on http://localhost:8080 (second terminal)
@@ -87,13 +87,13 @@ make up-all && make keycloak-bootstrap
 | Keycloak | http://localhost:8180 | realm `diligence`; admin console on the master realm |
 | Mailpit | http://localhost:8025 | every e-mail sent locally |
 | RabbitMQ UI | http://localhost:15672 | |
-| MinIO console | http://localhost:9001 | |
+| Object storage (S3 API) | http://localhost:9000 | SeaweedFS; credentials from `.env` |
 | OpenSearch | http://localhost:9200 | Dashboards on :5601 (observability profile) |
 | Vault (dev mode) | http://localhost:8200 | |
 | Grafana | http://localhost:3001 | observability profile |
 | Prometheus | http://localhost:9090 | observability profile |
 
-All ports bind to `127.0.0.1` only.
+All ports bind to `127.0.0.1` only. If a port clashes with another local service, override `BACKEND_PORT`, `BACKEND_MANAGEMENT_PORT`, `FRONTEND_PORT`, `OBJECT_STORAGE_PORT` or `GRAFANA_PORT` in `.env`.
 
 ### Internal SSO (optional)
 

@@ -16,14 +16,14 @@ Terraform target, the object storage product and the backup/DR design. Legal rev
 |--------|------|------|
 | AWS ap-southeast-3 (Jakarta) | Data in Indonesia; managed PostgreSQL, Valkey, MQ, OpenSearch, S3; current Terraform fits | Some services/instance types arrive later in this region; cost |
 | Other public cloud region in Indonesia (Azure, GCP) | Data in Indonesia; Entra ID affinity (Azure) | Terraform modules must be rewritten per service |
-| Private cloud / on-premise Kubernetes | Full control; satisfies strict client clauses | Team operates PostgreSQL, Redis, RabbitMQ, OpenSearch, MinIO, backups, DR |
+| Private cloud / on-premise Kubernetes | Full control; satisfies strict client clauses | Team operates PostgreSQL, Redis, RabbitMQ, OpenSearch, S3-compatible storage (SeaweedFS, Ceph), backups, DR |
 | Hybrid: SaaS by default + dedicated on-prem deployments for specific clients | Commercial flexibility | Two operating models; release discipline |
 
 ## Current state
 
 The repository ships the AWS reference implementation (`infrastructure/terraform`, region supplied per environment
 in `terraform.tfvars`). Everything above the infrastructure layer is cloud-neutral: containers, Kubernetes,
-S3-compatible storage (MinIO works unchanged), OpenSearch, RabbitMQ, Keycloak, Vault.
+S3-compatible storage (SeaweedFS locally; Ceph or similar on-prem), OpenSearch, RabbitMQ, Keycloak, Vault.
 
 ## Decision
 

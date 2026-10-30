@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.10
 # Build context: repository root (needs database/migrations). See compose.yaml / CI.
 
 FROM eclipse-temurin:21-jdk-noble AS build
@@ -20,5 +20,9 @@ COPY --from=build --chown=app:app /workspace/extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=app:app /workspace/extracted/application/ ./
 USER 10001:10001
 EXPOSE 8080 8081
+# For Docker/Compose; Kubernetes uses its own probes. bash /dev/tcp avoids adding curl to the runtime image.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=5 \
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8081 && printf "GET /actuator/health/liveness HTTP/1.0\r\n\r\n" >&3 && grep -q "\"UP\"" <&3'
+
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

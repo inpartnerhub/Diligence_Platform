@@ -89,8 +89,8 @@ server:
 
 diligence:
   identity:
-    base-url: ${KEYCLOAK_BASE_URL:http://localhost:8180}
-    realm: ${KEYCLOAK_REALM:diligence}
+    base-url: ${IDP_BASE_URL:http://localhost:8180}
+    realm: ${IDP_REALM:diligence}
     admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:diligence-admin-api}
     admin-client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
     web-client-id: ${OIDC_WEB_CLIENT_ID:diligence-web}
@@ -108,6 +108,8 @@ diligence:
     path-style: ${S3_PATH_STYLE:true}
   search:
     url: ${OPENSEARCH_URL:http://localhost:9200}
+    username: ${OPENSEARCH_USERNAME:}
+    password: ${OPENSEARCH_PASSWORD:}
     index-prefix: ${OPENSEARCH_INDEX_PREFIX:diligence}
   ingestion:
     tika-url: ${TIKA_URL:http://localhost:9998}

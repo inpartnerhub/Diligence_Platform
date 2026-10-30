@@ -7,3 +7,7 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "access_log_retention_days" {
+  type    = number
+  default = 365
+}

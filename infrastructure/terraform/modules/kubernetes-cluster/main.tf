@@ -10,6 +10,11 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
+  # All control plane log types, encrypted and retained (PRD 10.1 audit, AWS-0038).
+  enabled_log_types                      = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+  cloudwatch_log_group_retention_in_days = var.log_retention_days
+  cloudwatch_log_group_kms_key_id        = var.log_kms_key_arn
+
   addons = {
     coredns                = {}
     kube-proxy             = {}

@@ -9,11 +9,13 @@ resource "aws_elasticache_subnet_group" "this" {
 }
 
 resource "aws_security_group" "this" {
-  name   = "${var.name}-redis"
-  vpc_id = var.vpc_id
-  tags   = var.tags
+  name        = "${var.name}-redis"
+  description = "Redis access for ${var.name} application nodes"
+  vpc_id      = var.vpc_id
+  tags        = var.tags
 
   ingress {
+    description     = "Redis from application nodes"
     from_port       = 6379
     to_port         = 6379
     protocol        = "tcp"

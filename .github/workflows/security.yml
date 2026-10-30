@@ -52,6 +52,8 @@ jobs:
         with:
           scan-type: fs
           scanners: vuln,misconfig,secret
+          trivy-config: trivy.yaml
+          trivyignores: .trivyignore.yaml
           severity: CRITICAL,HIGH
           format: sarif
           output: trivy-fs.sarif
