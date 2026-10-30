@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.10
 # Build context: repository root (needs database/migrations). See compose.yaml / CI.
 
-FROM eclipse-temurin:21-jdk-noble AS build
+FROM eclipse-temurin:24-jdk-noble AS build
 WORKDIR /workspace/apps/backend
 COPY apps/backend/gradlew apps/backend/settings.gradle.kts apps/backend/build.gradle.kts apps/backend/gradle.properties ./
 COPY apps/backend/gradle ./gradle
@@ -11,7 +11,7 @@ COPY database/migrations /workspace/database/migrations
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon bootJar -x test \
  && java -Djarmode=tools -jar build/libs/app.jar extract --layers --launcher --destination /workspace/extracted
 
-FROM eclipse-temurin:21-jre-noble AS runtime
+FROM eclipse-temurin:24-jre-noble AS runtime
 RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
 WORKDIR /app
 COPY --from=build --chown=app:app /workspace/extracted/dependencies/ ./
