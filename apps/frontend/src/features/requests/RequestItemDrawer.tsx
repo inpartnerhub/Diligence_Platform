@@ -6,6 +6,7 @@ import {
   EyeOutlined,
   LinkOutlined,
   LockOutlined,
+  QuestionCircleOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
 import {
@@ -32,6 +33,7 @@ import {
   Upload,
 } from "antd";
 import type { UploadProps } from "antd";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -160,6 +162,9 @@ export function RequestItemDrawer({
         item &&
         permissions.edit && (
           <Space>
+            <Link href={`/projects/${project.id}/qna?new=1&request=${item.id}`}>
+              <Button icon={<QuestionCircleOutlined />}>{t("askQuestion")}</Button>
+            </Link>
             <Button icon={<EditOutlined />} onClick={() => onEdit(item)}>
               {t("edit")}
             </Button>

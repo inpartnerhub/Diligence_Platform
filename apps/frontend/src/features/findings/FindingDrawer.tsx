@@ -1,6 +1,12 @@
 "use client";
 
-import { DeleteOutlined, EditOutlined, EyeOutlined, LinkOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  EditOutlined,
+  EyeOutlined,
+  LinkOutlined,
+  QuestionCircleOutlined,
+} from "@ant-design/icons";
 import {
   Alert,
   App,
@@ -22,6 +28,7 @@ import {
   TreeSelect,
   Typography,
 } from "antd";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -137,28 +144,35 @@ export function FindingDrawer({
       title={finding ? `${finding.number} · ${finding.title}` : t("finding")}
       extra={
         finding &&
-        draft && (
+        permissions.edit && (
           <Space>
-            <Button icon={<EditOutlined />} onClick={() => onEdit(finding)}>
-              {t("edit")}
-            </Button>
-            {finding.submittedAt === null && (
-              <Popconfirm
-                title={t("deleteConfirm")}
-                onConfirm={() =>
-                  startTransition(async () => {
-                    const result = await deleteFinding(project.id, finding.id);
-                    if (!result.ok) {
-                      message.error(result.message || t("error"));
-                      return;
+            <Link href={`/projects/${project.id}/qna?new=1&finding=${finding.id}`}>
+              <Button icon={<QuestionCircleOutlined />}>{t("askQuestion")}</Button>
+            </Link>
+            {draft && (
+              <>
+                <Button icon={<EditOutlined />} onClick={() => onEdit(finding)}>
+                  {t("edit")}
+                </Button>
+                {finding.submittedAt === null && (
+                  <Popconfirm
+                    title={t("deleteConfirm")}
+                    onConfirm={() =>
+                      startTransition(async () => {
+                        const result = await deleteFinding(project.id, finding.id);
+                        if (!result.ok) {
+                          message.error(result.message || t("error"));
+                          return;
+                        }
+                        router.refresh();
+                        onClose();
+                      })
                     }
-                    router.refresh();
-                    onClose();
-                  })
-                }
-              >
-                <Button danger icon={<DeleteOutlined />} aria-label={t("delete")} />
-              </Popconfirm>
+                  >
+                    <Button danger icon={<DeleteOutlined />} aria-label={t("delete")} />
+                  </Popconfirm>
+                )}
+              </>
             )}
           </Space>
         )

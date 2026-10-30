@@ -74,8 +74,8 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 | `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
 | `request` | REQ | Request lists from template/Excel, waves, six-status workflow, delivery by the target, reminders, Excel/PDF export | ✅ sprint 9–10 |
 | `finding` | FND | Findings with impact × likelihood rating (configurable matrix), source documents with pages, four-eyes review and partner release | ✅ sprint 11–12 |
-| `qna` | QNA | Questions with approval before release to the target | ⏳ schema only (sprint 13–14) |
-| `report` | RPT | Word/PDF reports from released findings, approvals | ⏳ schema only (sprint 13–14) |
+| `qna` | QNA | Questions linked to documents, request items or findings; approval before the target sees them; answers with documents; Excel/PDF log | ✅ sprint 13–14 |
+| `report` | RPT | Word/PDF reports from released findings (summary, heat map, findings per workstream), versions, partner issue, watermarked client download | ✅ sprint 13–14 |
 
 ### Module rules
 
@@ -113,7 +113,8 @@ Enforcement is layered so a UI bug cannot leak data:
    Policies in `V5__row_level_security.sql` make other projects invisible and enforce the barriers: the target
    never reads `fnd.*`, the client reads only `RELEASED` findings, `ISSUED` reports and its own questions, the target
    reads only `SENT`/`ANSWERED` questions, released request items (V9) and never internal request notes. Finding
-   review notes, history and source links are internal only, and released findings are immutable (V10). The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
+   review notes, history and source links are internal only, and released findings are immutable (V10). Answers sit
+   in `qna.answer`, which the client reads only for its own closed questions; issued reports are immutable (V11). The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
 4. **Audit**: `audit.audit_log` accepts only INSERT/SELECT from the runtime role and triggers reject UPDATE, DELETE
    and TRUNCATE for everyone.
 
@@ -228,7 +229,29 @@ released findings only and never their review notes, history or source links; re
 be updated by the team (only archived by a partner); only partners can set `RELEASED`. The findings page shows a 5 × 5
 heat map in the configured thresholds and the share of findings with a source document (KPI ≥ 95%).
 
-## 9. Frontend
+## 9. Q&A and reports (PRD QNA-01…QNA-03, RPT-01; sprint 13–14)
+
+```
+Team: draft question (Q-001; links to a request item, document or finding) ─▶ submit ─▶ PENDING_APPROVAL
+Client: ask ─▶ PENDING_APPROVAL (numbers via qna.next_question_number(): the client cannot see others' questions)
+PM/partner: approve and send ─▶ SENT ─▶ target notified    │ return with feedback ─▶ DRAFT (author notified)
+Target: answer (+ data-room documents) ─▶ ANSWERED ─▶ team notified
+Team: close ─▶ CLOSED (a client asker is notified and can now read the answer) │ follow-up ─▶ SENT with feedback
+Export: GET /questions/export?format=xlsx|pdf — the log as the caller sees it (Apache POI, PDF via Gotenberg)
+
+PM/partner: generate ─▶ FindingDirectory.released() ─▶ ReportDocumentWriter (Apache POI XWPF: cover, executive
+            summary, 5 × 5 heat map, findings per workstream by risk with sources) ─▶ Gotenberg PDF
+            ─▶ object storage projects/{p}/reports/{id}.docx|.pdf ─▶ rpt.report (version n, DRAFT) + rpt.report_finding
+Partner: issue ─▶ ISSUED (immutable, RLS) ─▶ client notified
+Download: team ─▶ Word or PDF; client ─▶ issued PDF stamped by dataroom.PdfWatermark (name, e-mail, IP, time); audited
+```
+
+The finding link of a question is never returned to the target or the client, and the target never sees drafts or
+questions awaiting approval (RLS on `qna.question`). Report wording exists in Indonesian and English; the layout is
+neutral until the firm's official template is available (PRD Bab 15.2). Tiered report approval (RPT-03) follows in
+phase 2.
+
+## 10. Frontend
 
 - App Router; `src/app/(app)` is the authenticated area rendered inside `AppShell` (Ant Design layout, role-based
   navigation from PRD Bab 11.1, language switch, user menu). Pages for later sprints show their sprint and PRD IDs.
@@ -239,7 +262,7 @@ heat map in the configured thresholds and the share of findings with a source do
 - i18n: `next-intl` with `messages/id.json` (default) and `messages/en.json`; the language is a cookie, synced to the
   user profile (`PATCH /api/v1/me`) and applied to Ant Design and Keycloak (`ui_locales`).
 
-## 10. Observability
+## 11. Observability
 
 | Signal | Producer | Path | Consumer |
 |--------|----------|------|----------|
@@ -249,7 +272,7 @@ heat map in the configured thresholds and the share of findings with a source do
 | Errors | Sentry SDK (backend + frontend), no PII | Sentry | Sentry |
 | Security events | Keycloak login events, `audit.audit_log` | Keycloak event store, PostgreSQL | Admin → Audit log, alerting |
 
-## 11. Deployment
+## 12. Deployment
 
 ```
 GitHub Actions ──build/test/scan──▶ GHCR (sha-tagged images, SBOM, provenance)
@@ -271,7 +294,7 @@ Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, 
 Hosting model and data residency (UU PDP) are still open — see [ADR-0003](docs/adr/0003-hosting-and-data-residency.md).
 Migrations run at backend startup (Flyway advisory lock) and must be backward compatible with the previous release.
 
-## 12. Integration boundaries
+## 13. Integration boundaries
 
 | Boundary | Contract | Owner |
 |----------|----------|-------|

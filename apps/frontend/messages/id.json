@@ -312,7 +312,8 @@
       "failed": "Pratinjau tidak dapat dibuat (file mungkin rusak atau dilindungi kata sandi).",
       "error": "Dokumen tidak dapat dibuka.",
       "pageReference": "Hal. {number}",
-      "findingFromPage": "Temuan dari halaman {number}"
+      "findingFromPage": "Temuan dari halaman {number}",
+      "askQuestion": "Ajukan pertanyaan"
     }
   },
   "requests": {
@@ -422,7 +423,8 @@
     "system": "Sistem",
     "rejectTitle": "Tolak kiriman",
     "rejectHelp": "Jelaskan kepada pihak target apa yang kurang. Alasan ini terlihat oleh pihak target dan item terbuka kembali untuk mereka.",
-    "reject": "Tolak"
+    "reject": "Tolak",
+    "askQuestion": "Ajukan pertanyaan"
   },
   "notifications": {
     "title": "Notifikasi",
@@ -449,7 +451,13 @@
       "FINDING_RETURNED": "Temuan dikembalikan ke draf",
       "FINDING_APPROVED": "Temuan disetujui",
       "FINDING_RELEASED": "Temuan dirilis",
-      "FINDING_ESCALATED": "Eskalasi risiko tinggi atau kritis"
+      "FINDING_ESCALATED": "Eskalasi risiko tinggi atau kritis",
+      "QUESTION_PENDING_APPROVAL": "Pertanyaan menunggu persetujuan",
+      "QUESTION_RETURNED": "Pertanyaan dikembalikan",
+      "QUESTION_SENT": "Pertanyaan baru untuk pihak target",
+      "QUESTION_ANSWERED": "Pertanyaan dijawab",
+      "QUESTION_CLOSED": "Jawaban atas pertanyaan saya tersedia",
+      "REPORT_ISSUED": "Laporan diterbitkan"
     },
     "messages": {
       "REQUEST_RELEASED": "{projectCode}: {count} permintaan baru (gelombang {wave})",
@@ -463,7 +471,13 @@
       "FINDING_RETURNED": "{projectCode}: temuan {findingNumber} dikembalikan ke draf — {reason}",
       "FINDING_APPROVED": "{projectCode}: temuan {findingNumber} disetujui",
       "FINDING_RELEASED": "{projectCode}: temuan baru dirilis — {title}",
-      "FINDING_ESCALATED": "{projectCode}: risiko {level} — {findingNumber} {title}"
+      "FINDING_ESCALATED": "{projectCode}: risiko {level} — {findingNumber} {title}",
+      "QUESTION_PENDING_APPROVAL": "{projectCode}: pertanyaan {questionNumber} menunggu persetujuan",
+      "QUESTION_RETURNED": "{projectCode}: pertanyaan {questionNumber} dikembalikan — {feedback}",
+      "QUESTION_SENT": "{projectCode}: pertanyaan baru {questionNumber} — {excerpt}",
+      "QUESTION_ANSWERED": "{projectCode}: pertanyaan {questionNumber} dijawab",
+      "QUESTION_CLOSED": "{projectCode}: jawaban atas {questionNumber} tersedia",
+      "REPORT_ISSUED": "{projectCode}: laporan diterbitkan — {title} (v{version})"
     }
   },
   "findings": {
@@ -564,6 +578,124 @@
       "preview": "Pratinjau (dampak 5 di atas, kemungkinan 1–5 dari kiri ke kanan)",
       "axes": "Baris: dampak · kolom: kemungkinan",
       "error": "Ambang tidak dapat disimpan."
-    }
+    },
+    "askQuestion": "Ajukan pertanyaan"
+  },
+  "qna": {
+    "title": "Tanya-jawab",
+    "newQuestion": "Ajukan pertanyaan",
+    "export": "Ekspor",
+    "exportExcel": "Excel (.xlsx)",
+    "exportPdf": "PDF",
+    "targetHint": "Pertanyaan dari tim due diligence. Buka pertanyaan, tulis jawaban Anda, dan lampirkan dokumen pendukung dari data room.",
+    "clientHint": "Pertanyaan Anda ditinjau tim due diligence sebelum dikirim ke pihak target. Jawaban terlihat setelah ditinjau tim.",
+    "pendingApproval": "{count} pertanyaan menunggu persetujuan Anda.",
+    "searchPlaceholder": "Cari nomor atau teks",
+    "number": "No.",
+    "question": "Pertanyaan",
+    "status": "Status",
+    "askedBy": "Penanya",
+    "dueDate": "Tenggat",
+    "workstream": "Workstream",
+    "recipient": "Penerima",
+    "allTargets": "Semua anggota target di workstream",
+    "requestItem": "Item permintaan",
+    "document": "Dokumen",
+    "finding": "Temuan",
+    "feedback": "Pesan dari tim",
+    "empty": "Belum ada pertanyaan.",
+    "emptyTarget": "Belum ada pertanyaan yang dikirim kepada Anda.",
+    "statusValues": {
+      "DRAFT": "Draf",
+      "PENDING_APPROVAL": "Menunggu persetujuan",
+      "SENT": "Terkirim",
+      "ANSWERED": "Dijawab",
+      "CLOSED": "Ditutup"
+    },
+    "moves": {
+      "PENDING_APPROVAL": "Ajukan persetujuan",
+      "SENT": "Setujui dan kirim",
+      "CLOSED": "Tutup",
+      "followUp": "Minta tindak lanjut",
+      "withdraw": "Tarik kembali",
+      "return": "Kembalikan ke penanya",
+      "DRAFT": "Kembalikan ke draf",
+      "ANSWERED": "Dijawab"
+    },
+    "moveTo": "Alur kerja:",
+    "statusChanged": "Status diubah menjadi {status}",
+    "feedbackHelp": "Pesan ini terlihat oleh pihak yang bertindak berikutnya (penanya, atau pihak target untuk tindak lanjut).",
+    "answer": "Jawaban",
+    "noAnswer": "Belum ada jawaban.",
+    "answerAfterReview": "Jawaban tampil setelah ditinjau tim.",
+    "answerPlaceholder": "Tulis jawaban Anda",
+    "sendAnswer": "Kirim jawaban",
+    "updateAnswer": "Perbarui jawaban",
+    "answered": "Jawaban terkirim",
+    "documents": "Dokumen pendukung",
+    "noDocuments": "Belum ada dokumen terlampir.",
+    "view": "Lihat",
+    "unlink": "Lepas",
+    "unlinkConfirm": "Lepas dokumen ini dari jawaban?",
+    "attach": "Lampirkan",
+    "chooseFolder": "Folder data room",
+    "chooseDocument": "Dokumen",
+    "noFolders": "Belum ada folder data room yang dibagikan kepada Anda.",
+    "history": "Riwayat",
+    "edit": "Ubah",
+    "delete": "Hapus",
+    "deleteConfirm": "Hapus draf ini?",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "saveDraft": "Simpan draf",
+    "submitForApproval": "Ajukan persetujuan",
+    "send": "Kirim",
+    "saved": "Tersimpan",
+    "created": "Pertanyaan {number} dibuat",
+    "editTitle": "Ubah {number}",
+    "fromSource": "Pertanyaan akan merujuk ke item asal Anda.",
+    "clientApproval": "Tim due diligence menyetujui setiap pertanyaan sebelum dikirim ke pihak target.",
+    "error": "Terjadi kesalahan. Silakan coba lagi."
+  },
+  "reports": {
+    "title": "Laporan",
+    "generate": "Buat laporan",
+    "version": "Versi",
+    "reportTitle": "Judul",
+    "status": "Status",
+    "language": "Bahasa",
+    "findings": "Temuan",
+    "created": "Dibuat",
+    "issued": "Diterbitkan",
+    "actions": "Aksi",
+    "statusValues": {
+      "DRAFT": "Draf",
+      "IN_REVIEW": "Dalam review",
+      "APPROVED": "Disetujui",
+      "ISSUED": "Diterbitkan"
+    },
+    "languages": {
+      "id": "Indonesia",
+      "en": "Inggris"
+    },
+    "issue": "Terbitkan",
+    "issueConfirm": "Terbitkan versi ini ke klien? Laporan yang diterbitkan tidak dapat diubah atau dihapus.",
+    "issuedMessage": "Laporan diterbitkan ke klien",
+    "delete": "Hapus",
+    "deleteConfirm": "Hapus versi draf ini?",
+    "deleted": "Draf dihapus",
+    "teamHint": "Laporan disusun dari temuan yang sudah dirilis (saat ini {count}): ringkasan eksekutif, peta risiko dan temuan per workstream. Setiap pembuatan menjadi versi baru; Partner menerbitkannya ke klien.",
+    "clientHint": "Laporan yang diterbitkan untuk Anda. Unduhan diberi watermark nama Anda dan dicatat.",
+    "empty": "Belum ada laporan.",
+    "emptyClient": "Belum ada laporan yang diterbitkan.",
+    "generateHelp": "Laporan memuat semua temuan yang sudah dirilis beserta penilaian, rekomendasi dan dokumen sumbernya, dalam format Word dan PDF.",
+    "defaultTitle": "Laporan due diligence — {project}",
+    "generated": "Versi {version} dibuat",
+    "error": "Terjadi kesalahan. Silakan coba lagi."
+  },
+  "picker": {
+    "chooseProject": "Pilih proyek.",
+    "noProjects": "Anda tidak memiliki proyek aktif.",
+    "open": "Buka"
   }
 }

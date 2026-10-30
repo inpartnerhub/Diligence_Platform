@@ -1,15 +1,18 @@
 import { getTranslations } from "next-intl/server";
 
-import { ComingSoon } from "@/components/ComingSoon";
+import { projectsApi } from "@/features/projects/api";
+import { ProjectPickerView } from "@/features/projects/ProjectPickerView";
 import { requireAccess } from "@/lib/auth/session";
 
-export default async function ReportsPage() {
+/** Entry point from the navigation: pick the project whose reports to open. */
+export default async function ReportsIndexPage() {
   await requireAccess("reports");
-  const t = await getTranslations();
+  const projects = await projectsApi.list({ status: "ACTIVE", size: 100 });
   return (
-    <ComingSoon
-      title={t("comingSoon.title", { feature: t("nav.reports") })}
-      subtitle={t("comingSoon.subtitle", { sprint: "13–14", requirements: "RPT-01" })}
+    <ProjectPickerView
+      projects={projects.items}
+      title={(await getTranslations("reports"))("title")}
+      path="reports"
     />
   );
 }

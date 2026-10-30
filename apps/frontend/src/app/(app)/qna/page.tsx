@@ -1,15 +1,14 @@
 import { getTranslations } from "next-intl/server";
 
-import { ComingSoon } from "@/components/ComingSoon";
+import { projectsApi } from "@/features/projects/api";
+import { ProjectPickerView } from "@/features/projects/ProjectPickerView";
 import { requireAccess } from "@/lib/auth/session";
 
-export default async function QnaPage() {
+/** Entry point from the navigation: pick the project whose Q&A to open. */
+export default async function QnaIndexPage() {
   await requireAccess("qna");
-  const t = await getTranslations();
+  const projects = await projectsApi.list({ status: "ACTIVE", size: 100 });
   return (
-    <ComingSoon
-      title={t("comingSoon.title", { feature: t("nav.qna") })}
-      subtitle={t("comingSoon.subtitle", { sprint: "13–14", requirements: "QNA-01…QNA-03" })}
-    />
+    <ProjectPickerView projects={projects.items} title={(await getTranslations("qna"))("title")} path="qna" />
   );
 }

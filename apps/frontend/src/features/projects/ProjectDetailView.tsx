@@ -3,8 +3,10 @@
 import {
   AlertOutlined,
   ArrowLeftOutlined,
+  FileTextOutlined,
   FolderOpenOutlined,
   PlusOutlined,
+  QuestionCircleOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons";
 import {
@@ -107,6 +109,14 @@ export function ProjectDetailView({
           {!project.myRoles.every((role) => role === "TARGET") && (
             <Link href={`/projects/${project.id}/findings`}>
               <Button icon={<AlertOutlined />}>{t("nav.findings")}</Button>
+            </Link>
+          )}
+          <Link href={`/projects/${project.id}/qna`}>
+            <Button icon={<QuestionCircleOutlined />}>{t("nav.qna")}</Button>
+          </Link>
+          {!project.myRoles.every((role) => role === "TARGET") && (
+            <Link href={`/projects/${project.id}/reports`}>
+              <Button icon={<FileTextOutlined />}>{t("nav.reports")}</Button>
             </Link>
           )}
         </Flex>

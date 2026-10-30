@@ -25,7 +25,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | 7–8 | Preview, dynamic watermark, download control, search and OCR | ✅ delivered |
 | 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ✅ delivered |
 | 11–12 | Findings, source document links, risk rating, validation workflow | ✅ delivered |
-| 13–14 | Q&A with approval; report builder (Word/PDF) from templates | ⏳ |
+| 13–14 | Q&A with approval; report builder (Word/PDF) from templates | ✅ delivered |
 | 15–16 | Hardening: performance, penetration test, fixes, UAT, documentation, training | ⏳ |
 
 ## Requirement traceability
@@ -54,16 +54,16 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | DOC-08 | Annotations linked to findings | S | — | phase 2 |
 | DOC-09 | AI search, duplicates, key clauses | C | SHA-256 duplicate detection on upload | 🟡 duplicates done |
 | FND-01 | Record findings | M | `FindingService`, template categories, `/projects/{id}/findings` | ✅ |
-| FND-02 | Link findings to documents (page) and Q&A | M | `fnd.finding_document` (page, viewer shortcut); `fnd.finding_question` with Q&A | 🟡 documents ✅, Q&A sprint 13–14 |
+| FND-02 | Link findings to documents (page) and Q&A | M | `fnd.finding_document` (page, viewer shortcut); questions carry `finding_id` | ✅ |
 | FND-03 | Impact × likelihood risk rating, configurable | M | `RiskMatrix`, `RiskMatrixService`, `/admin/risk-matrix`, heat map | ✅ |
 | FND-04 | Validation workflow Draft → Review → Approved → Released | M | `FindingStatus`, four eyes, partner release, RLS V10 | ✅ |
 | FND-05 | Follow-up / mitigation, SPA links | S | — | phase 2 |
 | FND-06 | Finding library | C | — | phase 3 |
-| QNA-01 | Questions linked to documents/requests/findings | M | `qna.question` | schema + RLS |
-| QNA-02 | Approval before sending to target | M | `qna.question.status`, RLS for targets | schema + barrier |
-| QNA-03 | Export and search Q&A log | S (MVP) | — | sprint 13–14 |
-| RPT-01 | Report builder from released findings (Word/PDF) | M | `report`, `rpt.report*` | schema |
-| RPT-02 | Executive summary and risk heat map | S | `themeConfig.riskColors` | phase 2 |
+| QNA-01 | Questions linked to documents/requests/findings | M | `QuestionService`, shortcuts from request items, findings and the viewer | ✅ |
+| QNA-02 | Approval before sending to target | M | PM/partner approval, `qna.answer` RLS (client after close), V11 | ✅ |
+| QNA-03 | Export and search Q&A log | S (MVP) | search and filters, `QnaExportService` (Excel/PDF) | ✅ |
+| RPT-01 | Report builder from released findings (Word/PDF) | M | `ReportService`, `ReportDocumentWriter`, partner issue, watermarked client PDF | ✅ |
+| RPT-02 | Executive summary and risk heat map | S | summary and 5 × 5 heat map in the report | 🟡 basic version |
 | RPT-03 | Tiered report approval with versions | S | `rpt.report.approval_status` | phase 2 |
 | RPT-04 | Export findings to PowerPoint/Excel | C | — | phase 3 |
 | ADM-01 | Users, groups, organizations; e-mail invitations | M | `admin`, `/admin/*` UI | ✅ |

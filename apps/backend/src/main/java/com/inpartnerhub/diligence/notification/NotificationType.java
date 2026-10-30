@@ -27,5 +27,17 @@ public enum NotificationType {
     /** A finding was released to the client (FND-04). Params: projectCode, findingNumber, title. */
     FINDING_RELEASED,
     /** A finding was rated HIGH or CRITICAL (Appendix A escalation). Params: projectCode, findingNumber, title, level. */
-    FINDING_ESCALATED
+    FINDING_ESCALATED,
+    /** A question awaits approval before it goes to the target (QNA-02). Params: projectCode, questionNumber, excerpt. */
+    QUESTION_PENDING_APPROVAL,
+    /** A reviewer returned a question to its author (QNA-02). Params: projectCode, questionNumber, excerpt, feedback. */
+    QUESTION_RETURNED,
+    /** A question (or a follow-up) was sent to the target. Params: projectCode, questionNumber, excerpt, feedback. */
+    QUESTION_SENT,
+    /** The target answered a question. Params: projectCode, questionNumber, excerpt. */
+    QUESTION_ANSWERED,
+    /** The client's question was closed; its answer is now visible. Params: projectCode, questionNumber, excerpt. */
+    QUESTION_CLOSED,
+    /** A report was issued to the client (RPT-01). Params: projectCode, title, version. */
+    REPORT_ISSUED
 }

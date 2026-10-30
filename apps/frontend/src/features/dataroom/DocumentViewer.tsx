@@ -6,6 +6,7 @@ import {
   FilePdfOutlined,
   LockOutlined,
   PrinterOutlined,
+  QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { Alert, Button, Flex, Modal, Result, Space, Spin, Tag, Typography } from "antd";
 import Link from "next/link";
@@ -163,6 +164,13 @@ export function DocumentViewer({
                 <Button icon={<PrinterOutlined />} loading={printing} onClick={() => setPrinting(true)}>
                   {t("print")}
                 </Button>
+              )}
+              {findingFromPage && (
+                <Link
+                  href={`/projects/${encodeURIComponent(projectId)}/qna?new=1&document=${encodeURIComponent(info.documentId)}`}
+                >
+                  <Button icon={<QuestionCircleOutlined />}>{t("askQuestion")}</Button>
+                </Link>
               )}
               {!info.downloadAllowed && (
                 <Tag icon={<LockOutlined />} color="default">

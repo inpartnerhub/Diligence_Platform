@@ -312,7 +312,8 @@
       "failed": "No preview could be created (the file may be damaged or password-protected).",
       "error": "The document could not be opened.",
       "pageReference": "Page {number}",
-      "findingFromPage": "Finding from page {number}"
+      "findingFromPage": "Finding from page {number}",
+      "askQuestion": "Ask a question"
     }
   },
   "requests": {
@@ -422,7 +423,8 @@
     "system": "System",
     "rejectTitle": "Reject the delivery",
     "rejectHelp": "Tell the target what is missing. The reason is shown to the target and the item is open for them again.",
-    "reject": "Reject"
+    "reject": "Reject",
+    "askQuestion": "Ask a question"
   },
   "notifications": {
     "title": "Notifications",
@@ -449,7 +451,13 @@
       "FINDING_RETURNED": "Finding returned to draft",
       "FINDING_APPROVED": "Finding approved",
       "FINDING_RELEASED": "Finding released",
-      "FINDING_ESCALATED": "High or critical risk escalation"
+      "FINDING_ESCALATED": "High or critical risk escalation",
+      "QUESTION_PENDING_APPROVAL": "Question awaits approval",
+      "QUESTION_RETURNED": "Question returned",
+      "QUESTION_SENT": "New question for the target",
+      "QUESTION_ANSWERED": "Question answered",
+      "QUESTION_CLOSED": "Answer to my question available",
+      "REPORT_ISSUED": "Report issued"
     },
     "messages": {
       "REQUEST_RELEASED": "{projectCode}: {count} new requests (wave {wave})",
@@ -463,7 +471,13 @@
       "FINDING_RETURNED": "{projectCode}: finding {findingNumber} returned to draft — {reason}",
       "FINDING_APPROVED": "{projectCode}: finding {findingNumber} approved",
       "FINDING_RELEASED": "{projectCode}: new finding released — {title}",
-      "FINDING_ESCALATED": "{projectCode}: {level} risk — {findingNumber} {title}"
+      "FINDING_ESCALATED": "{projectCode}: {level} risk — {findingNumber} {title}",
+      "QUESTION_PENDING_APPROVAL": "{projectCode}: question {questionNumber} awaits approval",
+      "QUESTION_RETURNED": "{projectCode}: question {questionNumber} returned — {feedback}",
+      "QUESTION_SENT": "{projectCode}: new question {questionNumber} — {excerpt}",
+      "QUESTION_ANSWERED": "{projectCode}: question {questionNumber} answered",
+      "QUESTION_CLOSED": "{projectCode}: the answer to {questionNumber} is available",
+      "REPORT_ISSUED": "{projectCode}: report issued — {title} (v{version})"
     }
   },
   "findings": {
@@ -564,6 +578,124 @@
       "preview": "Preview (impact 5 at the top, likelihood 1–5 left to right)",
       "axes": "Rows: impact · columns: likelihood",
       "error": "The thresholds could not be saved."
-    }
+    },
+    "askQuestion": "Ask a question"
+  },
+  "qna": {
+    "title": "Q&A",
+    "newQuestion": "Ask a question",
+    "export": "Export",
+    "exportExcel": "Excel (.xlsx)",
+    "exportPdf": "PDF",
+    "targetHint": "Questions from the due diligence team. Open one, write your answer and attach supporting documents from the data room.",
+    "clientHint": "Your questions are reviewed by the due diligence team before they go to the target. You see the answer once the team has reviewed it.",
+    "pendingApproval": "{count, plural, one {# question awaits} other {# questions await}} your approval.",
+    "searchPlaceholder": "Search number or text",
+    "number": "No.",
+    "question": "Question",
+    "status": "Status",
+    "askedBy": "Asked by",
+    "dueDate": "Due date",
+    "workstream": "Workstream",
+    "recipient": "Recipient",
+    "allTargets": "Every target member of the workstream",
+    "requestItem": "Request item",
+    "document": "Document",
+    "finding": "Finding",
+    "feedback": "Message from the team",
+    "empty": "No questions yet.",
+    "emptyTarget": "No questions have been sent to you yet.",
+    "statusValues": {
+      "DRAFT": "Draft",
+      "PENDING_APPROVAL": "Awaiting approval",
+      "SENT": "Sent",
+      "ANSWERED": "Answered",
+      "CLOSED": "Closed"
+    },
+    "moves": {
+      "PENDING_APPROVAL": "Submit for approval",
+      "SENT": "Approve and send",
+      "CLOSED": "Close",
+      "followUp": "Ask a follow-up",
+      "withdraw": "Withdraw",
+      "return": "Return to author",
+      "DRAFT": "Return to draft",
+      "ANSWERED": "Answered"
+    },
+    "moveTo": "Workflow:",
+    "statusChanged": "Status changed to {status}",
+    "feedbackHelp": "This message is shown to whoever acts next (the author, or the target for a follow-up).",
+    "answer": "Answer",
+    "noAnswer": "No answer yet.",
+    "answerAfterReview": "The answer is shown once the team has reviewed it.",
+    "answerPlaceholder": "Write your answer",
+    "sendAnswer": "Send answer",
+    "updateAnswer": "Update answer",
+    "answered": "Answer sent",
+    "documents": "Supporting documents",
+    "noDocuments": "No documents attached.",
+    "view": "View",
+    "unlink": "Remove",
+    "unlinkConfirm": "Remove this document from the answer?",
+    "attach": "Attach",
+    "chooseFolder": "Data-room folder",
+    "chooseDocument": "Document",
+    "noFolders": "No data-room folder is shared with you yet.",
+    "history": "History",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this draft?",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saveDraft": "Save draft",
+    "submitForApproval": "Submit for approval",
+    "send": "Send",
+    "saved": "Saved",
+    "created": "Question {number} created",
+    "editTitle": "Edit {number}",
+    "fromSource": "The question will refer to the item you came from.",
+    "clientApproval": "The due diligence team approves every question before it is sent to the target.",
+    "error": "Something went wrong. Please try again."
+  },
+  "reports": {
+    "title": "Reports",
+    "generate": "Generate report",
+    "version": "Version",
+    "reportTitle": "Title",
+    "status": "Status",
+    "language": "Language",
+    "findings": "Findings",
+    "created": "Generated",
+    "issued": "Issued",
+    "actions": "Actions",
+    "statusValues": {
+      "DRAFT": "Draft",
+      "IN_REVIEW": "In review",
+      "APPROVED": "Approved",
+      "ISSUED": "Issued"
+    },
+    "languages": {
+      "id": "Indonesian",
+      "en": "English"
+    },
+    "issue": "Issue",
+    "issueConfirm": "Issue this version to the client? Issued reports cannot be changed or deleted.",
+    "issuedMessage": "Report issued to the client",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this draft version?",
+    "deleted": "Draft deleted",
+    "teamHint": "Reports are built from the released findings ({count} at the moment): executive summary, heat map and findings per workstream. Every generation is a new version; a partner issues it to the client.",
+    "clientHint": "Reports issued to you. Downloads are watermarked with your name and logged.",
+    "empty": "No reports yet.",
+    "emptyClient": "No reports have been issued yet.",
+    "generateHelp": "The report contains every released finding with its rating, recommendation and source documents, as Word and PDF.",
+    "defaultTitle": "Due diligence report — {project}",
+    "generated": "Version {version} generated",
+    "error": "Something went wrong. Please try again."
+  },
+  "picker": {
+    "chooseProject": "Choose a project.",
+    "noProjects": "You have no active projects.",
+    "open": "Open"
   }
 }

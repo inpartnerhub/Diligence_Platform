@@ -8,12 +8,12 @@ The product specification is the PRD *Konsep Produk & Spesifikasi untuk Tim IT �
 30 Oct 2026). Requirement IDs used throughout the code and docs (`PRJ-01`, `DOC-04`, `ADM-02`, …) refer to it;
 see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 
-> **Status:** MVP sprints 1–12 delivered — foundation, authentication & SSO, MFA, administration and audit log;
+> **Status:** MVP sprints 1–14 delivered — foundation, authentication & SSO, MFA, administration and audit log;
 > projects, teams, templates and dashboards; data room with folder grants, drag-and-drop/folder upload, versions,
 > malware scanning and type validation; watermarked preview, download/print control and full-text search with OCR;
 > request list with waves, delivery by the target, Excel import/export, PDF export, in-app and e-mail notifications
-> and daily reminders; findings with configurable risk rating, source documents, four-eyes review and partner release.
-> Next: Q&A with approval and the report builder (sprint 13–14).
+> and daily reminders; findings with configurable risk rating, source documents, four-eyes review and partner release;
+> Q&A with approval and Word/PDF reports from released findings. Next: hardening, UAT and training (sprint 15–16).
 
 - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Security policy: [SECURITY.md](SECURITY.md)

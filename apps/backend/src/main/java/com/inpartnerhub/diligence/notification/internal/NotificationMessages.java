@@ -107,6 +107,44 @@ final class NotificationMessages {
                 english = "Finding %s \"%s\" was rated %s risk (score %s). Please follow up."
                         .formatted(p.get("findingNumber"), p.get("title"), p.get("level"), p.get("score"));
             }
+            case QUESTION_PENDING_APPROVAL -> {
+                subject = "[%s] Pertanyaan menunggu persetujuan / question awaits approval: %s".formatted(project,
+                        p.get("questionNumber"));
+                indonesian = "Pertanyaan %s menunggu persetujuan sebelum dikirim ke pihak target: \"%s\""
+                        .formatted(p.get("questionNumber"), p.get("excerpt"));
+                english = "Question %s awaits approval before it is sent to the target: \"%s\""
+                        .formatted(p.get("questionNumber"), p.get("excerpt"));
+            }
+            case QUESTION_RETURNED -> {
+                subject = "[%s] Pertanyaan dikembalikan / question returned: %s".formatted(project,
+                        p.get("questionNumber"));
+                indonesian = "Pertanyaan %s dikembalikan: %s".formatted(p.get("questionNumber"), p.get("feedback"));
+                english = "Question %s was returned: %s".formatted(p.get("questionNumber"), p.get("feedback"));
+            }
+            case QUESTION_SENT -> {
+                subject = "[%s] Pertanyaan baru / new question: %s".formatted(project, p.get("questionNumber"));
+                indonesian = "Tim due diligence mengajukan pertanyaan %s: \"%s\"".formatted(p.get("questionNumber"),
+                        p.get("excerpt"));
+                english = "The due diligence team asks question %s: \"%s\"".formatted(p.get("questionNumber"),
+                        p.get("excerpt"));
+            }
+            case QUESTION_ANSWERED -> {
+                subject = "[%s] Pertanyaan dijawab / question answered: %s".formatted(project, p.get("questionNumber"));
+                indonesian = "Pertanyaan %s telah dijawab oleh pihak target.".formatted(p.get("questionNumber"));
+                english = "Question %s was answered by the target.".formatted(p.get("questionNumber"));
+            }
+            case QUESTION_CLOSED -> {
+                subject = "[%s] Jawaban tersedia / answer available: %s".formatted(project, p.get("questionNumber"));
+                indonesian = "Jawaban atas pertanyaan Anda %s sudah tersedia.".formatted(p.get("questionNumber"));
+                english = "The answer to your question %s is available.".formatted(p.get("questionNumber"));
+            }
+            case REPORT_ISSUED -> {
+                subject = "[%s] Laporan diterbitkan / report issued: %s".formatted(project, p.get("title"));
+                indonesian = "Laporan \"%s\" (versi %s) telah diterbitkan dan dapat diunduh."
+                        .formatted(p.get("title"), p.get("version"));
+                english = "Report \"%s\" (version %s) was issued and can be downloaded."
+                        .formatted(p.get("title"), p.get("version"));
+            }
             default -> throw new IllegalArgumentException("No e-mail text for " + type);
         }
         var body = indonesian + "\n\n" + english + "\n\n" + url

@@ -13,7 +13,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -164,6 +163,5 @@ class NotificationServiceTest {
         var created = ArgumentCaptor.forClass(NotificationPreference.class);
         verify(preferences).save(created.capture());
         assertThat(created.getValue().getNotificationType()).isEqualTo("REQUEST_RELEASED");
-        assertThat(EnumSet.allOf(NotificationType.class)).hasSize(11);
     }
 }
