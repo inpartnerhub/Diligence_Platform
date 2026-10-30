@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-kubectl@v5
       # Configure cluster access here, e.g. aws-actions/configure-aws-credentials with role-to-assume
-      # followed by `aws eks update-kubeconfig --name platform-${{ inputs.environment }}`.
+      # followed by `aws eks update-kubeconfig --name diligence-${{ inputs.environment }}`.
       - name: Pin images
         working-directory: ${{ env.OVERLAY }}
         run: |
@@ -44,12 +44,12 @@ jobs:
             kustomize_bin=./kustomize
           fi
           $kustomize_bin edit set image \
-            "ghcr.io/example/platform-backend=$REGISTRY/platform-backend:${{ inputs.image-tag }}" \
-            "ghcr.io/example/platform-frontend=$REGISTRY/platform-frontend:${{ inputs.image-tag }}"
+            "ghcr.io/example/diligence-backend=$REGISTRY/diligence-backend:${{ inputs.image-tag }}" \
+            "ghcr.io/example/diligence-frontend=$REGISTRY/diligence-frontend:${{ inputs.image-tag }}"
       - name: Diff
         run: kubectl diff -k "$OVERLAY" || true
       - name: Apply
         run: |
           kubectl apply -k "$OVERLAY"
-          kubectl -n platform-${{ inputs.environment }} rollout status deploy/platform-backend --timeout=10m
-          kubectl -n platform-${{ inputs.environment }} rollout status deploy/platform-frontend --timeout=5m
+          kubectl -n diligence-${{ inputs.environment }} rollout status deploy/diligence-backend --timeout=10m
+          kubectl -n diligence-${{ inputs.environment }} rollout status deploy/diligence-frontend --timeout=5m

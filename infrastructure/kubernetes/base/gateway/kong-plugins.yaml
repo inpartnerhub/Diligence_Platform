@@ -2,7 +2,7 @@
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
-  name: platform-rate-limiting
+  name: diligence-rate-limiting
 plugin: rate-limiting
 config:
   minute: 600
@@ -12,7 +12,7 @@ config:
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
-  name: platform-request-size
+  name: diligence-request-size
 plugin: request-size-limiting
 config:
   allowed_payload_size: 100
@@ -21,7 +21,7 @@ config:
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
-  name: platform-correlation-id
+  name: diligence-correlation-id
 plugin: correlation-id
 config:
   header_name: X-Request-Id

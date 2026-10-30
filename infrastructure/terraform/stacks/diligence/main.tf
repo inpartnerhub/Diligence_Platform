@@ -1,10 +1,10 @@
-# Composition of the platform's cloud resources for one environment.
-# Generated credentials are written to Vault (kv/platform/<env>/backend/*) and synced into Kubernetes by the
+# Composition of the Diligence Platform's cloud resources for one environment.
+# Generated credentials are written to Vault (kv/diligence/<env>/backend/*) and synced into Kubernetes by the
 # Vault Secrets Operator — see infrastructure/kubernetes/base/backend/vault-secret.yaml.
 
 locals {
-  name = "platform-${var.environment}"
-  tags = merge(var.tags, { project = "platform", environment = var.environment, managed-by = "terraform" })
+  name = "diligence-${var.environment}"
+  tags = merge(var.tags, { project = "diligence", environment = var.environment, managed-by = "terraform" })
 }
 
 module "network" {
@@ -77,11 +77,11 @@ module "object_storage" {
   tags        = local.tags
 }
 
-# Terraform owns kv/platform/<env>/backend/infrastructure exclusively (a KV v2 write replaces the whole secret).
-# Operator-managed values (DB_USERNAME, DB_PASSWORD, SENTRY_DSN) live in kv/platform/<env>/backend/application.
+# Terraform owns kv/diligence/<env>/backend/infrastructure exclusively (a KV v2 write replaces the whole secret).
+# Operator-managed values (DB_USERNAME, DB_PASSWORD, SENTRY_DSN) live in kv/diligence/<env>/backend/application.
 resource "vault_kv_secret_v2" "backend_infrastructure" {
   mount = "kv"
-  name  = "platform/${var.environment}/backend/infrastructure"
+  name  = "diligence/${var.environment}/backend/infrastructure"
   data_json = jsonencode({
     DB_URL            = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
     REDIS_HOST        = module.redis.primary_endpoint

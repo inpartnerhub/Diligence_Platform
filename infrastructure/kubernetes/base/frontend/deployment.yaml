@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: platform-frontend
-  labels: { app.kubernetes.io/name: platform-frontend, app.kubernetes.io/component: web }
+  name: diligence-frontend
+  labels: { app.kubernetes.io/name: diligence-frontend, app.kubernetes.io/component: web }
 spec:
   replicas: 2
   revisionHistoryLimit: 5
@@ -10,11 +10,12 @@ spec:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
   selector:
-    matchLabels: { app.kubernetes.io/name: platform-frontend }
+    matchLabels: { app.kubernetes.io/name: diligence-frontend }
   template:
     metadata:
-      labels: { app.kubernetes.io/name: platform-frontend, app.kubernetes.io/component: web }
+      labels: { app.kubernetes.io/name: diligence-frontend, app.kubernetes.io/component: web }
     spec:
+      serviceAccountName: diligence-frontend
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -23,10 +24,11 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: frontend
-          image: ghcr.io/example/platform-frontend:latest # pinned by overlays / CI
+          image: ghcr.io/example/diligence-frontend:latest # pinned by overlays / CI
           ports: [{ name: http, containerPort: 3000 }]
           envFrom:
-            - configMapRef: { name: platform-frontend-config }
+            - configMapRef: { name: diligence-frontend-config }
+            - secretRef: { name: diligence-frontend-secrets }
           resources:
             requests: { cpu: 200m, memory: 256Mi }
             limits: { memory: 512Mi }

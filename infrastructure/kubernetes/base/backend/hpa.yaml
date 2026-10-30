@@ -1,9 +1,9 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: platform-backend
+  name: diligence-backend
 spec:
-  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: platform-backend }
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: diligence-backend }
   minReplicas: 2
   maxReplicas: 10
   metrics:

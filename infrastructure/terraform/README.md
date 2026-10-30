@@ -6,7 +6,7 @@ Amazon OpenSearch, S3). Modules have narrow interfaces so a different cloud can 
 ```
 terraform/
 ├── modules/            # Single-purpose, reusable building blocks (no provider config)
-├── stacks/platform/    # Composition of modules for one environment + Vault secret publication
+├── stacks/diligence/    # Composition of modules for one environment + Vault secret publication
 └── environments/       # Root modules: state backend, providers, per-environment sizing
     ├── dev/  staging/  prod/
 ```
@@ -25,8 +25,8 @@ terraform apply tfplan
 ## Rules
 
 - State lives in S3 with native lockfiles, encrypted; never commit `*.tfstate`, `*.tfvars` or `backend.hcl`.
-- Generated credentials (Redis, RabbitMQ) are written to Vault at `kv/platform/<env>/backend/infrastructure`;
-  operator-managed values (application DB user, Sentry DSN) live in `kv/platform/<env>/backend/application`.
+- Generated credentials (Redis, RabbitMQ) are written to Vault at `kv/diligence/<env>/backend/infrastructure`;
+  operator-managed values (application DB user, Sentry DSN) live in `kv/diligence/<env>/backend/application`.
   The RDS master password is managed by RDS in Secrets Manager. Application secrets never appear in Kubernetes manifests.
 - Cluster add-ons (Kong Ingress Controller, Vault Secrets Operator, cert-manager, kube-prometheus-stack,
   OpenTelemetry Collector, Tika and ClamAV workloads) are installed via GitOps/Helm, not by this Terraform.

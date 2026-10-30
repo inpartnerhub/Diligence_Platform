@@ -5,14 +5,14 @@ _format_version: "3.0"
 _transform: true
 
 services:
-  - name: platform-backend
+  - name: diligence-backend
     url: http://backend:8080
     connect_timeout: 5000
     read_timeout: 60000
     write_timeout: 60000
     retries: 0
     routes:
-      - name: platform-api-v1
+      - name: diligence-api-v1
         paths: ["/api/v1"]
         strip_path: false
         protocols: ["http", "https"]

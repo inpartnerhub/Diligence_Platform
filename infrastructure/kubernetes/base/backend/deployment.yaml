@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: platform-backend
-  labels: { app.kubernetes.io/name: platform-backend, app.kubernetes.io/component: api }
+  name: diligence-backend
+  labels: { app.kubernetes.io/name: diligence-backend, app.kubernetes.io/component: api }
 spec:
   replicas: 2
   revisionHistoryLimit: 5
@@ -10,12 +10,12 @@ spec:
     type: RollingUpdate
     rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
   selector:
-    matchLabels: { app.kubernetes.io/name: platform-backend }
+    matchLabels: { app.kubernetes.io/name: diligence-backend }
   template:
     metadata:
-      labels: { app.kubernetes.io/name: platform-backend, app.kubernetes.io/component: api }
+      labels: { app.kubernetes.io/name: diligence-backend, app.kubernetes.io/component: api }
     spec:
-      serviceAccountName: platform-backend
+      serviceAccountName: diligence-backend
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 45
       securityContext:
@@ -28,18 +28,18 @@ spec:
         - maxSkew: 1
           topologyKey: topology.kubernetes.io/zone
           whenUnsatisfiable: ScheduleAnyway
-          labelSelector: { matchLabels: { app.kubernetes.io/name: platform-backend } }
+          labelSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
       containers:
         - name: backend
-          image: ghcr.io/example/platform-backend:latest # pinned by overlays / CI
+          image: ghcr.io/example/diligence-backend:latest # pinned by overlays / CI
           imagePullPolicy: IfNotPresent
           ports:
             - { name: http, containerPort: 8080 }
             - { name: management, containerPort: 8081 }
           envFrom:
-            - configMapRef: { name: platform-backend-config }
-            - secretRef: { name: platform-backend-infrastructure }
-            - secretRef: { name: platform-backend-application }
+            - configMapRef: { name: diligence-backend-config }
+            - secretRef: { name: diligence-backend-infrastructure }
+            - secretRef: { name: diligence-backend-application }
           env:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=$(APP_ENVIRONMENT)

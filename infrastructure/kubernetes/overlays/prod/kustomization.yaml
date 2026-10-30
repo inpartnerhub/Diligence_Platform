@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: platform-prod
+namespace: diligence-prod
 resources:
   - ../../base
 labels:
@@ -8,30 +8,36 @@ labels:
       app.kubernetes.io/environment: prod
     includeSelectors: false
 images:
-  # CI sets immutable digests: kustomize edit set image platform-backend=ghcr.io/...@sha256:...
-  - name: ghcr.io/example/platform-backend
+  # CI sets immutable digests: kustomize edit set image diligence-backend=ghcr.io/...@sha256:...
+  - name: ghcr.io/example/diligence-backend
     newTag: "0.1.0"
-  - name: ghcr.io/example/platform-frontend
+  - name: ghcr.io/example/diligence-frontend
     newTag: "0.1.0"
 patches:
-  - target: { kind: Namespace, name: platform }
+  - target: { kind: Namespace, name: diligence }
     patch: |-
       - op: replace
         path: /metadata/name
-        value: platform-prod
+        value: diligence-prod
   - target: { kind: HorizontalPodAutoscaler }
     patch: |-
       - op: replace
         path: /spec/minReplicas
         value: 3
-  - target: { kind: VaultStaticSecret, name: platform-backend-infrastructure }
+  - target: { kind: VaultStaticSecret, name: diligence-backend-infrastructure }
     patch: |-
       - op: replace
         path: /spec/path
-        value: platform/prod/backend/infrastructure
-  - target: { kind: VaultStaticSecret, name: platform-backend-application }
+        value: diligence/prod/backend/infrastructure
+  - target: { kind: VaultStaticSecret, name: diligence-backend-application }
     patch: |-
       - op: replace
         path: /spec/path
-        value: platform/prod/backend/application
+        value: diligence/prod/backend/application
+  - target: { kind: VaultStaticSecret, name: diligence-frontend-secrets }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: diligence/prod/frontend
   - path: config.yaml
+  - path: frontend-config.yaml

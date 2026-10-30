@@ -50,7 +50,7 @@ jobs:
     needs: build
     uses: ./.github/workflows/container-image.yml
     with:
-      image-name: platform-backend
+      image-name: diligence-backend
       context: .
       dockerfile: apps/backend/Dockerfile
       push: ${{ github.event_name == 'push' }}

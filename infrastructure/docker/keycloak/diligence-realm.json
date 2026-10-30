@@ -1,0 +1,334 @@
+{
+  "realm": "diligence",
+  "displayName": "Diligence Platform",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "verifyEmail": true,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "passwordPolicy": "length(12) and notUsername and notEmail and passwordHistory(5)",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "id",
+    "en"
+  ],
+  "defaultLocale": "id",
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@diligence.local",
+    "fromDisplayName": "Diligence Platform",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
+  "eventsEnabled": true,
+  "enabledEventTypes": [
+    "LOGIN",
+    "LOGIN_ERROR",
+    "LOGOUT",
+    "UPDATE_TOTP",
+    "REMOVE_TOTP",
+    "UPDATE_PASSWORD",
+    "SEND_VERIFY_EMAIL",
+    "EXECUTE_ACTIONS"
+  ],
+  "eventsExpiration": 7776000,
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "mfa_required",
+        "description": "Marker: users with this (effective) role must use OTP (PRD ADM-02)"
+      },
+      {
+        "name": "super_admin",
+        "description": "Super Admin — system configuration, users, templates, audit log",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
+      },
+      {
+        "name": "partner",
+        "description": "Partner / Director — oversees projects, approves reports, portfolio dashboard"
+      },
+      {
+        "name": "project_manager",
+        "description": "Project Manager — creates projects, request lists, team, deadlines, Q&A"
+      },
+      {
+        "name": "analyst",
+        "description": "Analyst / Reviewer — data room per workstream, findings, risk ratings"
+      },
+      {
+        "name": "client",
+        "description": "Client (buy-side, external) — progress, released findings and reports, questions",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
+      },
+      {
+        "name": "target",
+        "description": "Target (sell-side, external) — uploads documents, answers request list and Q&A",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
+      },
+      {
+        "name": "observer",
+        "description": "Observer / Auditor — read-only access for quality review or audit",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
+      }
+    ]
+  },
+  "requiredActions": [
+    {
+      "alias": "VERIFY_EMAIL",
+      "name": "Verify Email",
+      "providerId": "VERIFY_EMAIL",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 10,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 20,
+      "config": {}
+    },
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 30,
+      "config": {}
+    },
+    {
+      "alias": "TERMS_AND_CONDITIONS",
+      "name": "Terms and Conditions (NDA)",
+      "providerId": "TERMS_AND_CONDITIONS",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 40,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PROFILE",
+      "name": "Update Profile",
+      "providerId": "UPDATE_PROFILE",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 50,
+      "config": {}
+    }
+  ],
+  "browserFlow": "browser-mfa",
+  "authenticationFlows": [
+    {
+      "alias": "browser-mfa",
+      "description": "Browser login with OTP required for roles carrying mfa_required",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false
+        },
+        {
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "userSetupAllowed": false,
+          "authenticator": "identity-provider-redirector",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false
+        },
+        {
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa forms",
+          "authenticatorFlow": true,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa forms",
+      "description": "Username/password then conditional OTP",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false
+        },
+        {
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "userSetupAllowed": false,
+          "flowAlias": "browser-mfa conditional otp",
+          "authenticatorFlow": true,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "browser-mfa conditional otp",
+      "description": "OTP when the user has role mfa_required",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "authenticator": "conditional-user-role",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false,
+          "authenticatorConfig": "mfa-required-role"
+        },
+        {
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false,
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "mfa-required-role",
+      "config": {
+        "condUserRole": "mfa_required",
+        "negate": "false"
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "diligence-web",
+      "name": "Diligence Platform Web",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:3000/auth/callback",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-diligence-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "diligence-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "diligence-api",
+      "name": "Diligence Platform API",
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "diligence-admin-api",
+      "name": "Diligence Platform user administration (service account)",
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "clientAuthenticatorType": "client-secret"
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-diligence-admin-api",
+      "enabled": true,
+      "serviceAccountClientId": "diligence-admin-api",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-groups",
+          "view-realm"
+        ]
+      }
+    }
+  ],
+  "localizationTexts": {
+    "en": {
+      "termsTitle": "Confidentiality agreement (NDA)",
+      "termsText": "<p>PLACEHOLDER — replace with the firm's approved NDA and terms of use before go-live.</p><p>By accepting you agree to keep all information in this platform confidential, to use it only for the engagement you were invited to, and acknowledge that every view and download is logged and watermarked.</p>"
+    },
+    "id": {
+      "termsTitle": "Perjanjian kerahasiaan (NDA)",
+      "termsText": "<p>PLACEHOLDER — ganti dengan NDA dan syarat penggunaan resmi perusahaan sebelum go-live.</p><p>Dengan menyetujui, Anda sepakat menjaga kerahasiaan seluruh informasi di platform ini, hanya menggunakannya untuk proyek yang Anda diundang, dan memahami bahwa setiap akses dan unduhan dicatat serta diberi watermark.</p>"
+    }
+  }
+}

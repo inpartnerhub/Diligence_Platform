@@ -37,6 +37,7 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
       - name: SonarQube analysis
         if: env.SONAR_TOKEN != ''
@@ -50,7 +51,7 @@ jobs:
     needs: build
     uses: ./.github/workflows/container-image.yml
     with:
-      image-name: platform-frontend
+      image-name: diligence-frontend
       context: apps/frontend
       dockerfile: apps/frontend/Dockerfile
       push: ${{ github.event_name == 'push' }}

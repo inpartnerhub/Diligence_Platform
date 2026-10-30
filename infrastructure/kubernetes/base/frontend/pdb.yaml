@@ -1,7 +1,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: platform-frontend
+  name: diligence-frontend
 spec:
   minAvailable: 1
-  selector: { matchLabels: { app.kubernetes.io/name: platform-frontend } }
+  selector: { matchLabels: { app.kubernetes.io/name: diligence-frontend } }

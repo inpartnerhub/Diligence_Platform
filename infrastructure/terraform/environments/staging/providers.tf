@@ -8,7 +8,7 @@ terraform {
 
   # Partial configuration: bucket/region are supplied with -backend-config=backend.hcl (not committed).
   backend "s3" {
-    key          = "platform/staging/terraform.tfstate"
+    key          = "diligence/staging/terraform.tfstate"
     encrypt      = true
     use_lockfile = true
   }
@@ -17,7 +17,7 @@ terraform {
 provider "aws" {
   region = var.aws_region
   default_tags {
-    tags = { project = "platform", environment = "staging" }
+    tags = { project = "diligence", environment = "staging" }
   }
 }
 

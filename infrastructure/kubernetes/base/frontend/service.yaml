@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: platform-frontend
-  labels: { app.kubernetes.io/name: platform-frontend }
+  name: diligence-frontend
+  labels: { app.kubernetes.io/name: diligence-frontend }
 spec:
-  selector: { app.kubernetes.io/name: platform-frontend }
+  selector: { app.kubernetes.io/name: diligence-frontend }
   ports: [{ name: http, port: 3000, targetPort: http }]

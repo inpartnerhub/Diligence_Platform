@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: diligence-frontend-config
+data:
+  APP_BASE_URL: https://app.example.com
+  OIDC_ISSUER: https://auth.example.com/realms/diligence

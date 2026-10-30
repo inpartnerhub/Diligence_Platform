@@ -28,7 +28,7 @@ resource "aws_mq_broker" "this" {
   auto_minor_version_upgrade = true
 
   user {
-    username = "platform"
+    username = "diligence"
     password = random_password.broker.result
   }
 

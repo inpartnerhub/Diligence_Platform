@@ -1,7 +1,10 @@
-# Server-side runtime configuration. NEXT_PUBLIC_* values are baked into the image at build time.
+# Server-side runtime configuration (non-secret). Secrets come from Vault (see vault-secret.yaml).
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: platform-frontend-config
+  name: diligence-frontend-config
 data:
+  APP_BASE_URL: https://app.example.com
   API_BASE_URL: http://kong-gateway-proxy.kong.svc:80
+  OIDC_ISSUER: https://auth.example.com/realms/diligence
+  OIDC_CLIENT_ID: diligence-web

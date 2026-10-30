@@ -4,7 +4,7 @@ variable "subnet_ids" { type = list(string) }
 variable "allowed_security_group_ids" { type = list(string) }
 variable "database_name" {
   type    = string
-  default = "platform"
+  default = "diligence"
 }
 variable "engine_version" {
   type    = string

@@ -2,9 +2,9 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: platform-backend
+  name: diligence-backend
 spec:
-  selector: { matchLabels: { app.kubernetes.io/name: platform-backend } }
+  selector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
   endpoints:
     - port: management
       path: /actuator/prometheus

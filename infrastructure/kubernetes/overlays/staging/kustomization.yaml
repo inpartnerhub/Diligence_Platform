@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: platform-staging
+namespace: diligence-staging
 resources:
   - ../../base
 labels:
@@ -8,30 +8,36 @@ labels:
       app.kubernetes.io/environment: staging
     includeSelectors: false
 images:
-  # CI sets immutable digests: kustomize edit set image platform-backend=ghcr.io/...@sha256:...
-  - name: ghcr.io/example/platform-backend
+  # CI sets immutable digests: kustomize edit set image diligence-backend=ghcr.io/...@sha256:...
+  - name: ghcr.io/example/diligence-backend
     newTag: "0.1.0"
-  - name: ghcr.io/example/platform-frontend
+  - name: ghcr.io/example/diligence-frontend
     newTag: "0.1.0"
 patches:
-  - target: { kind: Namespace, name: platform }
+  - target: { kind: Namespace, name: diligence }
     patch: |-
       - op: replace
         path: /metadata/name
-        value: platform-staging
+        value: diligence-staging
   - target: { kind: HorizontalPodAutoscaler }
     patch: |-
       - op: replace
         path: /spec/minReplicas
         value: 2
-  - target: { kind: VaultStaticSecret, name: platform-backend-infrastructure }
+  - target: { kind: VaultStaticSecret, name: diligence-backend-infrastructure }
     patch: |-
       - op: replace
         path: /spec/path
-        value: platform/staging/backend/infrastructure
-  - target: { kind: VaultStaticSecret, name: platform-backend-application }
+        value: diligence/staging/backend/infrastructure
+  - target: { kind: VaultStaticSecret, name: diligence-backend-application }
     patch: |-
       - op: replace
         path: /spec/path
-        value: platform/staging/backend/application
+        value: diligence/staging/backend/application
+  - target: { kind: VaultStaticSecret, name: diligence-frontend-secrets }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: diligence/staging/frontend
   - path: config.yaml
+  - path: frontend-config.yaml

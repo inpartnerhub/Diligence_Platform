@@ -22,7 +22,7 @@ exporters:
     traces_index: otel-v1-apm-span-default
   opensearch/logs:
     http: { endpoint: "http://opensearch:9200" }
-    logs_index: logs-platform
+    logs_index: logs-diligence
   debug:
     verbosity: basic
 

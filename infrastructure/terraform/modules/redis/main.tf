@@ -23,7 +23,7 @@ resource "aws_security_group" "this" {
 
 resource "aws_elasticache_replication_group" "this" {
   replication_group_id = var.name
-  description          = "Platform cache"
+  description          = "Diligence cache"
   engine               = "valkey"
   engine_version       = var.engine_version
   node_type            = var.node_type

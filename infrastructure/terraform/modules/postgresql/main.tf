@@ -29,7 +29,7 @@ resource "aws_db_instance" "this" {
   storage_encrypted     = true
 
   db_name  = var.database_name
-  username = "platform_admin"
+  username = "diligence_admin"
   # Master password is generated and rotated by RDS in Secrets Manager; never in Terraform state.
   manage_master_user_password = true
 

@@ -1,5 +1,5 @@
-module "platform" {
-  source = "../../stacks/platform"
+module "diligence" {
+  source = "../../stacks/diligence"
 
   environment         = "prod"
   vpc_cidr            = "10.30.0.0/16"
@@ -11,5 +11,5 @@ module "platform" {
   bucket_suffix       = var.bucket_suffix
 }
 
-output "cluster_name" { value = module.platform.cluster_name }
-output "documents_bucket" { value = module.platform.documents_bucket }
+output "cluster_name" { value = module.diligence.cluster_name }
+output "documents_bucket" { value = module.diligence.documents_bucket }
