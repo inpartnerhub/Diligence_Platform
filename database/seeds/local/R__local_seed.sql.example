@@ -1,3 +1,22 @@
--- Local-only seed data. Copy to R__local_seed.sql (git-ignored) and load with:
---   make db-seed
+-- Local-only seed data (PRD Appendix B request list template). Copy to R__local_seed.sql (git-ignored) and
+-- load with: docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < database/seeds/local/R__local_seed.sql
 -- Never place seed files in migrations/: they would run in every environment.
+
+INSERT INTO prj.project_template (id, name, definition)
+VALUES (gen_random_uuid(), 'Standard full-scope due diligence', $json$
+{
+  "workstreams": ["FINANCIAL", "TAX", "LEGAL", "COMMERCIAL", "OPERATIONAL", "HR", "IT_CYBER", "ESG_COMPLIANCE"],
+  "requestItems": [
+    {"workstream": "FINANCIAL", "category": "Financial statements", "description": "Audited financial statements for the last 3 years with management letters."},
+    {"workstream": "FINANCIAL", "category": "Working capital", "description": "Monthly aged receivables and payables for the last 24 months."},
+    {"workstream": "TAX", "category": "Compliance", "description": "Annual and periodic tax returns (SPT Tahunan & SPT Masa) for the last 3 years and tax assessment letters."},
+    {"workstream": "LEGAL", "category": "Corporate", "description": "Deed of establishment and amendments, shareholder register, MoLHR (Kemenkumham) approvals."},
+    {"workstream": "LEGAL", "category": "Contracts", "description": "List and copies of the 20 largest contracts (customers and suppliers)."},
+    {"workstream": "LEGAL", "category": "Litigation", "description": "Ongoing or expected litigation with estimated exposure."},
+    {"workstream": "HR", "category": "Employees", "description": "Employee list, compensation, employment agreements and company regulations."},
+    {"workstream": "IT_CYBER", "category": "Security", "description": "Information security policy, latest audit/penetration test results, incident register."},
+    {"workstream": "COMMERCIAL", "category": "Customers", "description": "Revenue per customer for the last 3 years and retention rates."},
+    {"workstream": "ESG_COMPLIANCE", "category": "Compliance", "description": "Environmental permits, monitoring reports, anti-bribery and gratification policies."}
+  ]
+}
+$json$::jsonb);
