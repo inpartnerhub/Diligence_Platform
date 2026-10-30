@@ -9,6 +9,7 @@ import {
   DashboardOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
+  HeatMapOutlined,
   LogoutOutlined,
   ProjectOutlined,
   QuestionCircleOutlined,
@@ -44,6 +45,7 @@ const ADMIN_NAV = [
   { key: "adminOrganizations", href: "/admin/organizations", icon: <BankOutlined /> },
   { key: "adminGroups", href: "/admin/groups", icon: <ApartmentOutlined /> },
   { key: "adminTemplates", href: "/admin/templates", icon: <CopyOutlined /> },
+  { key: "adminRiskMatrix", href: "/admin/risk-matrix", icon: <HeatMapOutlined /> },
   { key: "adminAudit", href: "/admin/audit", icon: <AuditOutlined /> },
 ] as const;
 

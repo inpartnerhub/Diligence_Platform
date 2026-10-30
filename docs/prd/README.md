@@ -24,7 +24,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | 5–6 | Data room: upload, encrypted storage, malware scan, folders, permissions | ✅ delivered |
 | 7–8 | Preview, dynamic watermark, download control, search and OCR | ✅ delivered |
 | 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ✅ delivered |
-| 11–12 | Findings, source document links, risk rating, validation workflow | 🟡 risk matrix done |
+| 11–12 | Findings, source document links, risk rating, validation workflow | ✅ delivered |
 | 13–14 | Q&A with approval; report builder (Word/PDF) from templates | ⏳ |
 | 15–16 | Hardening: performance, penetration test, fixes, UAT, documentation, training | ⏳ |
 
@@ -53,10 +53,10 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | DOC-07 | Document versions | S (MVP) | `DocumentService`, versions drawer | ✅ |
 | DOC-08 | Annotations linked to findings | S | — | phase 2 |
 | DOC-09 | AI search, duplicates, key clauses | C | SHA-256 duplicate detection on upload | 🟡 duplicates done |
-| FND-01 | Record findings | M | `finding`, `fnd.finding` | schema |
-| FND-02 | Link findings to documents (page) and Q&A | M | `fnd.finding_document`, `fnd.finding_question` | schema + RLS |
-| FND-03 | Impact × likelihood risk rating, configurable | M | `finding.RiskMatrix`, `fnd.risk_matrix_config` | ✅ logic + config table |
-| FND-04 | Validation workflow Draft → Review → Approved → Released | M | `fnd.finding.status`, RLS for clients | schema + barrier |
+| FND-01 | Record findings | M | `FindingService`, template categories, `/projects/{id}/findings` | ✅ |
+| FND-02 | Link findings to documents (page) and Q&A | M | `fnd.finding_document` (page, viewer shortcut); `fnd.finding_question` with Q&A | 🟡 documents ✅, Q&A sprint 13–14 |
+| FND-03 | Impact × likelihood risk rating, configurable | M | `RiskMatrix`, `RiskMatrixService`, `/admin/risk-matrix`, heat map | ✅ |
+| FND-04 | Validation workflow Draft → Review → Approved → Released | M | `FindingStatus`, four eyes, partner release, RLS V10 | ✅ |
 | FND-05 | Follow-up / mitigation, SPA links | S | — | phase 2 |
 | FND-06 | Finding library | C | — | phase 3 |
 | QNA-01 | Questions linked to documents/requests/findings | M | `qna.question` | schema + RLS |

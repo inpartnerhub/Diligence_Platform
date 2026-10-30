@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertOutlined,
   ArrowLeftOutlined,
   FolderOpenOutlined,
   PlusOutlined,
@@ -102,6 +103,11 @@ export function ProjectDetailView({
                 <Button icon={<FolderOpenOutlined />}>{t("dataRoom.open")}</Button>
               </Link>
             </>
+          )}
+          {!project.myRoles.every((role) => role === "TARGET") && (
+            <Link href={`/projects/${project.id}/findings`}>
+              <Button icon={<AlertOutlined />}>{t("nav.findings")}</Button>
+            </Link>
           )}
         </Flex>
         <Typography.Text type="secondary">

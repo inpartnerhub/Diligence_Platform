@@ -65,8 +65,9 @@ class ApplicationIntegrationTest {
             jdbc.update("insert into prj.project_member (id, project_id, user_id, project_role) values (?, ?, ?, ?)",
                     UUID.randomUUID(), project, member[0], member[1]);
         }
-        jdbc.update("insert into fnd.finding (id, project_id, workstream_id, title, category, description, status, created_by) "
-                + "values (?, ?, ?, 'draft', 'c', 'd', 'DRAFT', ?), (?, ?, ?, 'released', 'c', 'd', 'RELEASED', ?)",
+        jdbc.update("insert into fnd.finding (id, project_id, workstream_id, number, title, category, description, status, "
+                + "created_by) values (?, ?, ?, 'F-LEG-001', 'draft', 'c', 'd', 'DRAFT', ?), "
+                + "(?, ?, ?, 'F-LEG-002', 'released', 'c', 'd', 'RELEASED', ?)",
                 UUID.randomUUID(), project, workstream, analyst, UUID.randomUUID(), project, workstream, analyst);
 
         assertThat(findingsVisibleTo(analyst, "analyst")).isEqualTo(2);

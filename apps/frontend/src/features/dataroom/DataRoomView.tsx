@@ -174,7 +174,15 @@ export function DataRoomView({
         onClose={() => setVersionsOf(null)}
         onView={setViewing}
       />
-      <DocumentViewer projectId={project.id} target={viewing} onClose={() => setViewing(null)} />
+      <DocumentViewer
+        projectId={project.id}
+        target={viewing}
+        onClose={() => setViewing(null)}
+        findingFromPage={
+          project.status === "ACTIVE" &&
+          project.myRoles.some((r) => ["PARTNER", "PROJECT_MANAGER", "ANALYST"].includes(r))
+        }
+      />
     </>
   );
 }

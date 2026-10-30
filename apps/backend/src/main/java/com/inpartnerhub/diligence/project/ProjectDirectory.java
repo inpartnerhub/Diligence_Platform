@@ -17,6 +17,9 @@ public interface ProjectDirectory {
     /** The project's active workstreams visible to the caller, ordered by type. */
     List<WorkstreamSummary> workstreams(UUID projectId);
 
+    /** Finding categories of the project's template, for its active workstreams (PRD PRJ-03, FND-01). */
+    List<FindingCategory> findingCategories(UUID projectId);
+
     /**
      * Active (not expired) memberships of a project. Row-level security applies: users only see the whole roster
      * when they belong to the internal team, so background jobs (system context) use it to find recipients.
@@ -27,6 +30,9 @@ public interface ProjectDirectory {
     }
 
     record WorkstreamSummary(UUID id, WorkstreamType type) {
+    }
+
+    record FindingCategory(UUID workstreamId, WorkstreamType workstream, String name) {
     }
 
     /** @param workstreamId  {@code null} when the membership covers every workstream */

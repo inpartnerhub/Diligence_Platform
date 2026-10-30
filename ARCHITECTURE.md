@@ -73,7 +73,7 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 | `ingestion` | DOC-02/03/06 | RabbitMQ worker: ClamAV scan, Tika type detection, text/OCR, PDF rendition, page images | ✅ sprint 5–8 |
 | `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
 | `request` | REQ | Request lists from template/Excel, waves, six-status workflow, delivery by the target, reminders, Excel/PDF export | ✅ sprint 9–10 |
-| `finding` | FND | Findings, risk register; risk matrix (Appendix A) implemented | 🟡 `RiskMatrix` (sprint 11–12) |
+| `finding` | FND | Findings with impact × likelihood rating (configurable matrix), source documents with pages, four-eyes review and partner release | ✅ sprint 11–12 |
 | `qna` | QNA | Questions with approval before release to the target | ⏳ schema only (sprint 13–14) |
 | `report` | RPT | Word/PDF reports from released findings, approvals | ⏳ schema only (sprint 13–14) |
 
@@ -112,7 +112,8 @@ Enforcement is layered so a UI bug cannot leak data:
    non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`.
    Policies in `V5__row_level_security.sql` make other projects invisible and enforce the barriers: the target
    never reads `fnd.*`, the client reads only `RELEASED` findings, `ISSUED` reports and its own questions, the target
-   reads only `SENT`/`ANSWERED` questions, released request items (V9) and never internal request notes. The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
+   reads only `SENT`/`ANSWERED` questions, released request items (V9) and never internal request notes. Finding
+   review notes, history and source links are internal only, and released findings are immutable (V10). The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
 4. **Audit**: `audit.audit_log` accepts only INSERT/SELECT from the runtime role and triggers reject UPDATE, DELETE
    and TRUNCATE for everyone.
 
@@ -207,7 +208,27 @@ means the delivery was not sufficient and the item is open again. Every change i
 unreleased items and internal notes from the target and lets it neither create, delete, hide nor close items. The
 client side has no request list; it follows progress on the project dashboard.
 
-## 8. Frontend
+## 8. Findings and risk register (PRD FND-01…FND-04; sprint 11–12)
+
+```
+Analyst: record finding (draft, numbered F-LEG-001) ── or from a page in the document viewer (source pre-filled)
+   rate impact × likelihood ─▶ RiskMatrix (thresholds in fnd.risk_matrix_config) ─▶ score + level
+   HIGH/CRITICAL reached ─▶ FindingEscalated ─▶ PMs (HIGH) or partners and PMs (CRITICAL)   (Appendix A)
+   cite source documents with page/section (DocumentDirectory: only documents the analyst may open)
+Submit (rated + ≥ 1 source) ─▶ IN_REVIEW ─▶ reviewers notified; internal review notes
+Review (PM/partner, not the author: four eyes) ─▶ APPROVED (partners notified) │ return to DRAFT with a reason
+Release (partners only) ─▶ RELEASED ─▶ client notified; visible to the client from now on (RLS)
+Released findings are final: only a partner archives them, with a reason. Every step is audited and kept in
+fnd.finding_status_history.
+Admin: PUT /admin/risk-matrix ─▶ fnd.recompute_risk_levels() re-rates open findings; released ones keep their level
+```
+
+Row-level security (V10) makes the rules hold below the API: the target reads no `fnd.*` row; the client reads
+released findings only and never their review notes, history or source links; released and archived findings cannot
+be updated by the team (only archived by a partner); only partners can set `RELEASED`. The findings page shows a 5 × 5
+heat map in the configured thresholds and the share of findings with a source document (KPI ≥ 95%).
+
+## 9. Frontend
 
 - App Router; `src/app/(app)` is the authenticated area rendered inside `AppShell` (Ant Design layout, role-based
   navigation from PRD Bab 11.1, language switch, user menu). Pages for later sprints show their sprint and PRD IDs.
@@ -218,7 +239,7 @@ client side has no request list; it follows progress on the project dashboard.
 - i18n: `next-intl` with `messages/id.json` (default) and `messages/en.json`; the language is a cookie, synced to the
   user profile (`PATCH /api/v1/me`) and applied to Ant Design and Keycloak (`ui_locales`).
 
-## 9. Observability
+## 10. Observability
 
 | Signal | Producer | Path | Consumer |
 |--------|----------|------|----------|
@@ -228,7 +249,7 @@ client side has no request list; it follows progress on the project dashboard.
 | Errors | Sentry SDK (backend + frontend), no PII | Sentry | Sentry |
 | Security events | Keycloak login events, `audit.audit_log` | Keycloak event store, PostgreSQL | Admin → Audit log, alerting |
 
-## 10. Deployment
+## 11. Deployment
 
 ```
 GitHub Actions ──build/test/scan──▶ GHCR (sha-tagged images, SBOM, provenance)
@@ -250,7 +271,7 @@ Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, 
 Hosting model and data residency (UU PDP) are still open — see [ADR-0003](docs/adr/0003-hosting-and-data-residency.md).
 Migrations run at backend startup (Flyway advisory lock) and must be backward compatible with the previous release.
 
-## 11. Integration boundaries
+## 12. Integration boundaries
 
 | Boundary | Contract | Owner |
 |----------|----------|-------|

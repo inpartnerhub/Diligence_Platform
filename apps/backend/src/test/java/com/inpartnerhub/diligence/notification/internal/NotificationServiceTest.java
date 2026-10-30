@@ -164,6 +164,6 @@ class NotificationServiceTest {
         var created = ArgumentCaptor.forClass(NotificationPreference.class);
         verify(preferences).save(created.capture());
         assertThat(created.getValue().getNotificationType()).isEqualTo("REQUEST_RELEASED");
-        assertThat(EnumSet.allOf(NotificationType.class)).hasSize(6);
+        assertThat(EnumSet.allOf(NotificationType.class)).hasSize(11);
     }
 }

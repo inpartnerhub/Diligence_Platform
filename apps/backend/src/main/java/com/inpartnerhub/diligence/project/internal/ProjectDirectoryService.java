@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,14 +21,17 @@ class ProjectDirectoryService implements ProjectDirectory {
     private final WorkstreamRepository workstreams;
     private final ProjectMemberRepository members;
     private final ProjectAccess access;
+    private final TemplateService templates;
     private final CurrentUserProvider currentUser;
 
     ProjectDirectoryService(ProjectRepository projects, WorkstreamRepository workstreams,
-            ProjectMemberRepository members, ProjectAccess access, CurrentUserProvider currentUser) {
+            ProjectMemberRepository members, ProjectAccess access, TemplateService templates,
+            CurrentUserProvider currentUser) {
         this.projects = projects;
         this.workstreams = workstreams;
         this.members = members;
         this.access = access;
+        this.templates = templates;
         this.currentUser = currentUser;
     }
 
@@ -58,6 +62,20 @@ class ProjectDirectoryService implements ProjectDirectory {
     public List<WorkstreamSummary> workstreams(UUID projectId) {
         return workstreams.findByProjectIdOrderByType(projectId).stream()
                 .map(w -> new WorkstreamSummary(w.getId(), w.getType())).toList();
+    }
+
+    @Override
+    public List<FindingCategory> findingCategories(UUID projectId) {
+        var project = projects.findById(projectId).orElse(null);
+        if (project == null || project.getTemplateId() == null) {
+            return List.of();
+        }
+        var byType = workstreams(projectId).stream()
+                .collect(Collectors.toMap(WorkstreamSummary::type, WorkstreamSummary::id));
+        return templates.definition(project.getTemplateId()).findingCategories().stream()
+                .filter(c -> c.name() != null && !c.name().isBlank() && byType.containsKey(c.workstream()))
+                .map(c -> new FindingCategory(byType.get(c.workstream()), c.workstream(), c.name().strip()))
+                .toList();
     }
 
     @Override

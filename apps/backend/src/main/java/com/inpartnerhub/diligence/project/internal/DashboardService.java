@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.inpartnerhub.diligence.finding.FindingStatistics;
+import com.inpartnerhub.diligence.project.FindingStatistics;
 import com.inpartnerhub.diligence.project.ProjectStage;
 import com.inpartnerhub.diligence.project.RequestStatistics;
 import com.inpartnerhub.diligence.project.WorkstreamType;

@@ -19,7 +19,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Sort;
 
-import com.inpartnerhub.diligence.finding.FindingStatistics;
+import com.inpartnerhub.diligence.project.FindingStatistics;
 import com.inpartnerhub.diligence.project.RequestStatistics;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;

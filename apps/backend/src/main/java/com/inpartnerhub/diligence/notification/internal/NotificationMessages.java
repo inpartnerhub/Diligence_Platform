@@ -68,6 +68,45 @@ final class NotificationMessages {
                         .formatted(project, p.get("overdue"));
                 english = "Project %s has %s overdue document requests.".formatted(project, p.get("overdue"));
             }
+            case FINDING_SUBMITTED -> {
+                subject = "[%s] Temuan menunggu review / finding awaits review: %s".formatted(project,
+                        p.get("findingNumber"));
+                indonesian = "Temuan %s \"%s\" diajukan untuk review.".formatted(p.get("findingNumber"),
+                        p.get("title"));
+                english = "Finding %s \"%s\" was submitted for review.".formatted(p.get("findingNumber"),
+                        p.get("title"));
+            }
+            case FINDING_RETURNED -> {
+                subject = "[%s] Temuan dikembalikan / finding returned: %s".formatted(project,
+                        p.get("findingNumber"));
+                indonesian = "Temuan %s \"%s\" dikembalikan ke draf: %s".formatted(p.get("findingNumber"),
+                        p.get("title"), p.get("reason"));
+                english = "Finding %s \"%s\" was returned to draft: %s".formatted(p.get("findingNumber"),
+                        p.get("title"), p.get("reason"));
+            }
+            case FINDING_APPROVED -> {
+                subject = "[%s] Temuan disetujui / finding approved: %s".formatted(project, p.get("findingNumber"));
+                indonesian = "Temuan %s \"%s\" disetujui dan siap dirilis oleh Partner."
+                        .formatted(p.get("findingNumber"), p.get("title"));
+                english = "Finding %s \"%s\" was approved and is ready for release by a partner."
+                        .formatted(p.get("findingNumber"), p.get("title"));
+            }
+            case FINDING_RELEASED -> {
+                subject = "[%s] Temuan baru dirilis / new finding released: %s".formatted(project,
+                        p.get("findingNumber"));
+                indonesian = "Temuan %s \"%s\" telah dirilis untuk Anda.".formatted(p.get("findingNumber"),
+                        p.get("title"));
+                english = "Finding %s \"%s\" has been released to you.".formatted(p.get("findingNumber"),
+                        p.get("title"));
+            }
+            case FINDING_ESCALATED -> {
+                subject = "[%s] Eskalasi risiko %s / %s risk escalation: %s".formatted(project, p.get("level"),
+                        p.get("level"), p.get("findingNumber"));
+                indonesian = "Temuan %s \"%s\" dinilai berisiko %s (skor %s). Mohon ditindaklanjuti."
+                        .formatted(p.get("findingNumber"), p.get("title"), p.get("level"), p.get("score"));
+                english = "Finding %s \"%s\" was rated %s risk (score %s). Please follow up."
+                        .formatted(p.get("findingNumber"), p.get("title"), p.get("level"), p.get("score"));
+            }
             default -> throw new IllegalArgumentException("No e-mail text for " + type);
         }
         var body = indonesian + "\n\n" + english + "\n\n" + url

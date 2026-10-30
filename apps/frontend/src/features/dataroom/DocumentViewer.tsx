@@ -1,7 +1,14 @@
 "use client";
 
-import { DownloadOutlined, FilePdfOutlined, LockOutlined, PrinterOutlined } from "@ant-design/icons";
+import {
+  AlertOutlined,
+  DownloadOutlined,
+  FilePdfOutlined,
+  LockOutlined,
+  PrinterOutlined,
+} from "@ant-design/icons";
 import { Alert, Button, Flex, Modal, Result, Space, Spin, Tag, Typography } from "antd";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
@@ -27,16 +34,26 @@ const PRINT_CSS = `
     position: static !important; overflow: visible !important; max-height: none !important; padding: 0 !important;
   }
   body.dr-print-viewer .dr-viewer-pages, body.dr-print-viewer .dr-viewer-pages * { visibility: visible; }
+  body.dr-print-viewer .dr-viewer-action { display: none !important; }
   body.dr-print-viewer .dr-viewer-pages { position: absolute; left: 0; top: 0; width: 100%; }
   .dr-viewer-pages img { break-after: page; width: 100% !important; box-shadow: none !important; }
 }
 `;
 
+/**
+ * @param findingFromPage  when set (internal team), each page offers "create finding from this page" (PRD FND-02)
+ */
 export function DocumentViewer({
   projectId,
   target,
   onClose,
-}: Readonly<{ projectId: string; target: ViewerTarget | null; onClose: () => void }>) {
+  findingFromPage,
+}: Readonly<{
+  projectId: string;
+  target: ViewerTarget | null;
+  onClose: () => void;
+  findingFromPage?: boolean;
+}>) {
   const t = useTranslations("dataRoom.viewer");
   // The result is kept with the target it belongs to, so a new target shows the spinner until its own result.
   const [loaded, setLoaded] = useState<{
@@ -167,22 +184,32 @@ export function DocumentViewer({
               onContextMenu={protect ? (event) => event.preventDefault() : undefined}
             >
               {Array.from({ length: info.pageCount }, (_, index) => index + 1).map((page) => (
-                // eslint-disable-next-line @next/next/no-img-element -- watermarked per request, never optimised or cached
-                <img
-                  key={page}
-                  src={`${base}/versions/${encodeURIComponent(info.versionId)}/pages/${page}`}
-                  alt={t("page", { number: page })}
-                  loading={printing ? "eager" : "lazy"}
-                  draggable={false}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    minHeight: 200,
-                    margin: "0 auto 16px",
-                    background: "#fff",
-                    boxShadow: "0 1px 4px rgba(0,0,0,.15)",
-                  }}
-                />
+                <div key={page}>
+                  {findingFromPage && (
+                    <Flex justify="end" className="dr-viewer-action" style={{ marginBottom: 4 }}>
+                      <Link
+                        href={`/projects/${encodeURIComponent(projectId)}/findings?new=1&document=${encodeURIComponent(info.documentId)}&page=${encodeURIComponent(t("pageReference", { number: page }))}`}
+                      >
+                        <AlertOutlined /> {t("findingFromPage", { number: page })}
+                      </Link>
+                    </Flex>
+                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element -- watermarked per request, never optimised or cached */}
+                  <img
+                    src={`${base}/versions/${encodeURIComponent(info.versionId)}/pages/${page}`}
+                    alt={t("page", { number: page })}
+                    loading={printing ? "eager" : "lazy"}
+                    draggable={false}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      minHeight: 200,
+                      margin: "0 auto 16px",
+                      background: "#fff",
+                      boxShadow: "0 1px 4px rgba(0,0,0,.15)",
+                    }}
+                  />
+                </div>
               ))}
             </div>
           )}

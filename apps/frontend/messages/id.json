@@ -16,7 +16,8 @@
     "adminOrganizations": "Organisasi",
     "adminGroups": "Grup",
     "adminAudit": "Log audit",
-    "adminTemplates": "Template proyek"
+    "adminTemplates": "Template proyek",
+    "adminRiskMatrix": "Matriks risiko"
   },
   "header": {
     "profile": "Profil saya",
@@ -309,7 +310,9 @@
       "preparingSub": "Halaman akan muncul setelah pemrosesan selesai.",
       "unavailable": "Jenis file ini tidak memiliki pratinjau.",
       "failed": "Pratinjau tidak dapat dibuat (file mungkin rusak atau dilindungi kata sandi).",
-      "error": "Dokumen tidak dapat dibuka."
+      "error": "Dokumen tidak dapat dibuka.",
+      "pageReference": "Hal. {number}",
+      "findingFromPage": "Temuan dari halaman {number}"
     }
   },
   "requests": {
@@ -441,7 +444,12 @@
       "REQUEST_REVIEWED": "Permintaan ditutup atau ditolak",
       "REQUEST_COMMENTED": "Komentar baru pada permintaan",
       "REQUEST_DUE_REMINDER": "Pengingat permintaan yang jatuh tempo dan lewat tenggat",
-      "REQUEST_OVERDUE_DIGEST": "Ringkasan harian permintaan lewat tenggat (manajer proyek)"
+      "REQUEST_OVERDUE_DIGEST": "Ringkasan harian permintaan lewat tenggat (manajer proyek)",
+      "FINDING_SUBMITTED": "Temuan diajukan untuk review",
+      "FINDING_RETURNED": "Temuan dikembalikan ke draf",
+      "FINDING_APPROVED": "Temuan disetujui",
+      "FINDING_RELEASED": "Temuan dirilis",
+      "FINDING_ESCALATED": "Eskalasi risiko tinggi atau kritis"
     },
     "messages": {
       "REQUEST_RELEASED": "{projectCode}: {count} permintaan baru (gelombang {wave})",
@@ -450,7 +458,112 @@
       "REQUEST_REVIEWED_REJECTED": "{projectCode}: kiriman untuk {itemNumber} ditolak — {reason}",
       "REQUEST_COMMENTED": "{projectCode}: komentar baru pada {itemNumber}",
       "REQUEST_DUE_REMINDER": "{projectCode}: {dueSoon} permintaan segera jatuh tempo, {overdue} lewat tenggat",
-      "REQUEST_OVERDUE_DIGEST": "{projectCode}: {overdue} permintaan lewat tenggat"
+      "REQUEST_OVERDUE_DIGEST": "{projectCode}: {overdue} permintaan lewat tenggat",
+      "FINDING_SUBMITTED": "{projectCode}: temuan {findingNumber} menunggu review",
+      "FINDING_RETURNED": "{projectCode}: temuan {findingNumber} dikembalikan ke draf — {reason}",
+      "FINDING_APPROVED": "{projectCode}: temuan {findingNumber} disetujui",
+      "FINDING_RELEASED": "{projectCode}: temuan baru dirilis — {title}",
+      "FINDING_ESCALATED": "{projectCode}: risiko {level} — {findingNumber} {title}"
+    }
+  },
+  "findings": {
+    "pageTitle": "Temuan",
+    "open": "Buka",
+    "chooseProject": "Pilih proyek untuk membuka temuannya.",
+    "noProjects": "Anda tidak memiliki proyek aktif.",
+    "newFinding": "Temuan baru",
+    "finding": "Temuan",
+    "clientHint": "Temuan berikut telah direview dan dirilis oleh tim due diligence.",
+    "number": "No.",
+    "title": "Judul",
+    "workstream": "Workstream",
+    "category": "Kategori",
+    "risk": "Risiko",
+    "status": "Status",
+    "sources": "Sumber",
+    "unrated": "Belum dinilai",
+    "description": "Deskripsi",
+    "impactDescription": "Dampak",
+    "monetaryImpact": "Dampak finansial",
+    "currency": "Mata uang",
+    "recommendation": "Rekomendasi",
+    "impact": "Dampak",
+    "likelihood": "Kemungkinan",
+    "scaleHelp": "1 (sangat rendah) sampai 5 (sangat tinggi)",
+    "pageReference": "Halaman atau bagian",
+    "heatMap": "Peta risiko",
+    "cell": "Dampak {impact} × kemungkinan {likelihood} = {score}: {count, plural, =0 {tidak ada temuan} other {# temuan}}",
+    "sourced": "Dengan dokumen sumber",
+    "sourcedHelp": "Persentase temuan yang mengutip minimal satu dokumen data room (target ≥ 95%).",
+    "searchPlaceholder": "Cari nomor, judul atau kategori",
+    "empty": "Belum ada temuan. Catat di sini atau langsung dari halaman di viewer dokumen.",
+    "emptyClient": "Belum ada temuan yang dirilis.",
+    "levels": {
+      "CRITICAL": "Kritis",
+      "HIGH": "Tinggi",
+      "MEDIUM": "Sedang",
+      "LOW": "Rendah"
+    },
+    "statusValues": {
+      "DRAFT": "Draf",
+      "IN_REVIEW": "Dalam review",
+      "APPROVED": "Disetujui",
+      "RELEASED": "Dirilis",
+      "ARCHIVED": "Diarsipkan"
+    },
+    "actions": {
+      "DRAFT": "Kembalikan ke draf",
+      "IN_REVIEW": "Ajukan review",
+      "APPROVED": "Setujui",
+      "RELEASED": "Rilis ke klien",
+      "ARCHIVED": "Arsipkan"
+    },
+    "moveTo": "Alur kerja:",
+    "statusChanged": "Status diubah menjadi {status}",
+    "submitPrerequisites": "Untuk mengajukan review, nilai dampak dan kemungkinan serta kutip minimal satu dokumen sumber.",
+    "fourEyes": "Anda penulis temuan ini: Partner atau manajer proyek lain yang harus menyetujuinya.",
+    "reasonHelp": "Alasan disimpan di riwayat dan terlihat oleh penulis.",
+    "rating": "dampak {impact} × kemungkinan {likelihood}",
+    "author": "Penulis",
+    "approvedBy": "disetujui oleh {name}",
+    "releasedBy": "dirilis oleh {name}",
+    "archived": "Diarsipkan: {reason}",
+    "releasedOn": "Dirilis pada {date}",
+    "noSources": "Belum ada dokumen sumber.",
+    "hiddenSources": "{count} sumber lain berada di folder yang tidak bisa Anda buka.",
+    "addSource": "Kutip dokumen sumber",
+    "chooseFolder": "Folder data room",
+    "chooseDocument": "Dokumen",
+    "link": "Kutip",
+    "linked": "Sumber ditambahkan",
+    "unlink": "Hapus",
+    "unlinkConfirm": "Hapus sumber ini dari temuan?",
+    "view": "Lihat",
+    "notes": "Catatan review",
+    "noNotes": "Belum ada catatan review.",
+    "notePlaceholder": "Tulis catatan review",
+    "notesInternal": "Internal: tidak pernah terlihat oleh klien.",
+    "send": "Kirim",
+    "history": "Riwayat",
+    "edit": "Ubah",
+    "delete": "Hapus",
+    "deleteConfirm": "Hapus draf ini? Temuan yang sudah direview diarsipkan, bukan dihapus.",
+    "save": "Simpan",
+    "create": "Buat",
+    "saved": "Tersimpan",
+    "created": "Temuan {number} dicatat",
+    "editTitle": "Ubah {number}",
+    "fromDocument": "Dokumen yang sedang Anda lihat akan dikutip sebagai sumber.",
+    "error": "Terjadi kesalahan. Silakan coba lagi.",
+    "matrix": {
+      "title": "Matriks risiko",
+      "help": "Skor temuan adalah dampak × kemungkinan (masing-masing 1–5). Skor yang mencapai ambang masuk ke level tersebut; di bawah ambang sedang berarti rendah. Mengubah ambang menilai ulang temuan yang masih terbuka; temuan yang sudah dirilis tetap pada levelnya.",
+      "save": "Simpan ambang",
+      "saved": "Tersimpan: {count, plural, =0 {tidak ada temuan terbuka yang dinilai ulang} other {# temuan terbuka dinilai ulang}}",
+      "invalid": "Ambang harus naik: 1 < sedang < tinggi < kritis ≤ 25.",
+      "preview": "Pratinjau (dampak 5 di atas, kemungkinan 1–5 dari kiri ke kanan)",
+      "axes": "Baris: dampak · kolom: kemungkinan",
+      "error": "Ambang tidak dapat disimpan."
     }
   }
 }

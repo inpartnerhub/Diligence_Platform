@@ -16,7 +16,8 @@
     "adminOrganizations": "Organizations",
     "adminGroups": "Groups",
     "adminAudit": "Audit log",
-    "adminTemplates": "Project templates"
+    "adminTemplates": "Project templates",
+    "adminRiskMatrix": "Risk matrix"
   },
   "header": {
     "profile": "My profile",
@@ -309,7 +310,9 @@
       "preparingSub": "Pages appear once processing has finished.",
       "unavailable": "This file type has no preview.",
       "failed": "No preview could be created (the file may be damaged or password-protected).",
-      "error": "The document could not be opened."
+      "error": "The document could not be opened.",
+      "pageReference": "Page {number}",
+      "findingFromPage": "Finding from page {number}"
     }
   },
   "requests": {
@@ -441,7 +444,12 @@
       "REQUEST_REVIEWED": "Request closed or rejected",
       "REQUEST_COMMENTED": "New comment on a request",
       "REQUEST_DUE_REMINDER": "Reminders for due and overdue requests",
-      "REQUEST_OVERDUE_DIGEST": "Daily overdue summary (project managers)"
+      "REQUEST_OVERDUE_DIGEST": "Daily overdue summary (project managers)",
+      "FINDING_SUBMITTED": "Finding submitted for review",
+      "FINDING_RETURNED": "Finding returned to draft",
+      "FINDING_APPROVED": "Finding approved",
+      "FINDING_RELEASED": "Finding released",
+      "FINDING_ESCALATED": "High or critical risk escalation"
     },
     "messages": {
       "REQUEST_RELEASED": "{projectCode}: {count} new requests (wave {wave})",
@@ -450,7 +458,112 @@
       "REQUEST_REVIEWED_REJECTED": "{projectCode}: delivery for {itemNumber} rejected — {reason}",
       "REQUEST_COMMENTED": "{projectCode}: new comment on {itemNumber}",
       "REQUEST_DUE_REMINDER": "{projectCode}: {dueSoon} requests due soon, {overdue} overdue",
-      "REQUEST_OVERDUE_DIGEST": "{projectCode}: {overdue} requests are overdue"
+      "REQUEST_OVERDUE_DIGEST": "{projectCode}: {overdue} requests are overdue",
+      "FINDING_SUBMITTED": "{projectCode}: finding {findingNumber} awaits review",
+      "FINDING_RETURNED": "{projectCode}: finding {findingNumber} returned to draft — {reason}",
+      "FINDING_APPROVED": "{projectCode}: finding {findingNumber} approved",
+      "FINDING_RELEASED": "{projectCode}: new finding released — {title}",
+      "FINDING_ESCALATED": "{projectCode}: {level} risk — {findingNumber} {title}"
+    }
+  },
+  "findings": {
+    "pageTitle": "Findings",
+    "open": "Open",
+    "chooseProject": "Choose a project to open its findings.",
+    "noProjects": "You have no active projects.",
+    "newFinding": "New finding",
+    "finding": "Finding",
+    "clientHint": "These findings were reviewed and released by the due diligence team.",
+    "number": "No.",
+    "title": "Title",
+    "workstream": "Workstream",
+    "category": "Category",
+    "risk": "Risk",
+    "status": "Status",
+    "sources": "Sources",
+    "unrated": "Not rated",
+    "description": "Description",
+    "impactDescription": "Impact",
+    "monetaryImpact": "Monetary impact",
+    "currency": "Currency",
+    "recommendation": "Recommendation",
+    "impact": "Impact",
+    "likelihood": "Likelihood",
+    "scaleHelp": "1 (very low) to 5 (very high)",
+    "pageReference": "Page or section",
+    "heatMap": "Risk heat map",
+    "cell": "Impact {impact} × likelihood {likelihood} = {score}: {count, plural, =0 {no findings} one {# finding} other {# findings}}",
+    "sourced": "With source document",
+    "sourcedHelp": "Share of findings citing at least one data-room document (target ≥ 95%).",
+    "searchPlaceholder": "Search number, title or category",
+    "empty": "No findings yet. Record one here or from a page in the document viewer.",
+    "emptyClient": "No findings have been released yet.",
+    "levels": {
+      "CRITICAL": "Critical",
+      "HIGH": "High",
+      "MEDIUM": "Medium",
+      "LOW": "Low"
+    },
+    "statusValues": {
+      "DRAFT": "Draft",
+      "IN_REVIEW": "In review",
+      "APPROVED": "Approved",
+      "RELEASED": "Released",
+      "ARCHIVED": "Archived"
+    },
+    "actions": {
+      "DRAFT": "Return to draft",
+      "IN_REVIEW": "Submit for review",
+      "APPROVED": "Approve",
+      "RELEASED": "Release to client",
+      "ARCHIVED": "Archive"
+    },
+    "moveTo": "Workflow:",
+    "statusChanged": "Status changed to {status}",
+    "submitPrerequisites": "To submit for review, rate impact and likelihood and cite at least one source document.",
+    "fourEyes": "You wrote this finding: another partner or project manager has to approve it.",
+    "reasonHelp": "The reason is kept in the history and shown to the author.",
+    "rating": "impact {impact} × likelihood {likelihood}",
+    "author": "Author",
+    "approvedBy": "approved by {name}",
+    "releasedBy": "released by {name}",
+    "archived": "Archived: {reason}",
+    "releasedOn": "Released on {date}",
+    "noSources": "No source documents yet.",
+    "hiddenSources": "{count, plural, one {# further source is} other {# further sources are}} in folders you cannot open.",
+    "addSource": "Cite a source document",
+    "chooseFolder": "Data-room folder",
+    "chooseDocument": "Document",
+    "link": "Cite",
+    "linked": "Source added",
+    "unlink": "Remove",
+    "unlinkConfirm": "Remove this source from the finding?",
+    "view": "View",
+    "notes": "Review notes",
+    "noNotes": "No review notes yet.",
+    "notePlaceholder": "Write a review note",
+    "notesInternal": "Internal: never shown to the client.",
+    "send": "Send",
+    "history": "History",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this draft? Findings that were reviewed are archived instead.",
+    "save": "Save",
+    "create": "Create",
+    "saved": "Saved",
+    "created": "Finding {number} recorded",
+    "editTitle": "Edit {number}",
+    "fromDocument": "The document you were viewing will be cited as the source.",
+    "error": "Something went wrong. Please try again.",
+    "matrix": {
+      "title": "Risk matrix",
+      "help": "A finding's score is impact × likelihood (1–5 each). A score at or above a threshold reaches that level; below the medium threshold it is low. Changing the thresholds re-rates open findings; released findings keep their level.",
+      "save": "Save thresholds",
+      "saved": "Saved: {count, plural, =0 {no open findings re-rated} one {# open finding re-rated} other {# open findings re-rated}}",
+      "invalid": "Thresholds must increase: 1 < medium < high < critical ≤ 25.",
+      "preview": "Preview (impact 5 at the top, likelihood 1–5 left to right)",
+      "axes": "Rows: impact · columns: likelihood",
+      "error": "The thresholds could not be saved."
     }
   }
 }

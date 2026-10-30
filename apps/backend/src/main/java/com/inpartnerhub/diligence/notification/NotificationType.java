@@ -17,5 +17,15 @@ public enum NotificationType {
     /** Open items are due soon or overdue (REQ-04). Params: projectCode, dueSoon, overdue. */
     REQUEST_DUE_REMINDER,
     /** Daily digest of overdue items for the project's managers (REQ-04). Params: projectCode, overdue. */
-    REQUEST_OVERDUE_DIGEST
+    REQUEST_OVERDUE_DIGEST,
+    /** A finding awaits review (FND-04). Params: projectCode, findingNumber, title. */
+    FINDING_SUBMITTED,
+    /** A reviewer returned the author's finding to draft (FND-04). Params: projectCode, findingNumber, title, reason. */
+    FINDING_RETURNED,
+    /** A finding was approved and awaits release by a partner (FND-04). Params: projectCode, findingNumber, title. */
+    FINDING_APPROVED,
+    /** A finding was released to the client (FND-04). Params: projectCode, findingNumber, title. */
+    FINDING_RELEASED,
+    /** A finding was rated HIGH or CRITICAL (Appendix A escalation). Params: projectCode, findingNumber, title, level. */
+    FINDING_ESCALATED
 }

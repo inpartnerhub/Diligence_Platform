@@ -8,8 +8,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.inpartnerhub.diligence.finding.FindingStatistics;
 import com.inpartnerhub.diligence.finding.RiskLevel;
+import com.inpartnerhub.diligence.project.FindingStatistics;
 
 @Component
 @Transactional(readOnly = true)

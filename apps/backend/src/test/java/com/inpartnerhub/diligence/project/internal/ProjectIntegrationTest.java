@@ -90,8 +90,8 @@ class ProjectIntegrationTest {
         // Seed one released HIGH finding and request items directly (their modules arrive in later sprints).
         var legal = projects.workstreams(project.getId()).stream()
                 .filter(w -> w.getType() == WorkstreamType.LEGAL).findFirst().orElseThrow();
-        jdbc.update("insert into fnd.finding (id, project_id, workstream_id, title, category, description, "
-                + "risk_level, status, created_by) values (?, ?, ?, 't', 'c', 'd', 'HIGH', 'RELEASED', ?)",
+        jdbc.update("insert into fnd.finding (id, project_id, workstream_id, number, title, category, description, "
+                + "risk_level, status, created_by) values (?, ?, ?, 'F-LEG-001', 't', 'c', 'd', 'HIGH', 'RELEASED', ?)",
                 UUID.randomUUID(), project.getId(), legal.getId(), pm);
         jdbc.update("insert into req.request_item (id, project_id, workstream_id, number, category, description, "
                 + "status, due_date) values (?, ?, ?, 'L-1', 'Corporate', 'Deed', 'RECEIVED', null), "
