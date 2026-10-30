@@ -26,11 +26,11 @@ Only the latest release deployed from `main` receives security fixes.
 | Strong passwords, brute-force protection | Realm password policy (length 12, history 5, not username/e-mail), lockout after 5 failures | ✅ |
 | Internal SSO | Microsoft Entra ID / Google brokering via `make keycloak-bootstrap` (credentials from env/Vault) | ✅ |
 | Server-side RBAC, tested against cross-project access (IDOR) | `@PreAuthorize`, ABAC `AccessPolicy`, PostgreSQL RLS per project; `AdminEndpointSecurityTest`, `rowLevelSecurityEnforcesInformationBarrier` | ✅ foundation |
-| Information barriers (Bab 3) | RLS: target never sees findings, client sees released findings / issued reports / own questions only | ✅ |
+| Information barriers (Bab 3) | RLS: target never sees findings and only sees data-room folders granted to it; client has no data room and sees released findings / issued reports / own questions only | ✅ |
 | Immutable audit log, stored separately, exportable | `audit` schema, insert-only grants + triggers rejecting UPDATE/DELETE/TRUNCATE; search API | ✅ (export: sprint 15–16) |
 | Encryption in transit (TLS 1.2+) and at rest (AES-256) | TLS at Kong/ingress, `sslmode=verify-full`; customer-managed KMS keys (rotated) for S3 documents, RDS and log groups; encrypted ElastiCache/OpenSearch/MQ | ✅ IaC |
 | Watermark, download/print restrictions, access logging | `Watermarker` port, `dr.folder.download_allowed/print_allowed` (deny by default) | ⏳ sprint 7–8 |
-| Malware scan on every upload, type validation, size limit | ClamAV pipeline (Bab 8.3), 100 MB limit at Kong and Spring | ⏳ sprint 5–6 |
+| Malware scan on every upload, type validation, size limit | ClamAV INSTREAM + Tika magic-byte detection against an allowlist (`diligence.ingestion.allowed-content-types`); nothing is served before CLEAN; 100 MB limit at Kong, Spring and clamd | ✅ |
 | IP / location restriction, anomalous login detection | Keycloak events + alerting; per-project IP allow-list | ⏳ phase 2 |
 | Encrypted backups, restore tests, incident response | RDS backups (14 days), quarterly restore test, runbooks | ⏳ before go-live |
 

@@ -20,8 +20,8 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | Sprint | Scope | Status |
 |--------|-------|--------|
 | 1–2 | Foundation: repo, CI/CD, environments, authentication & SSO, user and role management, UI shell | ✅ delivered |
-| 3–4 | Projects, members, templates, workstreams; core data model and audit log | 🟡 data model + audit log done |
-| 5–6 | Data room: upload, encrypted storage, malware scan, folders, permissions | ⏳ |
+| 3–4 | Projects, members, templates, workstreams; core data model and audit log | ✅ delivered |
+| 5–6 | Data room: upload, encrypted storage, malware scan, folders, permissions | ✅ delivered |
 | 7–8 | Preview, dynamic watermark, download control, search and OCR | ⏳ |
 | 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ⏳ |
 | 11–12 | Findings, source document links, risk rating, validation workflow | 🟡 risk matrix done |
@@ -32,10 +32,10 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 
 | ID | Requirement (short) | Prio | Module / location | Status |
 |----|---------------------|------|-------------------|--------|
-| PRJ-01 | Create/edit/archive projects | M | `project`, `prj.project` | schema |
-| PRJ-02 | Team members and roles per project/workstream | M | `prj.project_member` | schema + RLS |
-| PRJ-03 | Duplicable project templates | M | `prj.project_template`, local seed | schema |
-| PRJ-04 | Project dashboard | M | frontend `/dashboard` | placeholder |
+| PRJ-01 | Create/edit/archive projects | M | `project`, `/projects` UI | ✅ |
+| PRJ-02 | Team members and roles per project/workstream | M | `MemberService`, team tab | ✅ |
+| PRJ-03 | Duplicable project templates | M | `TemplateService`, `/admin/templates` | ✅ |
+| PRJ-04 | Project dashboard | M | `DashboardService`, project dashboard tab | ✅ |
 | PRJ-05 | Portfolio dashboard | S | — | phase 2 |
 | PRJ-06 | Time / workload tracking | C | — | phase 3 |
 | REQ-01 | Request list from template or Excel | M | `request`, `req.request_item` | schema |
@@ -44,15 +44,15 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | REQ-04 | Automatic reminders (e-mail + in-app) | M | `notification` | e-mail port |
 | REQ-05 | Export to Excel/PDF | S (MVP) | — | sprint 9–10 |
 | REQ-06 | Staged waves with history | S | `req.request_item.wave` | schema |
-| DOC-01 | Folders from template, per-folder permissions | M | `dataroom`, `dr.folder` | schema + RLS |
-| DOC-02 | Bulk upload, indexing, malware scan | M | `ingestion` (ClamAV, queues) | ports |
+| DOC-01 | Folders from template, per-folder permissions | M | `FolderService`, `dr.folder_access`, RLS V7 | ✅ |
+| DOC-02 | Bulk upload, indexing, malware scan | M | drag-and-drop/folder upload, RabbitMQ worker, ClamAV | ✅ (indexing: 7–8) |
 | DOC-03 | In-browser preview | M | `ingestion.PreviewRenderer` (Gotenberg) | port |
 | DOC-04 | Dynamic watermark | M | `ingestion.Watermarker` | port |
-| DOC-05 | Disable download/print per folder; logged downloads | M | `dr.folder.download_allowed/print_allowed` | schema |
+| DOC-05 | Disable download/print per folder; logged downloads | M | folder policy flags (UI) | 🟡 policy stored; enforcement 7–8 |
 | DOC-06 | Full-text search incl. OCR | M | `search`, Tika | client config |
-| DOC-07 | Document versions | S (MVP) | `dr.document_version` | schema |
+| DOC-07 | Document versions | S (MVP) | `DocumentService`, versions drawer | ✅ |
 | DOC-08 | Annotations linked to findings | S | — | phase 2 |
-| DOC-09 | AI search, duplicates, key clauses | C | `dr.document.sha256` (duplicates) | phase 3 |
+| DOC-09 | AI search, duplicates, key clauses | C | SHA-256 duplicate detection on upload | 🟡 duplicates done |
 | FND-01 | Record findings | M | `finding`, `fnd.finding` | schema |
 | FND-02 | Link findings to documents (page) and Q&A | M | `fnd.finding_document`, `fnd.finding_question` | schema + RLS |
 | FND-03 | Impact × likelihood risk rating, configurable | M | `finding.RiskMatrix`, `fnd.risk_matrix_config` | ✅ logic + config table |

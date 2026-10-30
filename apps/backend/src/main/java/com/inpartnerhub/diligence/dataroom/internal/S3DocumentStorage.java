@@ -38,6 +38,11 @@ class S3DocumentStorage implements DocumentStorage {
         return s3.getObject(r -> r.bucket(bucket).key(objectKey));
     }
 
+    @Override
+    public void delete(String objectKey) {
+        s3.deleteObject(r -> r.bucket(bucket).key(objectKey));
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class S3ClientConfiguration {
 

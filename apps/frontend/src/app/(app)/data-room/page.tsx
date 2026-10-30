@@ -1,15 +1,10 @@
-import { getTranslations } from "next-intl/server";
-
-import { ComingSoon } from "@/components/ComingSoon";
+import { DataRoomIndexView } from "@/features/dataroom/DataRoomIndexView";
+import { projectsApi } from "@/features/projects/api";
 import { requireAccess } from "@/lib/auth/session";
 
-export default async function DataRoomPage() {
+/** Entry point from the navigation: pick the project whose data room to open. */
+export default async function DataRoomIndexPage() {
   await requireAccess("dataRoom");
-  const t = await getTranslations();
-  return (
-    <ComingSoon
-      title={t("comingSoon.title", { feature: t("nav.dataRoom") })}
-      subtitle={t("comingSoon.subtitle", { sprint: "5–8", requirements: "DOC-01…DOC-07" })}
-    />
-  );
+  const projects = await projectsApi.list({ status: "ACTIVE", size: 100 });
+  return <DataRoomIndexView projects={projects.items} />;
 }

@@ -68,9 +68,9 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 | `admin` | ADM-01 | Organizations, user accounts, groups, invitations; Keycloak Admin API adapter; `/api/v1/me` | ✅ sprint 1–2 |
 | `audit` | ADM-03, ADM-04 | Append-only audit log fed by every `AuditableEvent`; search API | ✅ sprint 1–2 |
 | `notification` | ADM-05, REQ-04 | E-mail port + SMTP adapter, notification preferences | 🟡 skeleton |
-| `project` | PRJ | Projects, members, workstreams, templates, dashboards | ⏳ schema only (sprint 3–4) |
-| `dataroom` | DOC | Folders, documents, versions, watermarked preview, download control | ⏳ storage port (sprint 5–8) |
-| `ingestion` | DOC-02/03/06 | Quarantine → scan → extract/OCR → PDF rendition → index | ⏳ ports + queues |
+| `project` | PRJ | Projects, members, workstreams, templates, dashboards | ✅ sprint 3–4 |
+| `dataroom` | DOC | Folder tree with per-folder grants, uploads (files and folders), versions, duplicate detection | ✅ sprint 5–6 (preview/watermark: 7–8) |
+| `ingestion` | DOC-02/03/06 | RabbitMQ worker: ClamAV scan, Tika type detection; extract/OCR/preview/index next | ✅ scan + type (sprint 5–6) |
 | `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
 | `request` | REQ | Request lists, statuses, reminders, Excel import/export | ⏳ schema only (sprint 9–10) |
 | `finding` | FND | Findings, risk register; risk matrix (Appendix A) implemented | 🟡 `RiskMatrix` (sprint 11–12) |
@@ -146,22 +146,25 @@ set realm role → `execute-actions-email` with `VERIFY_EMAIL`, `UPDATE_PASSWORD
 (NDA, externals) and `CONFIGURE_TOTP` (MFA roles) → mirror row in `adm.user_account` + `adm.invitation` →
 `UserInvited` audited. If any step fails, the Keycloak user is deleted (compensation).
 
-## 6. Document pipeline (PRD 8.3, target design for sprint 5–8)
+## 6. Document pipeline (PRD 8.3; upload, scan and type check live since sprint 5–6)
 
 ```
-Upload (API or pre-signed URL) ─▶ dataroom: object in S3 quarantine prefix, metadata (scan_status=PENDING)
-   └─ DocumentUploaded (outbox) ─▶ RabbitMQ diligence.dataroom.events ─▶ diligence.ingestion.document-uploaded
-        ingestion worker:
-          ContentScanner (ClamAV) ── infected ─▶ scan_status=INFECTED, quarantine kept, audit + notify
-          │ clean: validate type (magic bytes), SHA-256 (duplicate detection, dr.document.sha256)
-          TextExtractor (Tika; Tesseract OCR for scans/images)
-          PreviewRenderer (Gotenberg: Office/image → PDF rendition, preview_key)
-          SearchIndex (OpenSearch, document ACL fields for permission-filtered queries)
+Browser ─▶ Next route handler (streams, adds token) ─▶ POST /folders/{id}/documents (multipart, relativePath)
+   dataroom: SHA-256 while streaming to S3 (KMS-encrypted) → version row, scan_status=PENDING (logical quarantine:
+             nothing PENDING/INFECTED/REJECTED/FAILED is ever served); same name → new version; same hash → unchanged
+   └─ DocumentUploaded (outbox, same transaction) ─▶ RabbitMQ diligence.dataroom.events ─▶ diligence.ingestion.document-uploaded
+        ingestion worker (@RabbitListener, JSON):
+          ContentScanner (ClamAV INSTREAM) ── infected ─▶ INFECTED (signature recorded, audited)
+          │ clean: ContentTypeDetector (Tika /detect/stream, magic bytes) ── not on allowlist ─▶ REJECTED
+          │ allowed ─▶ CLEAN                       transient outage ×3 ─▶ FAILED (never stuck in PENDING)
+          next (sprint 7–8): TextExtractor (Tika + Tesseract OCR), PreviewRenderer (Gotenberg), SearchIndex
 View/download ─▶ API checks access (RBAC + folder policy + RLS) ─▶ Watermarker stamps name, time, IP
                ─▶ short-lived stream / pre-signed URL ─▶ audit "document.viewed" / "document.downloaded"
 ```
 
-Failures retry three times, then dead-letter to `diligence.ingestion.document-uploaded.dlq`.
+Unexpected errors in the worker are retried by the listener container, then dead-lettered to
+`diligence.ingestion.document-uploaded.dlq`. The worker can be scaled separately later by running the same image
+with only the ingestion listener enabled.
 
 ## 7. Frontend
 

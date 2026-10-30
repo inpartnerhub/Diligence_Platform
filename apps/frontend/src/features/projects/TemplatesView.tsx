@@ -116,7 +116,7 @@ export function TemplatesView({ templates }: Readonly<{ templates: ProjectTempla
             title: t("common.name"),
             key: "name",
             render: (_, tpl) => (
-              <Space direction="vertical" size={0}>
+              <Space orientation="vertical" size={0}>
                 <Typography.Text strong>{tpl.name}</Typography.Text>
                 {tpl.description && <Typography.Text type="secondary">{tpl.description}</Typography.Text>}
               </Space>

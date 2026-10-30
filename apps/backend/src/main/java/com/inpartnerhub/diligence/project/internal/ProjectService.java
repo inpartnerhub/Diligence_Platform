@@ -86,8 +86,9 @@ class ProjectService {
         if (command.workstreams() != null) {
             selected.addAll(command.workstreams());
         }
-        if (command.templateId() != null && selected.isEmpty()) {
-            selected.addAll(templates.definition(command.templateId()).workstreams());
+        var template = command.templateId() == null ? null : templates.definition(command.templateId());
+        if (template != null && selected.isEmpty()) {
+            selected.addAll(template.workstreams());
         }
         if (selected.isEmpty()) {
             throw new InvalidRequestException("Select at least one workstream or a template");
@@ -99,7 +100,9 @@ class ProjectService {
         var creatorRole = user.hasRole(Role.PARTNER) ? ProjectRole.PARTNER : ProjectRole.PROJECT_MANAGER;
         members.save(new ProjectMember(project.getId(), user.id(), creatorRole, null, null));
         selected.forEach(type -> workstreams.save(new Workstream(project.getId(), type)));
-        events.publishEvent(new ProjectCreated(project.getId(), project.getCode(), RequestMetadata.capture()));
+        // Published synchronously within this transaction: the data room creates the template's folders.
+        events.publishEvent(new ProjectCreated(project.getId(), project.getCode(),
+                template == null ? List.of() : template.folders(), RequestMetadata.capture()));
         return project;
     }
 

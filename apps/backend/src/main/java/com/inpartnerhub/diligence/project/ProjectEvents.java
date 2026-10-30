@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.project;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -12,7 +13,15 @@ public final class ProjectEvents {
     private ProjectEvents() {
     }
 
-    public record ProjectCreated(UUID projectId, String code, RequestMetadata requestMetadata) implements AuditableEvent {
+    /**
+     * @param folders  initial data-room folder paths from the template ("Parent/Child"); empty without template
+     */
+    public record ProjectCreated(UUID projectId, String code, List<String> folders, RequestMetadata requestMetadata)
+            implements AuditableEvent {
+
+        public ProjectCreated {
+            folders = folders == null ? List.of() : List.copyOf(folders);
+        }
 
         @Override
         public String auditAction() {

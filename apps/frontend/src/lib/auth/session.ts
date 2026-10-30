@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getIronSession, type SessionOptions } from "iron-session";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import * as client from "openid-client";
 
@@ -79,11 +79,15 @@ export async function getSession(): Promise<SessionData | null> {
   }
 }
 
-/** For server components and actions: the session, or a redirect to the login flow. */
-export async function requireSession(returnTo = "/"): Promise<SessionData> {
+/**
+ * For server components and actions: the session, or a redirect to the login flow that returns to the page the
+ * user requested (taken from the header set by proxy.ts when not given explicitly).
+ */
+export async function requireSession(returnTo?: string): Promise<SessionData> {
   const session = await getSession();
   if (!session) {
-    redirect(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
+    const target = safeReturnTo(returnTo ?? (await headers()).get("x-diligence-return-to"));
+    redirect(`/auth/login?returnTo=${encodeURIComponent(target)}`);
   }
   return session;
 }

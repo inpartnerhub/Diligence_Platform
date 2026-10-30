@@ -90,7 +90,11 @@ services:
     ports: ["127.0.0.1:9998:9998"]
 
   clamav:
-    image: clamav/clamav:1.5
+    # Debian variant: multi-arch (amd64 + arm64, e.g. Apple Silicon); the Alpine image is amd64-only.
+    image: clamav/clamav-debian:1.5
+    environment:
+      # Accept streamed uploads up to the platform's 100 MB file limit (clamd's default is 25 MB).
+      CLAMD_CONF_StreamMaxLength: 100M
     ports: ["127.0.0.1:3310:3310"]
     volumes: ["clamav-data:/var/lib/clamav"]
     healthcheck: { <<: *healthcheck, start_period: 180s, test: ["CMD", "clamdcheck.sh"] }
