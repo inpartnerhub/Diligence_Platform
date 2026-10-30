@@ -11,9 +11,25 @@ updates:
     groups:
       next-react: { patterns: ["next", "react", "react-dom", "eslint-config-next", "@types/react*"] }
       antd: { patterns: ["antd", "@ant-design/*"] }
+    ignore:
+      # openapi-typescript requires TypeScript 5.x.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # eslint-config-next's plugins (import, jsx-a11y, react) support ESLint 9 only.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # Types follow the Node.js LTS line used at runtime (.nvmrc); bumped together with the runtime.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directories: ["/apps/backend", "/apps/frontend"]
     schedule: { interval: weekly }
+    ignore:
+      # Runtimes stay on LTS lines (Node 22, Java 21); LTS upgrades are planned changes, not automated bumps.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eclipse-temurin
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly }
