@@ -8,3 +8,10 @@ misconfigurations:
       services through the NAT gateway. Pod egress is restricted by default-deny Kubernetes NetworkPolicies
       (infrastructure/kubernetes/base/common/network-policies.yaml); replacing this with VPC endpoints plus an
       egress proxy is tracked for the hardening phase.
+  - id: KSV-01010
+    paths:
+      - "infrastructure/kubernetes/base/backend/configmap.yaml"
+    statement: >-
+      False positive: the check's passport-number pattern (^[A-Z0-9<]{3,20}$) matches the port values of
+      RABBITMQ_PORT ("5671") and SMTP_PORT ("587"). The ConfigMap holds no credentials or personal data; secrets
+      come from Vault (vault-secret.yaml).
