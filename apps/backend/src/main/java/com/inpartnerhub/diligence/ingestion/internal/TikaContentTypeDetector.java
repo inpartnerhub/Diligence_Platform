@@ -19,7 +19,7 @@ class TikaContentTypeDetector implements ContentTypeDetector {
     private final RestClient http;
 
     TikaContentTypeDetector(RestClient.Builder builder, IngestionProperties properties) {
-        this.http = builder.baseUrl(properties.tikaUrl().toString()).build();
+        this.http = IngestionHttp.client(builder, properties.tikaUrl(), properties.serviceTimeout());
     }
 
     @Override

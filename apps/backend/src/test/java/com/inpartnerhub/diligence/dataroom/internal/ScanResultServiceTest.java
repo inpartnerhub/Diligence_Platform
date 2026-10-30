@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentScanned;
+import com.inpartnerhub.diligence.dataroom.ScanResults;
 import com.inpartnerhub.diligence.dataroom.ScanResults.Outcome;
 
 class ScanResultServiceTest {
@@ -45,6 +46,29 @@ class ScanResultServiceTest {
         assertThat(version.getScannedAt()).isEqualTo(now);
         assertThat(document.getScanStatus()).isEqualTo(ScanStatus.INFECTED);
         verify(events).publishEvent(any(DocumentScanned.class));
+    }
+
+    @Test
+    void cleanResultsStoreTheRenditionAndRefreshSearchForTheCurrentVersion() {
+        var document = new Document(PROJECT, UUID.randomUUID(), "a.pdf", UUID.randomUUID());
+        var version = new DocumentVersion(UUID.randomUUID(), document.getId(), PROJECT, 1, "k", "a.pdf",
+                "application/pdf", 10, "h", UUID.randomUUID());
+        document.useVersion(version);
+        when(versions.findById(version.getId())).thenReturn(Optional.of(version));
+        when(documents.findById(document.getId())).thenReturn(Optional.of(document));
+
+        service.recordClean(version.getId(), "application/pdf",
+                new ScanResults.Rendition(ScanResults.PreviewStatus.READY, 4, false, true));
+
+        assertThat(version.getPreviewStatus()).isEqualTo(PreviewState.READY);
+        assertThat(version.getPageCount()).isEqualTo(4);
+        assertThat(version.isTextExtracted()).isTrue();
+        assertThat(document.getScanStatus()).isEqualTo(ScanStatus.CLEAN);
+        verify(events).publishEvent(new SearchIndexRequested(document.getId(), version.getId()));
+
+        service.record(version.getId(), Outcome.REJECTED, "application/x-sh", "no");
+        assertThat(version.getPreviewStatus()).isEqualTo(PreviewState.UNAVAILABLE);
+        assertThat(version.getPageCount()).isZero();
     }
 
     @Test

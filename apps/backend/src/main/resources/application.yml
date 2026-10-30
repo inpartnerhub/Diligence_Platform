@@ -106,6 +106,9 @@ diligence:
     region: ${S3_REGION:us-east-1}
     bucket: ${S3_BUCKET:diligence-documents}
     path-style: ${S3_PATH_STYLE:true}
+  dataroom:
+    # Time zone of the timestamp in viewer watermarks (PRD DOC-04).
+    watermark-zone: ${WATERMARK_ZONE:Asia/Jakarta}
   search:
     url: ${OPENSEARCH_URL:http://localhost:9200}
     username: ${OPENSEARCH_USERNAME:}
@@ -116,6 +119,8 @@ diligence:
     gotenberg-url: ${GOTENBERG_URL:http://localhost:3002}
     clamav-host: ${CLAMAV_HOST:localhost}
     clamav-port: ${CLAMAV_PORT:3310}
+    # Tesseract languages for scanned documents and images (the image must have the trained data installed).
+    ocr-languages: ${OCR_LANGUAGES:eng}
 
 springdoc:
   api-docs:

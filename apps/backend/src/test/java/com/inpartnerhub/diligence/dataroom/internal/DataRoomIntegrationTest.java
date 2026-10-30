@@ -3,9 +3,13 @@ package com.inpartnerhub.diligence.dataroom.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -37,13 +41,16 @@ import com.inpartnerhub.diligence.TestContainersConfiguration;
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
 import com.inpartnerhub.diligence.ingestion.ContentScanner;
 import com.inpartnerhub.diligence.ingestion.ContentTypeDetector;
+import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
+import com.inpartnerhub.diligence.ingestion.TextExtractor;
+import com.inpartnerhub.diligence.search.SearchIndex;
 import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
 /**
  * Sprint 5–6 end to end against real PostgreSQL and RabbitMQ: template folders, target grants enforced by row-level
  * security (V7), upload with folder paths, and the outbox → RabbitMQ → ingestion worker → scan status round trip.
- * Only object storage, ClamAV and Tika are replaced by test doubles.
+ * Object storage, ClamAV, Tika, Gotenberg and OpenSearch are replaced by test doubles.
  */
 @Tag("integration")
 @SpringBootTest(properties = {
@@ -76,6 +83,18 @@ class DataRoomIntegrationTest {
     @MockitoBean
     ContentTypeDetector detector;
 
+    @MockitoBean
+    TextExtractor extractor;
+
+    @MockitoBean
+    PreviewRenderer renderer;
+
+    @MockitoBean
+    SearchIndex searchIndex;
+
+    @Autowired
+    DocumentViewService views;
+
     private final Map<String, byte[]> objects = new ConcurrentHashMap<>();
     private final UUID clientOrg = UUID.randomUUID();
     private final UUID targetOrg = UUID.randomUUID();
@@ -96,6 +115,8 @@ class DataRoomIntegrationTest {
         });
         when(detector.detect(any(), anyString())).thenAnswer(inv -> ((String) inv.getArgument(1)).endsWith(".exe")
                 ? "application/x-msdownload" : "application/pdf");
+
+        when(extractor.extract(any(), anyString(), anyInt())).thenReturn("isi perjanjian");
 
         jdbc.update("insert into adm.organization (id, name, type) values (?, ?, 'CLIENT'), (?, ?, 'TARGET')",
                 clientOrg, "C " + clientOrg, targetOrg, "T " + targetOrg);
@@ -138,6 +159,17 @@ class DataRoomIntegrationTest {
         assertThat(awaitStatus(() -> status(clean))).isEqualTo("CLEAN");
         assertThat(awaitStatus(() -> status(infected))).isEqualTo("INFECTED");
         assertThat(awaitStatus(() -> status(executable))).isEqualTo("REJECTED");
+
+        // Clean documents reach the search index (after commit, via the event publication registry).
+        verify(searchIndex, timeout(10_000)).index(argThat(d -> d.documentId().equals(clean)
+                && d.content().equals("isi perjanjian") && d.projectId().equals(projectId)));
+        verify(searchIndex, timeout(10_000)).remove(infected);
+
+        // The target may view but not download (folder policy denies by default).
+        signIn(target, Role.TARGET);
+        var viewable = views.open(projectId, clean, null);
+        assertThat(viewable.downloadAllowed()).isFalse();
+        assertThat(viewable.version().getPreviewStatus()).isEqualTo(PreviewState.FAILED); // not a real PDF
 
         // Same name again: new version; identical content: recognised as unchanged.
         signIn(target, Role.TARGET);

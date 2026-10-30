@@ -32,7 +32,7 @@ keycloak-bootstrap: ## Set the admin-api client secret and create local admin/PM
 .PHONY: backend-run
 backend-run: .env ## Run the backend on the host against compose infrastructure
 	set -a && source .env && set +a && cd apps/backend && \
-	SPRING_PROFILES_ACTIVE=local \
+	SPRING_PROFILES_ACTIVE=local SERVER_PORT=$${BACKEND_PORT:-8080} MANAGEMENT_SERVER_PORT=$${BACKEND_MANAGEMENT_PORT:-8081} \
 	DB_URL=jdbc:postgresql://localhost:5432/$$POSTGRES_DB DB_USERNAME=$$POSTGRES_USER DB_PASSWORD=$$POSTGRES_PASSWORD \
 	RABBITMQ_USERNAME=$$RABBITMQ_USERNAME OIDC_ISSUER_URI=http://localhost:8180/realms/diligence \
 	S3_ENDPOINT=http://localhost:$${OBJECT_STORAGE_PORT:-9000} AWS_ACCESS_KEY_ID=$$S3_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$$S3_SECRET_ACCESS_KEY \

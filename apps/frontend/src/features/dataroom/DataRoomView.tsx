@@ -4,7 +4,10 @@ import {
   ArrowLeftOutlined,
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   FolderAddOutlined,
+  FolderOutlined,
+  HistoryOutlined,
   InboxOutlined,
   LockOutlined,
 } from "@ant-design/icons";
@@ -19,10 +22,12 @@ import {
   Flex,
   Input,
   Modal,
+  Pagination,
   Popconfirm,
   Row,
   Select,
   Space,
+  Spin,
   Switch,
   Table,
   Tag,
@@ -42,16 +47,27 @@ import { searchUsers } from "@/features/projects/actions";
 import type { Project, UserSummary } from "@/features/projects/types";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
-import { createFolder, deleteFolder, loadGrants, loadVersions, saveGrants, updateFolder } from "./actions";
+import {
+  createFolder,
+  deleteFolder,
+  loadGrants,
+  loadVersions,
+  saveGrants,
+  searchDocuments,
+  updateFolder,
+} from "./actions";
+import { DocumentViewer, type ViewerTarget } from "./DocumentViewer";
 import {
   buildTree,
   formatBytes,
+  splitHighlight,
   type DataRoomDocument,
   type DocumentVersion,
   type Folder,
   type Grant,
   type Permission,
   type ScanStatus,
+  type SearchResponse,
   type UploadResponse,
 } from "./types";
 
@@ -84,6 +100,8 @@ export function DataRoomView({
   const { update } = useUrlQuery();
   const tree = useMemo(() => buildTree(folders), [folders]);
   const [versionsOf, setVersionsOf] = useState<DataRoomDocument | null>(null);
+  const [viewing, setViewing] = useState<ViewerTarget | null>(null);
+  const [search, setSearch] = useState<{ q: string; page: number; response: SearchResponse } | null>(null);
 
   // Scans run asynchronously; refresh while any document in view is still pending.
   const scanning = documents.some((d) => d.scanStatus === "PENDING");
@@ -95,13 +113,16 @@ export function DataRoomView({
 
   return (
     <>
-      <Flex vertical gap={4} style={{ marginBottom: 16 }}>
-        <Link href={`/projects/${project.id}`}>
-          <ArrowLeftOutlined /> {project.name}
-        </Link>
-        <Typography.Title level={3} style={{ margin: 0 }}>
-          {t("title")} · {project.code}
-        </Typography.Title>
+      <Flex gap={16} wrap justify="space-between" align="end" style={{ marginBottom: 16 }}>
+        <Flex vertical gap={4}>
+          <Link href={`/projects/${project.id}`}>
+            <ArrowLeftOutlined /> {project.name}
+          </Link>
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            {t("title")} · {project.code}
+          </Typography.Title>
+        </Flex>
+        <SearchBox projectId={project.id} onResults={setSearch} />
       </Flex>
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8} xl={7}>
@@ -114,10 +135,23 @@ export function DataRoomView({
           />
         </Col>
         <Col xs={24} lg={16} xl={17}>
-          {selected ? (
+          {search ? (
+            <SearchResults
+              projectId={project.id}
+              folders={folders}
+              search={search}
+              onPage={setSearch}
+              onClose={() => setSearch(null)}
+              onOpen={setViewing}
+            />
+          ) : selected ? (
             <Card title={selected.name} extra={selected.downloadAllowed ? null : <LockOutlined />}>
               {selected.canUpload && <UploadArea projectId={project.id} folder={selected} />}
-              <DocumentTable documents={documents} onOpen={setVersionsOf} />
+              <DocumentTable
+                documents={documents}
+                onView={(d) => setViewing({ documentId: d.id })}
+                onVersions={setVersionsOf}
+              />
             </Card>
           ) : (
             <Card>
@@ -134,7 +168,13 @@ export function DataRoomView({
           )}
         </Col>
       </Row>
-      <VersionsDrawer projectId={project.id} document={versionsOf} onClose={() => setVersionsOf(null)} />
+      <VersionsDrawer
+        projectId={project.id}
+        document={versionsOf}
+        onClose={() => setVersionsOf(null)}
+        onView={setViewing}
+      />
+      <DocumentViewer projectId={project.id} target={viewing} onClose={() => setViewing(null)} />
     </>
   );
 }
@@ -495,10 +535,18 @@ function UploadArea({ projectId, folder }: Readonly<{ projectId: string; folder:
 
 function DocumentTable({
   documents,
-  onOpen,
-}: Readonly<{ documents: DataRoomDocument[]; onOpen: (document: DataRoomDocument) => void }>) {
+  onView,
+  onVersions,
+}: Readonly<{
+  documents: DataRoomDocument[];
+  onView: (document: DataRoomDocument) => void;
+  onVersions: (document: DataRoomDocument) => void;
+}>) {
   const t = useTranslations("dataRoom");
   const format = useFormatter();
+  // Only content that passed the security scan can be opened; anything else shows its scan history.
+  const open = (document: DataRoomDocument) =>
+    document.scanStatus === "CLEAN" ? onView(document) : onVersions(document);
   return (
     <Table<DataRoomDocument>
       rowKey="id"
@@ -506,7 +554,7 @@ function DocumentTable({
       dataSource={documents}
       pagination={documents.length > 50 ? { pageSize: 50 } : false}
       scroll={{ x: 640 }}
-      onRow={(document) => ({ onClick: () => onOpen(document), style: { cursor: "pointer" } })}
+      onRow={(document) => ({ onClick: () => open(document), style: { cursor: "pointer" } })}
       columns={[
         { title: t("name"), dataIndex: "name", ellipsis: true },
         {
@@ -525,8 +573,151 @@ function DocumentTable({
           render: (_, d) =>
             format.dateTime(new Date(d.createdAt), { dateStyle: "medium", timeStyle: "short" }),
         },
+        {
+          key: "actions",
+          width: 96,
+          render: (_, d) => (
+            <Space size={4} onClick={(event) => event.stopPropagation()}>
+              <Tooltip title={d.scanStatus === "CLEAN" ? t("open") : t("notViewable")}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<EyeOutlined />}
+                  aria-label={t("open")}
+                  disabled={d.scanStatus !== "CLEAN"}
+                  onClick={() => onView(d)}
+                />
+              </Tooltip>
+              <Tooltip title={t("versions")}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<HistoryOutlined />}
+                  aria-label={t("versions")}
+                  onClick={() => onVersions(d)}
+                />
+              </Tooltip>
+            </Space>
+          ),
+        },
       ]}
     />
+  );
+}
+
+function SearchBox({
+  projectId,
+  onResults,
+}: Readonly<{
+  projectId: string;
+  onResults: (search: { q: string; page: number; response: SearchResponse } | null) => void;
+}>) {
+  const t = useTranslations("dataRoom");
+  const common = useTranslations("common");
+  const { message } = App.useApp();
+  const [pending, startTransition] = useTransition();
+  return (
+    <Input.Search
+      allowClear
+      enterButton
+      loading={pending}
+      maxLength={500}
+      placeholder={t("searchPlaceholder")}
+      aria-label={t("search")}
+      style={{ width: "min(100%, 420px)" }}
+      onSearch={(value) => {
+        const q = value.trim();
+        if (!q) {
+          onResults(null);
+          return;
+        }
+        startTransition(async () => {
+          const result = await searchDocuments(projectId, q);
+          if (result.ok && result.data) onResults({ q, page: 0, response: result.data });
+          else message.error((!result.ok && result.message) || common("error"));
+        });
+      }}
+    />
+  );
+}
+
+function SearchResults({
+  projectId,
+  folders,
+  search,
+  onPage,
+  onClose,
+  onOpen,
+}: Readonly<{
+  projectId: string;
+  folders: Folder[];
+  search: { q: string; page: number; response: SearchResponse };
+  onPage: (search: { q: string; page: number; response: SearchResponse }) => void;
+  onClose: () => void;
+  onOpen: (target: ViewerTarget) => void;
+}>) {
+  const t = useTranslations("dataRoom");
+  const [pending, startTransition] = useTransition();
+  const folderNames = useMemo(() => new Map(folders.map((f) => [f.id, f.name])), [folders]);
+  const { response } = search;
+  return (
+    <Card
+      title={t("searchResults", { total: response.total, q: search.q })}
+      extra={
+        <Button size="small" icon={<ArrowLeftOutlined />} onClick={onClose}>
+          {t("clearSearch")}
+        </Button>
+      }
+    >
+      <Spin spinning={pending}>
+        {response.results.length === 0 ? (
+          <Empty description={t("noResults")} />
+        ) : (
+          <Flex vertical>
+            {response.results.map((result) => (
+              <Flex
+                key={result.documentId}
+                vertical
+                gap={4}
+                style={{ padding: "12px 0", borderBottom: "1px solid rgba(5, 5, 5, 0.06)" }}
+              >
+                <Typography.Link strong onClick={() => onOpen({ documentId: result.documentId })}>
+                  {result.name}
+                </Typography.Link>
+                <Typography.Text type="secondary">
+                  <FolderOutlined /> {folderNames.get(result.folderId) ?? "—"}
+                </Typography.Text>
+                {result.highlights.map((fragment, index) => (
+                  <Typography.Text key={index}>
+                    …
+                    {splitHighlight(fragment).map((part, i) =>
+                      part.match ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
+                    )}
+                    …
+                  </Typography.Text>
+                ))}
+              </Flex>
+            ))}
+          </Flex>
+        )}
+      </Spin>
+      {response.total > response.size && (
+        <Pagination
+          style={{ marginTop: 16 }}
+          align="end"
+          current={search.page + 1}
+          pageSize={response.size}
+          total={Math.min(response.total, 10_000)}
+          showSizeChanger={false}
+          onChange={(page) =>
+            startTransition(async () => {
+              const result = await searchDocuments(projectId, search.q, page - 1);
+              if (result.ok && result.data) onPage({ q: search.q, page: page - 1, response: result.data });
+            })
+          }
+        />
+      )}
+    </Card>
   );
 }
 
@@ -534,7 +725,13 @@ function VersionsDrawer({
   projectId,
   document,
   onClose,
-}: Readonly<{ projectId: string; document: DataRoomDocument | null; onClose: () => void }>) {
+  onView,
+}: Readonly<{
+  projectId: string;
+  document: DataRoomDocument | null;
+  onClose: () => void;
+  onView: (target: ViewerTarget) => void;
+}>) {
   const t = useTranslations("dataRoom");
   const format = useFormatter();
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
@@ -555,6 +752,18 @@ function VersionsDrawer({
               size="small"
               column={1}
               title={`${t("version")} ${v.versionNumber}`}
+              extra={
+                v.scanStatus === "CLEAN" &&
+                document && (
+                  <Button
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => onView({ documentId: document.id, versionId: v.id })}
+                  >
+                    {t("open")}
+                  </Button>
+                )
+              }
               items={[
                 {
                   key: "status",

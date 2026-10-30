@@ -44,6 +44,7 @@ dependencies {
     implementation("software.amazon.awssdk:s3")
     implementation(libs.opensearch.java)
     implementation("org.apache.httpcomponents.client5:httpclient5")
+    implementation(libs.pdfbox) // page rasterising (previews) and watermarked PDF downloads
 
     // Messaging & notifications
     implementation("org.springframework.boot:spring-boot-starter-amqp")

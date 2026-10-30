@@ -23,6 +23,9 @@ data:
   TIKA_URL: http://tika.diligence-processing.svc:9998
   GOTENBERG_URL: http://gotenberg.diligence-processing.svc:3000
   CLAMAV_HOST: clamav.diligence-processing.svc
+  # Tesseract languages for scanned documents; "ind" needs a Tika image with that trained data (see ARCHITECTURE §6).
+  OCR_LANGUAGES: eng
+  WATERMARK_ZONE: Asia/Jakarta
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector.monitoring.svc:4318/v1/traces
   OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://otel-collector.monitoring.svc:4318/v1/logs
   TRACING_SAMPLING_PROBABILITY: "0.1"

@@ -3,6 +3,8 @@ package com.inpartnerhub.diligence.dataroom.internal;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.inpartnerhub.diligence.dataroom.ScanResults;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -54,6 +56,16 @@ class DocumentVersion {
     @Column(name = "scanned_at")
     private Instant scannedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preview_status", nullable = false)
+    private PreviewState previewStatus;
+
+    @Column(name = "page_count")
+    private Integer pageCount;
+
+    @Column(name = "text_extracted", nullable = false)
+    private boolean textExtracted;
+
     @Column(name = "uploaded_by", nullable = false, updatable = false)
     private UUID uploadedBy;
 
@@ -77,6 +89,7 @@ class DocumentVersion {
         this.uploadedBy = uploadedBy;
         this.uploadedAt = Instant.now();
         this.scanStatus = ScanStatus.PENDING;
+        this.previewStatus = PreviewState.PENDING;
     }
 
     void recordScan(ScanStatus status, String detectedContentType, String detail, Instant at) {
@@ -84,6 +97,23 @@ class DocumentVersion {
         this.detectedContentType = detectedContentType;
         this.scanDetail = detail == null || detail.length() <= 500 ? detail : detail.substring(0, 500);
         this.scannedAt = at;
+    }
+
+    /** What the pipeline produced for a clean version; versions that are not clean never get a preview. */
+    void recordRendition(ScanResults.Rendition rendition) {
+        this.previewStatus = PreviewState.valueOf(rendition.preview().name());
+        this.pageCount = rendition.preview() == ScanResults.PreviewStatus.READY ? rendition.pageCount() : null;
+        this.textExtracted = rendition.textExtracted();
+    }
+
+    void noRendition() {
+        this.previewStatus = PreviewState.UNAVAILABLE;
+        this.pageCount = null;
+        this.textExtracted = false;
+    }
+
+    boolean isDetectedPdf() {
+        return detectedContentType != null && detectedContentType.split(";")[0].strip().equals("application/pdf");
     }
 
     UUID getId() {
@@ -136,6 +166,18 @@ class DocumentVersion {
 
     Instant getScannedAt() {
         return scannedAt;
+    }
+
+    PreviewState getPreviewStatus() {
+        return previewStatus;
+    }
+
+    int getPageCount() {
+        return pageCount == null ? 0 : pageCount;
+    }
+
+    boolean isTextExtracted() {
+        return textExtracted;
     }
 
     UUID getUploadedBy() {

@@ -69,8 +69,8 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 | `audit` | ADM-03, ADM-04 | Append-only audit log fed by every `AuditableEvent`; search API | ✅ sprint 1–2 |
 | `notification` | ADM-05, REQ-04 | E-mail port + SMTP adapter, notification preferences | 🟡 skeleton |
 | `project` | PRJ | Projects, members, workstreams, templates, dashboards | ✅ sprint 3–4 |
-| `dataroom` | DOC | Folder tree with per-folder grants, uploads (files and folders), versions, duplicate detection | ✅ sprint 5–6 (preview/watermark: 7–8) |
-| `ingestion` | DOC-02/03/06 | RabbitMQ worker: ClamAV scan, Tika type detection; extract/OCR/preview/index next | ✅ scan + type (sprint 5–6) |
+| `dataroom` | DOC | Folder tree with per-folder grants, uploads, versions, duplicates; watermarked preview, download control, search | ✅ sprint 5–8 |
+| `ingestion` | DOC-02/03/06 | RabbitMQ worker: ClamAV scan, Tika type detection, text/OCR, PDF rendition, page images | ✅ sprint 5–8 |
 | `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
 | `request` | REQ | Request lists, statuses, reminders, Excel import/export | ⏳ schema only (sprint 9–10) |
 | `finding` | FND | Findings, risk register; risk matrix (Appendix A) implemented | 🟡 `RiskMatrix` (sprint 11–12) |
@@ -146,7 +146,7 @@ set realm role → `execute-actions-email` with `VERIFY_EMAIL`, `UPDATE_PASSWORD
 (NDA, externals) and `CONFIGURE_TOTP` (MFA roles) → mirror row in `adm.user_account` + `adm.invitation` →
 `UserInvited` audited. If any step fails, the Keycloak user is deleted (compensation).
 
-## 6. Document pipeline (PRD 8.3; upload, scan and type check live since sprint 5–6)
+## 6. Document pipeline (PRD 8.3; scan since sprint 5–6, preview/watermark/search since sprint 7–8)
 
 ```
 Browser ─▶ Next route handler (streams, adds token) ─▶ POST /folders/{id}/documents (multipart, relativePath)
@@ -156,11 +156,26 @@ Browser ─▶ Next route handler (streams, adds token) ─▶ POST /folders/{id
         ingestion worker (@RabbitListener, JSON):
           ContentScanner (ClamAV INSTREAM) ── infected ─▶ INFECTED (signature recorded, audited)
           │ clean: ContentTypeDetector (Tika /detect/stream, magic bytes) ── not on allowlist ─▶ REJECTED
-          │ allowed ─▶ CLEAN                       transient outage ×3 ─▶ FAILED (never stuck in PENDING)
-          next (sprint 7–8): TextExtractor (Tika + Tesseract OCR), PreviewRenderer (Gotenberg), SearchIndex
-View/download ─▶ API checks access (RBAC + folder policy + RLS) ─▶ Watermarker stamps name, time, IP
-               ─▶ short-lived stream / pre-signed URL ─▶ audit "document.viewed" / "document.downloaded"
+          │ allowed ─▶ enrich, then CLEAN          transient scan outage ×3 ─▶ FAILED (never stuck in PENDING)
+          │   TextExtractor (Tika /tika, Tesseract OCR for images and scanned pages) ─▶ renditions/{v}/text.txt
+          │   PDF: original │ Office/RTF/text: PreviewRenderer (Gotenberg LibreOffice) │ images: PDFBox
+          │     ─▶ PageRasterizer (PDFBox, ≤ 300 pages, ≤ 2400 px) ─▶ renditions/{v}/pages/NNNN.png
+          │     ─▶ non-PDF originals also keep renditions/{v}/document.pdf for downloads
+          │   enrichment failures degrade (no preview / no text), they never fail a clean document
+   ScanResults.recordClean ─▶ SearchIndexRequested (event registry, after commit) ─▶ SearchIndexer ─▶ OpenSearch
+View ─▶ GET /documents/{d}/preview (audit "document.viewed") ─▶ GET …/versions/{v}/pages/{n}: stored PNG stamped
+        per request with name · e-mail · IP · time (Watermarker, Java2D); the PDF never reaches the browser
+Download ─▶ folder policy (deny by default; partners/PMs exempt) ─▶ watermarked PDF (PDFBox; print permission
+            removed and AES-256 owner password when printing is not allowed) or the original (internal team,
+            or types without a PDF form) ─▶ audit "document.downloaded"
+Search ─▶ GET /projects/{p}/search ─▶ OpenSearch query filtered to the project and the folders the caller can see
+          (RLS + workstream scope), hits re-checked against the database ─▶ highlights marked U+E000…U+E001
 ```
+
+The index (`<prefix>-documents`) analyses content three ways (standard, Indonesian and English stemming). OCR uses
+`OCR_LANGUAGES` (default `eng`); the stock `apache/tika:*-full` image ships eng/deu/fra/ita/spa/jpn, so Indonesian
+trained data (`ind`) needs a derived image with `tesseract-ocr-ind`. Viewer watermark times use `WATERMARK_ZONE`
+(default Asia/Jakarta).
 
 Unexpected errors in the worker are retried by the listener container, then dead-lettered to
 `diligence.ingestion.document-uploaded.dlq`. The worker can be scaled separately later by running the same image

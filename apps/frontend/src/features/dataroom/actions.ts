@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 
-import type { DocumentVersion, Grant } from "./types";
+import type { DocumentVersion, Grant, PreviewInfo, SearchResponse } from "./types";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
 
@@ -64,6 +64,43 @@ export async function loadVersions(projectId: string, documentId: string): Promi
   return apiFetch<DocumentVersion[]>(
     `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/versions`,
   );
+}
+
+/** Opens a document in the viewer (logged as a view by the backend). */
+export async function openPreview(
+  projectId: string,
+  documentId: string,
+  versionId?: string,
+): Promise<Result<PreviewInfo>> {
+  const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
+  return attempt(() =>
+    apiFetch<PreviewInfo>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/preview${query}`,
+    ),
+  );
+}
+
+export async function searchDocuments(
+  projectId: string,
+  q: string,
+  page = 0,
+): Promise<Result<SearchResponse>> {
+  const query = new URLSearchParams({ q, page: String(page), size: "20" });
+  return attempt(() =>
+    apiFetch<SearchResponse>(`/api/v1/projects/${encodeURIComponent(projectId)}/search?${query}`),
+  );
+}
+
+async function attempt<T>(call: () => Promise<T>): Promise<Result<T>> {
+  try {
+    return { ok: true, data: await call() };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message };
+    }
+    console.error("Data room request failed", error);
+    return { ok: false, message: "" };
+  }
 }
 
 export async function refreshDataRoom(projectId: string): Promise<void> {

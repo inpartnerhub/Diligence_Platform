@@ -240,7 +240,7 @@
   },
   "dataRoom": {
     "title": "Data room",
-    "open": "Open data room",
+    "open": "Open",
     "chooseProject": "Choose a project to open its data room.",
     "noProjects": "You have no projects with a data room.",
     "folders": "Folders",
@@ -263,7 +263,7 @@
     "addUser": "Add user",
     "policy": "Download allowed",
     "printPolicy": "Print allowed",
-    "policyHelp": "Download and print are denied by default (watermarked preview arrives in sprint 7–8).",
+    "policyHelp": "Download and print are denied by default; partners and project managers are not bound by these settings. Every view and download is logged.",
     "uploadFolder": "Upload folder",
     "dropHint": "Drag files or a whole folder here, or click to choose",
     "dropSub": "Each file is scanned for malware before anyone can open it. Max 100 MB per file.",
@@ -287,6 +287,29 @@
       "INFECTED": "Malware",
       "REJECTED": "Type not allowed",
       "FAILED": "Scan failed"
+    },
+    "notViewable": "Available once the security scan has passed",
+    "search": "Search documents",
+    "searchPlaceholder": "Search names and content, incl. scanned documents",
+    "searchResults": "{total, plural, =0 {No results} one {# result} other {# results}} for “{q}”",
+    "noResults": "No documents match. Use \"quotes\" for phrases and -word to exclude.",
+    "clearSearch": "Back to folders",
+    "viewer": {
+      "title": "Document",
+      "version": "Version {number}",
+      "pages": "{count, plural, one {# page} other {# pages}}",
+      "page": "Page {number}",
+      "watermarkNotice": "Pages are watermarked with your name, e-mail, IP address and the time of viewing.",
+      "downloadPdf": "Download PDF",
+      "downloadOriginal": "Download original",
+      "print": "Print",
+      "downloadDenied": "Download disabled for this folder",
+      "printDenied": "Printing is disabled for this folder.",
+      "preparing": "Preparing the preview",
+      "preparingSub": "Pages appear once processing has finished.",
+      "unavailable": "This file type has no preview.",
+      "failed": "No preview could be created (the file may be damaged or password-protected).",
+      "error": "The document could not be opened."
     }
   }
 }

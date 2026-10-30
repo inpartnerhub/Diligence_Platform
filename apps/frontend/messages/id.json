@@ -240,7 +240,7 @@
   },
   "dataRoom": {
     "title": "Data room",
-    "open": "Buka data room",
+    "open": "Buka",
     "chooseProject": "Pilih proyek untuk membuka data room-nya.",
     "noProjects": "Anda belum memiliki proyek dengan data room.",
     "folders": "Folder",
@@ -263,7 +263,7 @@
     "addUser": "Tambah pengguna",
     "policy": "Unduhan diizinkan",
     "printPolicy": "Cetak diizinkan",
-    "policyHelp": "Unduh dan cetak ditolak secara default (pratinjau dengan watermark hadir pada sprint 7–8).",
+    "policyHelp": "Unduh dan cetak ditolak secara default; partner dan manajer proyek tidak terikat pengaturan ini. Setiap tampilan dan unduhan dicatat.",
     "uploadFolder": "Unggah folder",
     "dropHint": "Seret file atau seluruh folder ke sini, atau klik untuk memilih",
     "dropSub": "Setiap file dipindai malware sebelum dapat dibuka siapa pun. Maks. 100 MB per file.",
@@ -287,6 +287,29 @@
       "INFECTED": "Malware",
       "REJECTED": "Tipe tidak diizinkan",
       "FAILED": "Pemindaian gagal"
+    },
+    "notViewable": "Tersedia setelah lolos pemindaian keamanan",
+    "search": "Cari dokumen",
+    "searchPlaceholder": "Cari nama dan isi, termasuk dokumen hasil pindai",
+    "searchResults": "{total, plural, =0 {Tidak ada hasil} other {# hasil}} untuk “{q}”",
+    "noResults": "Tidak ada dokumen yang cocok. Gunakan \"tanda kutip\" untuk frasa dan -kata untuk mengecualikan.",
+    "clearSearch": "Kembali ke folder",
+    "viewer": {
+      "title": "Dokumen",
+      "version": "Versi {number}",
+      "pages": "{count} halaman",
+      "page": "Halaman {number}",
+      "watermarkNotice": "Halaman diberi watermark berisi nama, e-mail, alamat IP, dan waktu Anda melihat.",
+      "downloadPdf": "Unduh PDF",
+      "downloadOriginal": "Unduh file asli",
+      "print": "Cetak",
+      "downloadDenied": "Unduhan dinonaktifkan untuk folder ini",
+      "printDenied": "Pencetakan dinonaktifkan untuk folder ini.",
+      "preparing": "Menyiapkan pratinjau",
+      "preparingSub": "Halaman akan muncul setelah pemrosesan selesai.",
+      "unavailable": "Jenis file ini tidak memiliki pratinjau.",
+      "failed": "Pratinjau tidak dapat dibuat (file mungkin rusak atau dilindungi kata sandi).",
+      "error": "Dokumen tidak dapat dibuka."
     }
   }
 }

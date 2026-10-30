@@ -1,5 +1,7 @@
 import "server-only";
 
+import { headers as requestHeaders } from "next/headers";
+
 import { requireSession } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/config/env";
 
@@ -38,6 +40,7 @@ export async function apiFetch<T>(path: `/api/${string}`, options: RequestOption
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
+      ...(await forwardedFor()),
       ...(body !== undefined && { "Content-Type": "application/json" }),
       ...headers,
     },
@@ -50,4 +53,19 @@ export async function apiFetch<T>(path: `/api/${string}`, options: RequestOption
     throw new ApiError({ ...problem, status: response.status });
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
+}
+
+/**
+ * The browser's address for audit logs and watermarks (PRD ADM-03, DOC-04). The backend only sees this server, so
+ * the address the ingress reported to us is passed on; outside a request (or without a proxy) nothing is sent.
+ */
+export async function forwardedFor(): Promise<Record<string, string>> {
+  try {
+    const incoming = await requestHeaders();
+    const address =
+      incoming.get("x-forwarded-for")?.split(",")[0]?.trim() || incoming.get("x-real-ip")?.trim();
+    return address ? { "X-Forwarded-For": address } : {};
+  } catch {
+    return {};
+  }
 }

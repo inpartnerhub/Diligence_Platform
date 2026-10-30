@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTree, formatBytes, type Folder } from "./types";
+import { buildTree, formatBytes, splitHighlight, type Folder } from "./types";
 
 const folder = (id: string, name: string, parentId: string | null = null): Folder => ({
   id,
@@ -28,5 +28,17 @@ describe("data room helpers", () => {
     expect(formatBytes(512)).toBe("512 B");
     expect(formatBytes(1536)).toBe("1.5 KB");
     expect(formatBytes(25 * 1024 * 1024)).toBe("25 MB");
+  });
+});
+
+describe("splitHighlight", () => {
+  it("separates matches from plain text without interpreting HTML", () => {
+    expect(splitHighlight("akta pendirian PT <b>X</b> baru")).toEqual([
+      { text: "akta ", match: false },
+      { text: "pendirian", match: true },
+      { text: " PT <b>X</b> ", match: false },
+      { text: "baru", match: true },
+    ]);
+    expect(splitHighlight("no match")).toEqual([{ text: "no match", match: false }]);
   });
 });

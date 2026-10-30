@@ -39,6 +39,58 @@ export interface DocumentVersion {
   uploadedAt: string;
 }
 
+export type PreviewStatus = "PENDING" | "READY" | "UNAVAILABLE" | "FAILED";
+
+export interface PreviewInfo {
+  documentId: string;
+  versionId: string;
+  versionNumber: number;
+  name: string;
+  previewStatus: PreviewStatus;
+  pageCount: number;
+  downloadAllowed: boolean;
+  printAllowed: boolean;
+  pdfAvailable: boolean;
+  originalAllowed: boolean;
+}
+
+export interface SearchResult {
+  documentId: string;
+  versionId: string;
+  folderId: string;
+  name: string;
+  contentType: string;
+  score: number;
+  highlights: string[];
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+/** Backend highlight markers (private-use characters, never HTML). */
+export const MATCH_START = "\uE000";
+export const MATCH_END = "\uE001";
+
+/** Splits a highlight fragment into plain and matched parts, to render without HTML injection. */
+export function splitHighlight(fragment: string): { text: string; match: boolean }[] {
+  const parts: { text: string; match: boolean }[] = [];
+  for (const chunk of fragment.split(MATCH_START)) {
+    const end = chunk.indexOf(MATCH_END);
+    if (end < 0) {
+      if (chunk) parts.push({ text: chunk, match: false });
+      continue;
+    }
+    if (end > 0) parts.push({ text: chunk.slice(0, end), match: true });
+    const rest = chunk.slice(end + MATCH_END.length);
+    if (rest) parts.push({ text: rest, match: false });
+  }
+  return parts;
+}
+
 export interface UploadResponse {
   document: DataRoomDocument;
   version: DocumentVersion;

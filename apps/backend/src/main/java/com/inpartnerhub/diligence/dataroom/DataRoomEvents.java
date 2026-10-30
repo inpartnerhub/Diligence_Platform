@@ -62,6 +62,56 @@ public final class DataRoomEvents {
         }
     }
 
+    /** A document was opened in the viewer (PRD ADM-03: who viewed what). Page requests are not logged one by one. */
+    public record DocumentViewed(UUID projectId, UUID documentId, UUID versionId, RequestMetadata requestMetadata)
+            implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "document.viewed";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "document";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return documentId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("projectId", projectId.toString(), "versionId", versionId.toString());
+        }
+    }
+
+    /** PRD DOC-05: every download is logged, with the format served (watermarked PDF or original). */
+    public record DocumentDownloaded(UUID projectId, UUID documentId, UUID versionId, String format,
+            RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "document.downloaded";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "document";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return documentId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("projectId", projectId.toString(), "versionId", versionId.toString(), "format", format);
+        }
+    }
+
     public record FolderChanged(UUID projectId, UUID folderId, String change, RequestMetadata requestMetadata)
             implements AuditableEvent {
 

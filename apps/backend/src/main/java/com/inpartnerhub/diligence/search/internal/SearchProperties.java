@@ -11,7 +11,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("diligence.search")
 record SearchProperties(URI url, String indexPrefix, String username, String password) {
 
+    SearchProperties {
+        indexPrefix = indexPrefix == null || indexPrefix.isBlank() ? "diligence" : indexPrefix;
+    }
+
     boolean hasCredentials() {
         return username != null && !username.isBlank();
+    }
+
+    String documentsIndex() {
+        return indexPrefix + "-documents";
     }
 }

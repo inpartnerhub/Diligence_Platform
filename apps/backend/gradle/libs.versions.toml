@@ -6,6 +6,7 @@ springdoc = "3.0.3"
 sentry = "8.62.0"
 aws-sdk = "2.57.7"
 opensearch-java = "3.10.0"
+pdfbox = "3.0.8"
 sonarqube = "7.5.0.8588"
 
 [libraries]
@@ -14,6 +15,7 @@ aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 sentry-bom = { module = "io.sentry:sentry-bom", version.ref = "sentry" }
 springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

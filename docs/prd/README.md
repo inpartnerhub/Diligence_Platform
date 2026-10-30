@@ -22,7 +22,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | 1–2 | Foundation: repo, CI/CD, environments, authentication & SSO, user and role management, UI shell | ✅ delivered |
 | 3–4 | Projects, members, templates, workstreams; core data model and audit log | ✅ delivered |
 | 5–6 | Data room: upload, encrypted storage, malware scan, folders, permissions | ✅ delivered |
-| 7–8 | Preview, dynamic watermark, download control, search and OCR | ⏳ |
+| 7–8 | Preview, dynamic watermark, download control, search and OCR | ✅ delivered |
 | 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ⏳ |
 | 11–12 | Findings, source document links, risk rating, validation workflow | 🟡 risk matrix done |
 | 13–14 | Q&A with approval; report builder (Word/PDF) from templates | ⏳ |
@@ -45,11 +45,11 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | REQ-05 | Export to Excel/PDF | S (MVP) | — | sprint 9–10 |
 | REQ-06 | Staged waves with history | S | `req.request_item.wave` | schema |
 | DOC-01 | Folders from template, per-folder permissions | M | `FolderService`, `dr.folder_access`, RLS V7 | ✅ |
-| DOC-02 | Bulk upload, indexing, malware scan | M | drag-and-drop/folder upload, RabbitMQ worker, ClamAV | ✅ (indexing: 7–8) |
-| DOC-03 | In-browser preview | M | `ingestion.PreviewRenderer` (Gotenberg) | port |
-| DOC-04 | Dynamic watermark | M | `ingestion.Watermarker` | port |
-| DOC-05 | Disable download/print per folder; logged downloads | M | folder policy flags (UI) | 🟡 policy stored; enforcement 7–8 |
-| DOC-06 | Full-text search incl. OCR | M | `search`, Tika | client config |
+| DOC-02 | Bulk upload, indexing, malware scan | M | drag-and-drop/folder upload, RabbitMQ worker, ClamAV, `SearchIndexer` | ✅ |
+| DOC-03 | In-browser preview | M | Gotenberg/PDFBox renditions, pre-rendered pages, `DocumentViewer` | ✅ |
+| DOC-04 | Dynamic watermark | M | `dataroom.Watermarker`: name, e-mail, IP, time on every page and download | ✅ |
+| DOC-05 | Disable download/print per folder; logged downloads | M | `DocumentViewService` policy, PDF print permission, print CSS, audit | ✅ |
+| DOC-06 | Full-text search incl. OCR | M | Tika + Tesseract, OpenSearch (`search`), barrier-filtered queries | ✅ |
 | DOC-07 | Document versions | S (MVP) | `DocumentService`, versions drawer | ✅ |
 | DOC-08 | Annotations linked to findings | S | — | phase 2 |
 | DOC-09 | AI search, duplicates, key clauses | C | SHA-256 duplicate detection on upload | 🟡 duplicates done |
