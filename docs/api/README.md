@@ -21,7 +21,7 @@ The frontend consumes the spec with `npm run generate:api` (openapi-typescript),
 - Resource-oriented paths under `/api/v1`, plural kebab-case nouns, camelCase JSON.
 - `GET` is safe and idempotent; `PUT`/`DELETE` idempotent; use `POST` for creation and commands.
 - Pagination: `?page=0&size=20&sort=createdAt,desc`; responses include `page` metadata.
-- Errors: RFC 9457 `application/problem+json` with a stable `type` URI (`urn:platform:problem:<code>`).
+- Errors: RFC 9457 `application/problem+json` with a stable `type` URI (`urn:diligence:problem:<code>`).
 - Correlation: clients may send `X-Request-Id`; Kong generates one otherwise and echoes it back.
 - Every operation has `@Operation(summary)`, a `@Tag` matching its module, and documented error responses.
 - Versioning: additive changes only within a major version; breaking changes → new major path.

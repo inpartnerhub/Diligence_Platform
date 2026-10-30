@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-30
-- **Deciders:** Platform architecture, Security
+- **Deciders:** Tech Lead / Architect, Security Officer
 
 ## Context
 
@@ -13,8 +13,8 @@ and should be rotatable without code changes.
 
 HashiCorp Vault is the source of truth. The **Vault Secrets Operator** syncs KV v2 secrets into Kubernetes
 Secrets, consumed by the application as environment variables, and restarts the deployment on change.
-Terraform writes generated infrastructure credentials to `kv/platform/<env>/backend/infrastructure`;
-operators manage `kv/platform/<env>/backend/application`. The application has **no Vault client dependency**.
+Terraform writes generated infrastructure credentials to `kv/diligence/<env>/backend/infrastructure`;
+operators manage `kv/diligence/<env>/backend/application`. The application has **no Vault client dependency**.
 
 ## Alternatives considered
 

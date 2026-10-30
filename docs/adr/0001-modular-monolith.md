@@ -2,11 +2,12 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-30
-- **Deciders:** Platform architecture
+- **Deciders:** Tech Lead / Architect
 
 ## Context
 
-The platform covers several capabilities (documents, ingestion, search, audit, security) that will evolve at
+The platform covers the PRD modules (projects, request lists, data room, findings, Q&A, reports, administration)
+plus supporting capabilities (ingestion, search, notification, audit, security) that will evolve at
 different speeds. The team is small enough that operating many services would cost more than it returns, but
 boundaries must stay clean so capabilities can be extracted later if scale or team structure demands it.
 
@@ -14,7 +15,7 @@ boundaries must stay clean so capabilities can be extracted later if scale or te
 
 Build the backend as a single Spring Boot deployable organised into **Spring Modulith application modules**:
 
-- Each top-level package under `com.example.platform` is a module; `internal` sub-packages are private.
+- Each top-level package under `com.inpartnerhub.diligence` is a module; `internal` sub-packages are private.
 - Boundaries and allowed dependencies are verified in the build (`ModularityTests`).
 - Modules interact through public APIs and domain events persisted in a transactional outbox
   (`event_publication`); integration events are externalized to RabbitMQ.

@@ -1,11 +1,16 @@
-# Platform
+# Diligence Platform
 
-Enterprise platform monorepo: a **Next.js + Ant Design** web frontend and a **Spring Boot modular monolith** backend,
-with document storage and processing (S3, Tika, Tesseract OCR, ClamAV), search (OpenSearch), messaging
-(RabbitMQ), Keycloak/OIDC security behind the Kong gateway, and full observability.
+Web platform for running company due diligence end to end — request lists, a controlled data room, findings and
+risk register, Q&A and reporting — replacing e-mail, spreadsheets and shared folders with one secure workspace for
+the consulting team, the client (buy-side) and the target company (sell-side).
 
-> **Status:** project skeleton. Integration boundaries, configuration and delivery pipeline are in place; business
-> features are added incrementally inside the existing modules.
+The product specification is the PRD *Konsep Produk & Spesifikasi untuk Tim IT — Platform Due Diligence* (v1.0,
+30 Oct 2026). Requirement IDs used throughout the code and docs (`PRJ-01`, `DOC-04`, `ADM-02`, …) refer to it;
+see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
+
+> **Status:** MVP sprint 1–2 delivered — foundation, authentication & SSO, MFA, user/organization/group
+> administration, audit log, role-based UI shell in Indonesian and English. The data model for every module and the
+> row-level-security information barriers are in place; business features follow the PRD sprint plan.
 
 - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Security policy: [SECURITY.md](SECURITY.md)
@@ -17,18 +22,19 @@ with document storage and processing (S3, Tika, Tesseract OCR, ClamAV), search (
 .
 ├── apps/
 │   ├── backend/            Spring Boot 4 modular monolith (Java 21, Gradle Kotlin DSL)
-│   └── frontend/           Next.js 16 / React 19 / TypeScript / Ant Design 6
+│   └── frontend/           Next.js 16 / React 19 / TypeScript / Ant Design 6, BFF auth, next-intl (id/en)
 ├── database/
-│   ├── migrations/         Flyway migrations (packaged into the backend jar)
-│   └── seeds/              Local-only seed data
+│   ├── migrations/         Flyway migrations (one schema per module, RLS policies)
+│   └── seeds/              Local-only seed data (PRD Appendix B request-list template)
 ├── infrastructure/
-│   ├── docker/             Local stack service configs (Keycloak, Kong, Prometheus, Grafana, OTel)
+│   ├── docker/             Local stack service configs (Keycloak realm, Kong, Prometheus, Grafana, OTel)
 │   ├── kubernetes/         Kustomize base + dev/staging/prod overlays
 │   └── terraform/          Cloud infrastructure: modules, stack, per-environment roots
 ├── tests/
 │   ├── e2e/                Playwright end-to-end tests
 │   └── performance/        k6 load tests
 ├── docs/
+│   ├── prd/                PRD summary and requirement traceability
 │   ├── adr/                Architecture Decision Records
 │   ├── api/                API guidelines and OpenAPI workflow
 │   └── runbooks/           Operational runbooks
@@ -51,17 +57,23 @@ with document storage and processing (S3, Tika, Tesseract OCR, ClamAV), search (
 ## Quick start
 
 ```bash
-cp .env.example .env            # then replace every "change-me" value
-make up                         # PostgreSQL, Redis, RabbitMQ, MinIO, OpenSearch, Tika, ClamAV, Keycloak, Kong, Vault
-make dev-user                   # create a Keycloak developer account from .env
-make backend-run                # backend on http://localhost:8080 (in a second terminal)
-make frontend-install && make frontend-run   # frontend on http://localhost:3000
+cp .env.example .env            # replace every "change-me" value (see comments for how to generate secrets)
+make up                         # PostgreSQL, Redis, RabbitMQ, MinIO, OpenSearch, Tika, Gotenberg, ClamAV,
+                                # Keycloak, Kong, Vault, Mailpit
+make keycloak-bootstrap         # admin-api client secret + local admin and PM users from .env
+make backend-run                # backend on http://localhost:8080 (second terminal)
+cp apps/frontend/.env.example apps/frontend/.env.local   # set SESSION_SECRET and the Redis password
+make frontend-install && make frontend-run                # frontend on http://localhost:3000
 ```
+
+Sign in at http://localhost:3000 with `KEYCLOAK_DEV_ADMIN`. Super admins must enrol an authenticator app (TOTP)
+on first login. From **Administration → Users** invite a client or target user; the invitation e-mail (set password,
+OTP, NDA) appears in Mailpit at http://localhost:8025.
 
 Or run everything in containers, including observability:
 
 ```bash
-make up-all
+make up-all && make keycloak-bootstrap
 ```
 
 ### Local endpoints
@@ -72,7 +84,8 @@ make up-all
 | API via Kong | http://localhost:8000/api/v1 | the path clients use |
 | Backend direct | http://localhost:8080 | Swagger UI at `/swagger-ui.html`, spec at `/v3/api-docs` |
 | Backend management | http://localhost:8081/actuator | health, Prometheus metrics, module graph |
-| Keycloak | http://localhost:8180 | realm `platform` |
+| Keycloak | http://localhost:8180 | realm `diligence`; admin console on the master realm |
+| Mailpit | http://localhost:8025 | every e-mail sent locally |
 | RabbitMQ UI | http://localhost:15672 | |
 | MinIO console | http://localhost:9001 | |
 | OpenSearch | http://localhost:9200 | Dashboards on :5601 (observability profile) |
@@ -82,31 +95,29 @@ make up-all
 
 All ports bind to `127.0.0.1` only.
 
-### Calling the API
+### Internal SSO (optional)
 
-```bash
-# Obtain a token through the browser login flow in the frontend, or for local testing temporarily enable
-# "Direct access grants" on the platform-frontend client in Keycloak. Never enable it outside local.
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/me
-```
+Set `ENTRA_TENANT_ID` / `ENTRA_CLIENT_ID` / `ENTRA_CLIENT_SECRET` and/or `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+in `.env` and re-run `make keycloak-bootstrap`. SSO users are provisioned just in time with the least-privileged
+role (`OBSERVER`) until an administrator assigns their role.
 
 ## Development
 
 | Task | Command |
 |------|---------|
-| Backend build + unit + module-boundary tests | `make backend-test` |
-| Backend integration tests (Testcontainers) | `make backend-it` |
-| Frontend format, lint, typecheck, build | `make frontend-check` |
+| Backend build, unit + module-boundary tests, coverage gate (≥ 70% business logic) | `make backend-test` |
+| Backend integration tests (Testcontainers: Flyway, RLS barriers, audit immutability) | `make backend-it` |
+| Frontend format, lint, typecheck, unit tests, build | `make frontend-check` |
 | Regenerate frontend API types from OpenAPI | `make api-types` (backend must be running) |
 | Everything CI runs without Docker | `make verify` |
 | Render Kubernetes manifests | `kubectl kustomize infrastructure/kubernetes/overlays/dev` |
 
 New database changes go in `database/migrations/postgresql` — see [database/README.md](database/README.md).
-New backend features go inside an existing module or a new one — see [ARCHITECTURE.md](ARCHITECTURE.md#backend-modules).
+New backend features go inside their PRD module — see [ARCHITECTURE.md](ARCHITECTURE.md#3-backend-modular-monolith).
 
 ## Configuration
 
-Configuration follows the 12-factor model: every environment-specific value is an environment variable.
+Every environment-specific value is an environment variable (12-factor).
 
 | Scope | Source |
 |-------|--------|
@@ -121,10 +132,10 @@ Secrets are never committed. `.env`, `*.tfvars` and `backend.hcl` are git-ignore
 
 | Workflow | Trigger | Does |
 |----------|---------|------|
-| `backend.yml` | changes in `apps/backend`, `database` | build, unit, modularity and integration tests, SonarQube, image build + Trivy scan, push on `main` |
-| `frontend.yml` | changes in `apps/frontend` | format, lint, typecheck, build, SonarQube, image build + Trivy scan, push on `main` |
+| `backend.yml` | changes in `apps/backend`, `database` | build, unit, modularity and integration tests, coverage gate, SonarQube, image build + Trivy scan, push on `main` |
+| `frontend.yml` | changes in `apps/frontend` | format, lint, typecheck, unit tests, build, SonarQube, image build + Trivy scan, push on `main` |
 | `infrastructure.yml` | changes in `infrastructure`, `compose.yaml` | Terraform fmt/validate/tflint, kubeconform on all overlays, compose validation |
 | `security.yml` | every PR/push, weekly | gitleaks, dependency review, Trivy filesystem + IaC misconfiguration scan |
 | `deploy.yml` | manual | promotes an immutable image tag to dev / staging / prod (GitHub environment protection) |
 
-Images are published to GHCR as `ghcr.io/<owner>/platform-{backend,frontend}:sha-<git sha>` with SBOM and provenance.
+Images are published to GHCR as `ghcr.io/<owner>/diligence-{backend,frontend}:sha-<git sha>` with SBOM and provenance.

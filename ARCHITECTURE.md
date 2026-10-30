@@ -1,202 +1,221 @@
 # Architecture
 
-This document describes the system's structure, its components and how they interact. Decisions behind it are
-recorded as ADRs in [docs/adr](docs/adr).
+How the Diligence Platform is structured and how its parts interact. Requirements come from the PRD
+(see [docs/prd](docs/prd/README.md)); decisions are recorded as ADRs in [docs/adr](docs/adr).
 
 ## 1. Context
 
 ```
                          ┌──────────────────────────────┐
-   Browser ──HTTPS──────▶│ Kong API Gateway              │──────────────┐
-      │                  │ TLS, routing, rate limits,     │              │
-      │ OIDC (PKCE)      │ request IDs, metrics, tracing  │              │
-      ▼                  └──────┬─────────────────┬───────┘              │
- ┌──────────┐                   │ app.*           │ api.* /api/v1        │
- │ Keycloak │◀── JWKS ──┐       ▼                 ▼                      │
- │ (OIDC)   │           │  ┌──────────┐  server-side  ┌────────────────┐  │
- └──────────┘           │  │ Frontend │──── fetch ───▶│ Backend        │  │
-                        └──│ Next.js  │  (via Kong)   │ Spring Boot    │◀─┘
-                           └──────────┘               │ modular        │
-                                                      │ monolith       │
-                                                      └───────┬────────┘
-       ┌───────────────┬───────────────┬──────────────┬───────┴──────┬──────────────┬──────────────┐
-       ▼               ▼               ▼              ▼              ▼              ▼              ▼
-  PostgreSQL        Redis        S3 storage       RabbitMQ      OpenSearch     Tika + OCR       ClamAV
-  (Flyway)         (cache)       (documents)      (events)      (search)       (extraction)     (malware)
+   Browser ──HTTPS──────▶│ Kong API Gateway              │
+   (consultant, client,  │ TLS, routing, rate limits,     │
+    target, auditor)     │ request IDs, metrics, tracing  │
+      │                  └──────┬───────────────────────┬─┘
+      │ OIDC redirect           │ app.*                 │ api.* /api/v1
+      ▼                         ▼                       ▼
+ ┌──────────┐  code+PKCE  ┌──────────────┐  server-side  ┌──────────────────┐
+ │ Keycloak │◀───────────│ Frontend BFF  │── fetch with ─▶│ Backend          │
+ │ OIDC,MFA,│  tokens     │ Next.js       │  user token   │ Spring Boot      │
+ │ SSO (Entra│───────────▶│ session in    │  (via Kong)   │ modular monolith │
+ │ /Google) │             │ Redis         │               └────────┬─────────┘
+ └──────────┘◀── JWKS / Admin API (service account) ───────────────┤
+                                                                    │
+       ┌──────────────┬──────────────┬─────────────┬────────────────┼──────────────┬──────────────┬─────────┐
+       ▼              ▼              ▼             ▼                ▼              ▼              ▼         ▼
+  PostgreSQL       Redis        S3 storage     RabbitMQ        OpenSearch    Tika + OCR      Gotenberg   ClamAV
+  (Flyway, RLS)  (cache,       (documents,    (events,        (full-text    (extraction,    (Office →   (malware)
+                  sessions)     previews)      DLQs)           search)       Tesseract)      PDF)
 
-  Cross-cutting: Vault (secrets) · OpenTelemetry → Collector → OpenSearch (traces, logs)
-                 Prometheus → Grafana (metrics, dashboards) · Sentry (errors)
+  Cross-cutting: Vault (secrets) · SMTP (Mailpit locally) · OpenTelemetry → Collector → OpenSearch (traces, logs)
+                 Prometheus → Grafana (metrics) · Sentry (errors)
 ```
 
 ## 2. Technology map
 
 | Concern | Technology | Where it is configured |
 |---------|-----------|------------------------|
-| Web UI | Next.js 16 (App Router), React 19, TypeScript, Ant Design 6 | `apps/frontend` |
+| Web UI | Next.js 16 (App Router), React 19, TypeScript, Ant Design 6, next-intl (id/en) | `apps/frontend` |
+| Web authentication | Backend-for-frontend: openid-client (code + PKCE), Redis session store, iron-session cookie | `apps/frontend/src/lib/auth` |
 | API | Spring Boot 4.1 (Java 21), REST, OpenAPI 3 via springdoc | `apps/backend` |
 | Module boundaries | Spring Modulith (verified by `ModularityTests`) | `apps/backend/src/main/java/.../<module>/package-info.java` |
-| Relational data | PostgreSQL 17, Hibernate (validate only), Flyway | `database/migrations`, `application.yml` |
-| Cache | Redis (Valkey in AWS) via Spring Cache | `application.yml` |
-| Object storage | S3 API (MinIO locally, S3 in AWS) via AWS SDK v2 | `document/internal/S3DocumentStorage` |
+| Relational data | PostgreSQL 17, Hibernate (validate only), Flyway, row-level security | `database/migrations`, `application.yml` |
+| Cache / sessions | Redis (Valkey in AWS) | `application.yml`, `REDIS_URL` |
+| Object storage | S3 API (MinIO locally) via AWS SDK v2 | `dataroom/internal/S3DocumentStorage` |
 | Search | OpenSearch via opensearch-java | `search/internal/OpenSearchConfiguration` |
 | Messaging | RabbitMQ (quorum queues, DLQs) + Modulith transactional outbox | `ingestion/internal/IngestionMessagingConfiguration` |
 | Text extraction / OCR | Apache Tika Server (`-full` image bundles Tesseract) | `ingestion` ports, `TIKA_URL` |
-| Malware scanning | ClamAV `clamd` over TCP | `ingestion` ports, `CLAMAV_HOST` |
-| Identity | Keycloak (OIDC; Authorization Code + PKCE) | `infrastructure/docker/keycloak/platform-realm.json` |
-| Authorization | RBAC (Keycloak roles) + ABAC (`AccessPolicy` beans) | `security` module |
+| Preview renditions | Gotenberg (LibreOffice → PDF) | `ingestion.PreviewRenderer`, `GOTENBERG_URL` |
+| Malware scanning | ClamAV `clamd` over TCP | `ingestion.ContentScanner`, `CLAMAV_HOST` |
+| Identity | Keycloak: OIDC, conditional OTP, NDA required action, Entra ID / Google brokering | `infrastructure/docker/keycloak/diligence-realm.json` |
+| Authorization | RBAC (7 PRD roles) + ABAC policies + PostgreSQL RLS | `security` module, `V5__row_level_security.sql` |
+| E-mail | Spring Mail (SMTP); Keycloak sends account e-mails itself | `notification` module |
 | Gateway | Kong (DB-less locally, Kong Ingress Controller in Kubernetes) | `infrastructure/docker/kong`, `kubernetes/base/gateway` |
-| Secrets | HashiCorp Vault + Vault Secrets Operator | `kubernetes/base/backend/vault-secret.yaml`, Terraform stack |
-| Runtime | Docker images, Kubernetes (Kustomize), AWS via Terraform | `apps/*/Dockerfile`, `infrastructure/` |
+| Secrets | HashiCorp Vault + Vault Secrets Operator | `kubernetes/base/*/vault-secret.yaml`, Terraform stack |
+| Runtime | Docker images, Kubernetes (Kustomize), AWS via Terraform (hosting decision open, ADR-0003) | `apps/*/Dockerfile`, `infrastructure/` |
 | Delivery | GitHub Actions, SonarQube, Trivy, gitleaks | `.github/workflows` |
 | Observability | OpenTelemetry, Prometheus, Grafana, OpenSearch, Sentry | `application.yml`, `infrastructure/docker/*` |
 
 ## 3. Backend: modular monolith
 
-One deployable, internally divided into modules with explicit, verified boundaries. This gives the operational
-simplicity of a monolith with a clean path to extracting a module into a service later (see
-[ADR-0001](docs/adr/0001-modular-monolith.md)).
+One deployable divided into the PRD's logical modules (PRD 8.1, [ADR-0001](docs/adr/0001-modular-monolith.md)).
+Each direct sub-package of `com.inpartnerhub.diligence` is a module; its root package is the **public API**,
+anything under `internal` is private, and `ModularityTests` fails the build on violations or cycles.
 
-### Backend modules
-
-Each direct sub-package of `com.example.platform` is a module. Its top-level package is the **public API**;
-anything under `internal` is private and cannot be referenced by other modules (the build fails if it is).
-
-| Module | Responsibility | Public API (today) | Owns |
-|--------|---------------|--------------------|------|
-| `shared` | Shared kernel: error model, API paths, messaging names, OpenAPI config. Open module. | `ApiPaths`, `MessagingTopology`, `GlobalExceptionHandler` | — |
-| `security` | JWT authentication, Keycloak role mapping, RBAC, ABAC policy evaluation | `abac.AccessPolicy`, `abac.AccessPolicyEvaluator`, `abac.AccessRequest` | — |
-| `document` | Document metadata and binary storage | `DocumentStorage`, `DocumentUploaded` event | schema `document`, S3 bucket |
-| `ingestion` | Async pipeline: scan → extract → OCR → hand-off to search | `ContentScanner`, `TextExtractor` | schema `ingestion`, ingestion queues |
-| `search` | Full-text indexing and querying | `SearchIndex` | OpenSearch indices `platform-*` |
-| `audit` | Append-only audit trail built from other modules' events | — | schema `audit` |
-
-Allowed dependencies are declared in each `package-info.java` and enforced by the build; for example `ingestion`
-may depend only on `document`, `search`, `shared` and the `security :: abac` named interface.
+| Module | PRD | Responsibility | Status |
+|--------|-----|---------------|--------|
+| `shared` | — | Shared kernel (open): problem details, paging, API paths, messaging names, `AuditableEvent` | ✅ |
+| `security` | ADM-02, Bab 3 | JWT validation, Keycloak role mapping, `Role`, `CurrentUserProvider`, ABAC API, RLS transaction context | ✅ |
+| `admin` | ADM-01 | Organizations, user accounts, groups, invitations; Keycloak Admin API adapter; `/api/v1/me` | ✅ sprint 1–2 |
+| `audit` | ADM-03, ADM-04 | Append-only audit log fed by every `AuditableEvent`; search API | ✅ sprint 1–2 |
+| `notification` | ADM-05, REQ-04 | E-mail port + SMTP adapter, notification preferences | 🟡 skeleton |
+| `project` | PRJ | Projects, members, workstreams, templates, dashboards | ⏳ schema only (sprint 3–4) |
+| `dataroom` | DOC | Folders, documents, versions, watermarked preview, download control | ⏳ storage port (sprint 5–8) |
+| `ingestion` | DOC-02/03/06 | Quarantine → scan → extract/OCR → PDF rendition → index | ⏳ ports + queues |
+| `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
+| `request` | REQ | Request lists, statuses, reminders, Excel import/export | ⏳ schema only (sprint 9–10) |
+| `finding` | FND | Findings, risk register; risk matrix (Appendix A) implemented | 🟡 `RiskMatrix` (sprint 11–12) |
+| `qna` | QNA | Questions with approval before release to the target | ⏳ schema only (sprint 13–14) |
+| `report` | RPT | Word/PDF reports from released findings, approvals | ⏳ schema only (sprint 13–14) |
 
 ### Module rules
 
-1. **Communicate by events first.** A module publishes domain events (`ApplicationEventPublisher`); others react
-   with `@ApplicationModuleListener`. Events are stored in the `event_publication` outbox table in the same
-   transaction, so nothing is lost if the broker or a listener is down.
-2. **Synchronous calls go through the public API only** (interfaces in the module's root package).
-3. **Each module owns its data**: its own PostgreSQL schema, no cross-schema foreign keys, no shared tables.
-4. **Integration events** (`@Externalized`) are published to RabbitMQ automatically from the outbox — the same
-   events can be consumed by other systems or by a module once it is extracted into a service.
-5. **Adapters are internal.** S3, OpenSearch, Tika and ClamAV clients live in `internal` packages behind ports,
-   so infrastructure can change without touching other modules.
+1. **Events first.** Modules publish domain events; others react with `@ApplicationModuleListener`. Events are
+   stored in the `event_publication` outbox in the same transaction, so nothing is lost if a listener fails.
+2. **Synchronous calls go through the public API only** (types in the module's root package).
+3. **Each module owns a PostgreSQL schema** (`adm`, `audit`, `ntf`, `prj`, `req`, `dr`, `fnd`, `qna`, `rpt`);
+   no cross-schema foreign keys.
+4. **Integration events** (`@Externalized`) are published to RabbitMQ from the outbox.
+5. **Adapters are internal.** Keycloak, S3, OpenSearch, Tika, Gotenberg and ClamAV clients sit behind ports.
+6. **Auditable actions** publish an event implementing `shared.audit.AuditableEvent`; the audit module records it
+   with actor, IP and user agent captured at publish time.
 
-### Request flow
+## 4. Roles and information barriers (PRD Bab 3)
+
+Global roles live in Keycloak (realm roles); per-project roles live in `prj.project_member` (optionally per
+workstream, with an expiry for external access).
+
+| Role | Group | MFA | NDA | Sees |
+|------|-------|-----|-----|------|
+| `SUPER_ADMIN` | Internal IT | ✅ | — | Administration, audit log, templates |
+| `PARTNER` | Consultant | SSO | — | All of their projects, approves reports, portfolio |
+| `PROJECT_MANAGER` | Consultant | SSO | — | Projects they manage: request lists, team, Q&A |
+| `ANALYST` | Consultant | SSO | — | Data room per workstream, findings, risk ratings |
+| `CLIENT` | External (buy-side) | ✅ | ✅ | Progress, **released** findings, issued reports, own questions |
+| `TARGET` | External (sell-side) | ✅ | ✅ | Request list, assigned folders, **approved** questions — never findings |
+| `OBSERVER` | Internal/External auditor | ✅ | ✅ | Read-only |
+
+Enforcement is layered so a UI bug cannot leak data:
+
+1. **Frontend** shows navigation per role (`src/lib/auth/permissions.ts`) — convenience only.
+2. **API** checks roles with `@PreAuthorize` and resource rules with ABAC `AccessPolicy` beans (deny by default).
+3. **Database** row-level security ([ADR-0004](docs/adr/0004-row-level-security.md)): every transaction runs as the
+   non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`.
+   Policies in `V5__row_level_security.sql` make other projects invisible and enforce the barriers: the target
+   never reads `fnd.*`, the client reads only `RELEASED` findings, `ISSUED` reports and its own questions, the target
+   reads only `SENT`/`ANSWERED` questions. The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
+4. **Audit**: `audit.audit_log` accepts only INSERT/SELECT from the runtime role and triggers reject UPDATE, DELETE
+   and TRUNCATE for everyone.
+
+## 5. Authentication flows
+
+### Browser (BFF, [ADR-0005](docs/adr/0005-bff-authentication.md))
 
 ```
-Browser ─▶ Next.js (server component / route handler)
-            └─▶ apiFetch() with user's access token ─▶ Kong ─▶ Backend
-                                                               ├─ SecurityFilterChain: validate JWT
-                                                               │   (issuer, signature via JWKS, audience)
-                                                               ├─ Role mapping: realm/client roles → ROLE_*
-                                                               ├─ @PreAuthorize (RBAC) on controller
-                                                               ├─ AccessPolicyEvaluator (ABAC) in service
-                                                               └─ Module logic → repository / ports
+Browser ─GET /admin/users─▶ Next proxy.ts: no diligence_sid cookie → 307 /auth/login?returnTo=…
+        ─GET /auth/login─▶ PKCE verifier + state in sealed cookie (10 min) → 307 Keycloak /auth
+Keycloak: password → OTP if role has mfa_required → NDA (first login, externals) → 302 /auth/callback?code
+        ─GET /auth/callback─▶ code exchange (back-channel) → tokens stored in Redis under a random session id,
+                              cookie diligence_sid = sealed id (HttpOnly, SameSite=Lax, Secure on HTTPS)
+Server components / actions ─▶ getSession(): refresh access token when < 30 s left → apiFetch(Bearer) → Kong → API
+POST /auth/logout (same-origin only) ─▶ delete Redis session → Keycloak end-session → back to app
 ```
 
-### Document ingestion flow (target design)
+Tokens never reach the browser. The OIDC client builds browser-facing endpoints from `OIDC_ISSUER` and back-channel
+endpoints from `OIDC_INTERNAL_ISSUER`, so container networks and the token `iss` claim stay consistent.
+
+### API
+
+The backend is a stateless resource server: it validates signature (JWKS), issuer and audience (`diligence-api`)
+of every token, maps realm and client roles to `ROLE_*`, and publishes `UserAuthenticated` (throttled per user) so
+the admin module records the login, activates invited users and provisions SSO users just in time.
+
+### Invitations (ADM-01)
+
+`POST /api/v1/admin/users/invitations` → Keycloak Admin API (service account `diligence-admin-api`): create user →
+set realm role → `execute-actions-email` with `VERIFY_EMAIL`, `UPDATE_PASSWORD`, plus `TERMS_AND_CONDITIONS`
+(NDA, externals) and `CONFIGURE_TOTP` (MFA roles) → mirror row in `adm.user_account` + `adm.invitation` →
+`UserInvited` audited. If any step fails, the Keycloak user is deleted (compensation).
+
+## 6. Document pipeline (PRD 8.3, target design for sprint 5–8)
 
 ```
-POST /api/v1/documents ─▶ document: store binary in S3, metadata in PostgreSQL
-                          └─ publish DocumentUploaded (outbox, same transaction)
-                                │  externalized
-                                ▼
-            RabbitMQ  platform.document.events ──(document.uploaded)──▶ platform.ingestion.document-uploaded
-                                                                          │ (quorum queue, DLQ on failure)
-                                                                          ▼
-                          ingestion: ContentScanner (ClamAV) ── infected ─▶ quarantine + audit event
-                                     │ clean
-                                     ▼
-                                     TextExtractor (Tika; Tesseract OCR for images / scanned PDFs)
-                                     │
-                                     ▼
-                          search:    SearchIndex.index(...) ─▶ OpenSearch
+Upload (API or pre-signed URL) ─▶ dataroom: object in S3 quarantine prefix, metadata (scan_status=PENDING)
+   └─ DocumentUploaded (outbox) ─▶ RabbitMQ diligence.dataroom.events ─▶ diligence.ingestion.document-uploaded
+        ingestion worker:
+          ContentScanner (ClamAV) ── infected ─▶ scan_status=INFECTED, quarantine kept, audit + notify
+          │ clean: validate type (magic bytes), SHA-256 (duplicate detection, dr.document.sha256)
+          TextExtractor (Tika; Tesseract OCR for scans/images)
+          PreviewRenderer (Gotenberg: Office/image → PDF rendition, preview_key)
+          SearchIndex (OpenSearch, document ACL fields for permission-filtered queries)
+View/download ─▶ API checks access (RBAC + folder policy + RLS) ─▶ Watermarker stamps name, time, IP
+               ─▶ short-lived stream / pre-signed URL ─▶ audit "document.viewed" / "document.downloaded"
 ```
 
-Failed messages are retried three times, then dead-lettered to `platform.ingestion.document-uploaded.dlq`
-for inspection and replay.
+Failures retry three times, then dead-letter to `diligence.ingestion.document-uploaded.dlq`.
 
-## 4. Frontend
+## 7. Frontend
 
-- **App Router** with server components by default. Ant Design components that rely on compound statics
-  (`Typography.Title`, `Form.Item`, …) are used from client components.
-- **Ant Design** is wired through `@ant-design/nextjs-registry` (SSR style extraction) and a single theme in
-  `src/theme/themeConfig.ts`. CSS variables mode is enabled.
-- **API access is server-side only**: `src/lib/api/client.ts` (`server-only`) calls the backend through Kong
-  and maps RFC 9457 problem details to `ApiError`. Response types are generated from the backend's OpenAPI spec
-  (`npm run generate:api` → `schema.gen.ts`), so the spec is the contract between the two apps.
-- **Authentication boundary:** OIDC Authorization Code + PKCE against the `platform-frontend` Keycloak client;
-  tokens carry the `platform-backend` audience. The session/token-handling library is chosen with the first
-  authenticated feature; it must keep tokens in HTTP-only cookies, never in `localStorage`.
-- **Features** live in `src/features/<feature>` mirroring backend modules; see `src/features/README.md`.
-- Output is a `standalone` server bundle; health probe at `/api/health`.
+- App Router; `src/app/(app)` is the authenticated area rendered inside `AppShell` (Ant Design layout, role-based
+  navigation from PRD Bab 11.1, language switch, user menu). Pages for later sprints show their sprint and PRD IDs.
+- Server components fetch through `apiFetch` (server-only); mutations use server actions
+  (`src/features/<feature>/actions.ts`). Filters and paging live in the URL.
+- Ant Design compound components are used from client components; one theme in `src/theme/themeConfig.ts`,
+  including risk colors from Appendix A.
+- i18n: `next-intl` with `messages/id.json` (default) and `messages/en.json`; the language is a cookie, synced to the
+  user profile (`PATCH /api/v1/me`) and applied to Ant Design and Keycloak (`ui_locales`).
 
-## 5. Security architecture
-
-| Layer | Control |
-|-------|---------|
-| Edge | Kong: TLS termination, HTTPS redirect, rate limiting (Redis-backed in Kubernetes), request size limits, correlation IDs |
-| Identity | Keycloak realm `platform`; short-lived access tokens (5 min); brute-force protection; PKCE required |
-| Authentication | Backend validates every JWT itself (signature, issuer, audience) — the gateway is not trusted alone |
-| RBAC | Realm roles `platform_user`, `platform_admin`, `platform_operator` + client roles → `ROLE_*`; `@PreAuthorize` |
-| ABAC | `AccessPolicy` beans evaluated by `AccessPolicyEvaluator`, deny by default |
-| Network | Kubernetes default-deny NetworkPolicies; backend reachable only from Kong; management port only from monitoring |
-| Workload | Non-root UID 10001, read-only root filesystem, all capabilities dropped, `restricted` Pod Security Standard |
-| Secrets | Vault (KV v2, dynamic DB credentials as next step) → Vault Secrets Operator → env; nothing in git |
-| Content | Every upload is malware-scanned before extraction or indexing |
-| Supply chain | Trivy image + IaC scans, gitleaks, Dependabot, dependency review, SBOM + provenance on images, SonarQube |
-
-Details and reporting process: [SECURITY.md](SECURITY.md).
-
-## 6. Observability
+## 8. Observability
 
 | Signal | Producer | Path | Consumer |
 |--------|----------|------|----------|
-| Metrics | Micrometer (`/actuator/prometheus` on :8081), Kong, RabbitMQ | Prometheus scrape (ServiceMonitor in Kubernetes) | Grafana |
-| Traces | Micrometer Tracing → OpenTelemetry OTLP; Kong OTel plugin | OTel Collector → OpenSearch `otel-v1-apm-span-*` | Grafana, OpenSearch Dashboards |
-| Logs | Structured JSON (ECS) to stdout; OTLP log export | OTel Collector / node log agent → OpenSearch `logs-*` | Grafana, OpenSearch Dashboards |
+| Metrics | Micrometer (`:8081/actuator/prometheus`), Kong, RabbitMQ | Prometheus (ServiceMonitor in Kubernetes) | Grafana |
+| Traces | Micrometer Tracing → OTLP; Kong OTel plugin; AMQP propagation | OTel Collector → OpenSearch | Grafana, OpenSearch Dashboards |
+| Logs | Structured JSON (ECS) to stdout, OTLP | OTel Collector → OpenSearch | Grafana, OpenSearch Dashboards |
 | Errors | Sentry SDK (backend + frontend), no PII | Sentry | Sentry |
-| Module events | Spring Modulith actuator + observability | `/actuator/modulith`, spans per module | Grafana |
+| Security events | Keycloak login events, `audit.audit_log` | Keycloak event store, PostgreSQL | Admin → Audit log, alerting |
 
-Trace context (`traceparent`) and `X-Request-Id` propagate from Kong through the backend and into RabbitMQ messages.
-The collector scrubs `Authorization` and `Cookie` attributes before export.
-
-## 7. Deployment
+## 9. Deployment
 
 ```
 GitHub Actions ──build/test/scan──▶ GHCR (sha-tagged images, SBOM, provenance)
-      │
       └─ deploy.yml (manual, environment-protected) ──kustomize edit set image──▶ kubectl apply -k overlays/<env>
 
-Terraform (environments/<env>) ──▶ VPC, EKS, RDS PostgreSQL, ElastiCache, Amazon MQ (RabbitMQ), OpenSearch, S3
-                               └─▶ Vault kv/platform/<env>/backend/infrastructure
+Terraform (environments/<env>) ──▶ network, Kubernetes, PostgreSQL, Redis, RabbitMQ, OpenSearch, object storage
+                               └─▶ Vault kv/diligence/<env>/backend/infrastructure
 Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, cert-manager,
-                               kube-prometheus-stack, OpenTelemetry Collector, Tika and ClamAV workloads
+                               kube-prometheus-stack, OpenTelemetry Collector, Tika, Gotenberg and ClamAV workloads
 ```
 
-| Environment | Namespace | Replicas (min) | Notes |
-|-------------|-----------|----------------|-------|
-| local | compose | 1 | Security plugins relaxed (OpenSearch), Vault dev mode |
-| dev | `platform-dev` | 1 | Full tracing, API docs on |
-| staging | `platform-staging` | 2 | Production-like, API docs on |
-| prod | `platform-prod` | 3 | Multi-AZ data services, API docs off, approval-gated deploys |
+| Environment | Namespace | Min replicas | Notes |
+|-------------|-----------|--------------|-------|
+| local | compose | 1 | OpenSearch security off, Vault dev mode, Keycloak `start-dev`, Mailpit |
+| dev | `diligence-dev` | 1 | Full tracing, API docs on |
+| staging | `diligence-staging` | 2 | Production-like, API docs on |
+| prod | `diligence-prod` | 3 | Multi-AZ data services, API docs off, approval-gated deploys |
 
-Database migrations run on backend startup (Flyway, advisory-locked) and must be backward compatible with the
-previous release so rolling updates are safe.
+Hosting model and data residency (UU PDP) are still open — see [ADR-0003](docs/adr/0003-hosting-and-data-residency.md).
+Migrations run at backend startup (Flyway advisory lock) and must be backward compatible with the previous release.
 
-## 8. Integration boundaries summary
+## 10. Integration boundaries
 
 | Boundary | Contract | Owner |
 |----------|----------|-------|
-| Frontend ↔ Backend | OpenAPI 3 spec at `/v3/api-docs`, `/api/v1` versioning, RFC 9457 errors | backend |
-| Client ↔ Gateway | Kong routes `/api/v1/*`; rate/size limits | platform-ops |
-| Backend ↔ Keycloak | OIDC discovery/JWKS, `aud=platform-backend`, role claims | security |
+| Browser ↔ Frontend | HTML/RSC + server actions; only an opaque session cookie | frontend |
+| Frontend ↔ Backend | OpenAPI 3 at `/v3/api-docs`, `/api/v1`, RFC 9457 errors, bearer token | backend |
+| Client ↔ Gateway | Kong routes `/api/v1/*`; rate/size limits | ops |
+| Apps ↔ Keycloak | OIDC (code + PKCE), JWKS, `aud=diligence-api`, realm roles; Admin REST via service account | security |
 | Module ↔ Module | Public package API + domain events; verified by `ModularityTests` | each module |
 | Backend ↔ RabbitMQ | `MessagingTopology` names; JSON events; DLQ per queue | publishing / consuming module |
-| Backend ↔ Storage/Search/Tika/ClamAV | Ports in module API, adapters in `internal` | owning module |
-| Backend ↔ PostgreSQL | Flyway migrations in `database/`, one schema per module | owning module |
-| App ↔ Secrets | Environment variables only; populated by Vault | platform-ops |
+| Backend ↔ Storage/Search/Tika/Gotenberg/ClamAV | Ports in module API, adapters in `internal` | owning module |
+| Backend ↔ PostgreSQL | Flyway migrations in `database/`, schema per module, RLS context per transaction | owning module |
+| Apps ↔ Secrets | Environment variables only; populated by Vault | ops |
