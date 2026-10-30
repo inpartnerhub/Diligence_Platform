@@ -38,8 +38,9 @@ dependencies {
     implementation(libs.opensearch.java)
     implementation("org.apache.httpcomponents.client5:httpclient5")
 
-    // Messaging
+    // Messaging & notifications
     implementation("org.springframework.boot:spring-boot-starter-amqp")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // Modular monolith
     implementation("org.springframework.modulith:spring-modulith-starter-core")
@@ -77,7 +78,7 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform { excludeTags("integration") }
-    finalizedBy(tasks.jacocoTestReport)
+    finalizedBy(tasks.jacocoTestReport, tasks.jacocoTestCoverageVerification)
 }
 
 tasks.register<Test>("integrationTest") {
@@ -93,6 +94,25 @@ tasks.jacocoTestReport {
     reports { xml.required = true }
 }
 
+// PRD Bab 7: ≥ 70% unit-test coverage for business logic (services and domain rules, not adapters/controllers).
+val businessLogic = listOf(
+    "com/inpartnerhub/diligence/**/*Service.class",
+    "com/inpartnerhub/diligence/finding/Risk*.class",
+    "com/inpartnerhub/diligence/security/Role.class",
+)
+tasks.jacocoTestCoverageVerification {
+    classDirectories.setFrom(sourceSets.main.get().output.classesDirs.asFileTree.matching { include(businessLogic) })
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.70".toBigDecimal()
+            }
+        }
+    }
+}
+tasks.check { dependsOn(tasks.jacocoTestCoverageVerification) }
+
 tasks.bootJar {
     archiveFileName = "app.jar"
 }
@@ -103,7 +123,7 @@ tasks.jar {
 
 sonar {
     properties {
-        property("sonar.projectKey", "platform-backend")
+        property("sonar.projectKey", "diligence-backend")
         property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
     }
 }

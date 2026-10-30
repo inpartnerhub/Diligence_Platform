@@ -8,4 +8,4 @@ logging:
     format:
       console: ""
   level:
-    com.example.platform: DEBUG
+    com.inpartnerhub.diligence: DEBUG
