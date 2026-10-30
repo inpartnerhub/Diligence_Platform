@@ -6,6 +6,7 @@ import java.net.URI;
 public final class ProblemTypes {
 
     public static final URI INTERNAL_ERROR = URI.create("urn:diligence:problem:internal-error");
+    public static final URI VALIDATION = URI.create("urn:diligence:problem:validation");
     public static final URI NOT_FOUND = URI.create("urn:diligence:problem:not-found");
     public static final URI CONFLICT = URI.create("urn:diligence:problem:conflict");
     public static final URI FORBIDDEN = URI.create("urn:diligence:problem:forbidden");

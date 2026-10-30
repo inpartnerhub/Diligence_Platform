@@ -6,10 +6,10 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
+import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
 import { createOrganization, setOrganizationStatus } from "./actions";
 import type { Organization, OrganizationType, Page } from "./types";
-import { useUrlQuery } from "./useUrlQuery";
 
 const TYPES: OrganizationType[] = ["CONSULTANT", "CLIENT", "TARGET"];
 

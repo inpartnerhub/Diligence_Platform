@@ -15,7 +15,8 @@
     "adminUsers": "Users",
     "adminOrganizations": "Organizations",
     "adminGroups": "Groups",
-    "adminAudit": "Audit log"
+    "adminAudit": "Audit log",
+    "adminTemplates": "Project templates"
   },
   "header": {
     "profile": "My profile",
@@ -52,7 +53,9 @@
   },
   "comingSoon": {
     "title": "{feature} is on the roadmap",
-    "subtitle": "Planned for sprint {sprint} of the MVP ({requirements})."
+    "subtitle": "Planned for sprint {sprint} of the MVP ({requirements}).",
+    "portfolioTitle": "Portfolio dashboard is planned for phase 2",
+    "portfolioSubtitle": "Cross-project status, workload and top risks for partners (PRJ-05). Each project already has its own dashboard."
   },
   "home": {
     "title": "Projects",
@@ -126,5 +129,113 @@
     "outcome": "Outcome",
     "filterAction": "Filter by action",
     "filterObject": "Object type"
+  },
+  "workstreams": {
+    "FINANCIAL": "Financial",
+    "TAX": "Tax",
+    "LEGAL": "Legal",
+    "COMMERCIAL": "Commercial",
+    "OPERATIONAL": "Operational",
+    "HR": "HR",
+    "IT_CYBER": "IT & Cyber",
+    "ESG_COMPLIANCE": "ESG & Compliance"
+  },
+  "stages": {
+    "INITIATION": "Initiation",
+    "REQUEST_LIST": "Request list",
+    "DATA_COLLECTION": "Data collection",
+    "REVIEW": "Review & analysis",
+    "CLARIFICATION": "Clarification (Q&A)",
+    "RISK_ASSESSMENT": "Risk assessment",
+    "REPORTING": "Reporting",
+    "CLOSED": "Closed & archived"
+  },
+  "projectRoles": {
+    "PARTNER": "Partner",
+    "PROJECT_MANAGER": "Project manager",
+    "ANALYST": "Analyst",
+    "CLIENT": "Client",
+    "TARGET": "Target",
+    "OBSERVER": "Observer"
+  },
+  "risk": {
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High",
+    "CRITICAL": "Critical",
+    "UNRATED": "Not rated"
+  },
+  "projects": {
+    "title": "Projects",
+    "create": "New project",
+    "createTitle": "Create project",
+    "code": "Project code",
+    "codeHelp": "Letters, digits and dashes, e.g. DD-2026-001",
+    "name": "Project name",
+    "client": "Client (buy-side)",
+    "target": "Target company (sell-side)",
+    "period": "Period",
+    "template": "Template",
+    "templateNone": "No template",
+    "workstreams": "Workstreams",
+    "workstreamsHelp": "Optional when a template is selected",
+    "stage": "Stage",
+    "status": "Status",
+    "statusValues": {
+      "ACTIVE": "Active",
+      "ARCHIVED": "Archived"
+    },
+    "myRole": "My role",
+    "empty": "No projects yet",
+    "emptyHint": "Projects you are a member of appear here.",
+    "searchPlaceholder": "Search code or name",
+    "created": "Project created",
+    "open": "Open"
+  },
+  "project": {
+    "overview": "Dashboard",
+    "team": "Team",
+    "settings": "Settings",
+    "completion": "Request list fulfilled",
+    "completionHelp": "Received or closed items out of items requested",
+    "dueSoon": "Due within 7 days",
+    "overdue": "Overdue",
+    "members": "Members",
+    "findingsByRisk": "Findings by risk level",
+    "requestProgress": "Request list per workstream",
+    "noRequests": "No request items yet (request list arrives in sprint 9–10)",
+    "itemsSummary": "{fulfilled} of {requested} fulfilled",
+    "addMember": "Add member",
+    "user": "User",
+    "userSearch": "Search name or e-mail",
+    "projectRole": "Project role",
+    "workstream": "Workstream",
+    "allWorkstreams": "All workstreams",
+    "accessUntil": "Access until",
+    "remove": "Remove",
+    "removeConfirm": "Remove this member from the project?",
+    "save": "Save changes",
+    "archive": "Archive project",
+    "archiveConfirm": "Archive the project? External users (client and target) lose access immediately.",
+    "reactivate": "Reactivate",
+    "archivedNotice": "This project is archived and read-only.",
+    "readOnly": "Only the project's partners and project managers can change these settings.",
+    "externalHint": "Client and target users can only be added from the project's own client or target organization."
+  },
+  "templates": {
+    "title": "Project templates",
+    "create": "New template",
+    "edit": "Edit template",
+    "duplicate": "Duplicate",
+    "duplicateName": "Name of the copy",
+    "description": "Description",
+    "requestItems": "Request list items",
+    "requestItemsHelp": "One item per line: WORKSTREAM | category | description",
+    "findingCategories": "Finding categories",
+    "findingCategoriesHelp": "One per line: WORKSTREAM | category",
+    "folders": "Data room folders",
+    "foldersHelp": "One folder per line",
+    "counts": "{requestItems} request items · {findingCategories} finding categories · {folders} folders",
+    "invalidLine": "Line {line} is not valid"
   }
 }

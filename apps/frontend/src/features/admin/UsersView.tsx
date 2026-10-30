@@ -20,10 +20,10 @@ import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { EXTERNAL_ROLES, MFA_ROLES, ROLES, type Role } from "@/lib/auth/roles";
+import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
 import { changeUserRole, inviteUser, setUserEnabled } from "./actions";
 import type { ActionResult, InviteUserInput, Organization, Page, User, UserStatus } from "./types";
-import { useUrlQuery } from "./useUrlQuery";
 
 const STATUS_COLORS: Record<UserStatus, string> = { INVITED: "blue", ACTIVE: "green", DISABLED: "default" };
 

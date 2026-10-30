@@ -4,9 +4,9 @@ import { Flex, Input, Select, Table, Tag, Typography } from "antd";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { PageHeader } from "@/components/PageHeader";
+import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
 import type { AuditLog, Page } from "./types";
-import { useUrlQuery } from "./useUrlQuery";
 
 export function AuditView({ logs }: Readonly<{ logs: Page<AuditLog> }>) {
   const t = useTranslations();

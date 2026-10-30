@@ -9,15 +9,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.rabbitmq.RabbitMQContainer;
 
 /**
  * Boots the full context against real PostgreSQL and RabbitMQ: Flyway migrations validated against Hibernate,
@@ -29,7 +24,7 @@ import org.testcontainers.rabbitmq.RabbitMQContainer;
         "spring.cache.type=none",
         "diligence.identity.admin-client-secret=test-only"
 })
-@Import(ApplicationIntegrationTest.Containers.class)
+@Import(TestContainersConfiguration.class)
 class ApplicationIntegrationTest {
 
     @Autowired
@@ -98,21 +93,5 @@ class ApplicationIntegrationTest {
                     user.toString(), role);
             return jdbc.queryForObject(countQuery, Integer.class);
         });
-    }
-
-    @TestConfiguration(proxyBeanMethods = false)
-    static class Containers {
-
-        @Bean
-        @ServiceConnection
-        PostgreSQLContainer postgres() {
-            return new PostgreSQLContainer("postgres:17-alpine");
-        }
-
-        @Bean
-        @ServiceConnection
-        RabbitMQContainer rabbit() {
-            return new RabbitMQContainer("rabbitmq:4-management-alpine");
-        }
     }
 }

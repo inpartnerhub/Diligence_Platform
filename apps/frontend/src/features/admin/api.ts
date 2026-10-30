@@ -1,21 +1,9 @@
 import "server-only";
 
 import { apiFetch } from "@/lib/api/client";
+import { withQuery, type Query } from "@/lib/api/query";
 
 import type { AuditLog, Group, Organization, Page, Profile, User } from "./types";
-
-type Query = Record<string, string | number | undefined>;
-
-function withQuery(path: string, query: Query): `/api/${string}` {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== "") {
-      params.set(key, String(value));
-    }
-  }
-  const qs = params.toString();
-  return `${path}${qs ? `?${qs}` : ""}` as `/api/${string}`;
-}
 
 export const adminApi = {
   users: (query: Query) => apiFetch<Page<User>>(withQuery("/api/v1/admin/users", query)),

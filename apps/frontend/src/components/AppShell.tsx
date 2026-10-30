@@ -5,6 +5,7 @@ import {
   ApartmentOutlined,
   AuditOutlined,
   BankOutlined,
+  CopyOutlined,
   DashboardOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
@@ -41,6 +42,7 @@ const ADMIN_NAV = [
   { key: "adminUsers", href: "/admin/users", icon: <TeamOutlined /> },
   { key: "adminOrganizations", href: "/admin/organizations", icon: <BankOutlined /> },
   { key: "adminGroups", href: "/admin/groups", icon: <ApartmentOutlined /> },
+  { key: "adminTemplates", href: "/admin/templates", icon: <CopyOutlined /> },
   { key: "adminAudit", href: "/admin/audit", icon: <AuditOutlined /> },
 ] as const;
 
@@ -76,7 +78,9 @@ export function AppShell({
 
   const selected =
     [...Object.values(NAV).map((n) => n.href), ...ADMIN_NAV.map((n) => n.href)]
-      .filter((href) => (href === "/" ? pathname === "/" : pathname.startsWith(href)))
+      .filter((href) =>
+        href === "/" ? pathname === "/" || pathname.startsWith("/projects/") : pathname.startsWith(href),
+      )
       .sort((a, b) => b.length - a.length)[0] ?? "/";
 
   const userMenu: MenuProps["items"] = [

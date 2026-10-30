@@ -15,7 +15,8 @@
     "adminUsers": "Pengguna",
     "adminOrganizations": "Organisasi",
     "adminGroups": "Grup",
-    "adminAudit": "Log audit"
+    "adminAudit": "Log audit",
+    "adminTemplates": "Template proyek"
   },
   "header": {
     "profile": "Profil saya",
@@ -52,7 +53,9 @@
   },
   "comingSoon": {
     "title": "{feature} sedang dikembangkan",
-    "subtitle": "Direncanakan pada sprint {sprint} fase MVP ({requirements})."
+    "subtitle": "Direncanakan pada sprint {sprint} fase MVP ({requirements}).",
+    "portfolioTitle": "Dashboard portofolio direncanakan pada fase 2",
+    "portfolioSubtitle": "Status lintas proyek, beban kerja, dan risiko utama untuk Partner (PRJ-05). Setiap proyek sudah memiliki dashboard sendiri."
   },
   "home": {
     "title": "Proyek",
@@ -126,5 +129,113 @@
     "outcome": "Hasil",
     "filterAction": "Filter aksi",
     "filterObject": "Tipe objek"
+  },
+  "workstreams": {
+    "FINANCIAL": "Keuangan",
+    "TAX": "Pajak",
+    "LEGAL": "Hukum",
+    "COMMERCIAL": "Komersial",
+    "OPERATIONAL": "Operasional",
+    "HR": "SDM",
+    "IT_CYBER": "TI & Siber",
+    "ESG_COMPLIANCE": "ESG & Kepatuhan"
+  },
+  "stages": {
+    "INITIATION": "Inisiasi",
+    "REQUEST_LIST": "Request list",
+    "DATA_COLLECTION": "Pengumpulan data",
+    "REVIEW": "Review & analisis",
+    "CLARIFICATION": "Klarifikasi (Q&A)",
+    "RISK_ASSESSMENT": "Penilaian risiko",
+    "REPORTING": "Pelaporan",
+    "CLOSED": "Ditutup & diarsipkan"
+  },
+  "projectRoles": {
+    "PARTNER": "Partner",
+    "PROJECT_MANAGER": "Project manager",
+    "ANALYST": "Analis",
+    "CLIENT": "Klien",
+    "TARGET": "Pihak target",
+    "OBSERVER": "Pengamat"
+  },
+  "risk": {
+    "LOW": "Rendah",
+    "MEDIUM": "Sedang",
+    "HIGH": "Tinggi",
+    "CRITICAL": "Kritis",
+    "UNRATED": "Belum dinilai"
+  },
+  "projects": {
+    "title": "Proyek",
+    "create": "Proyek baru",
+    "createTitle": "Buat proyek",
+    "code": "Kode proyek",
+    "codeHelp": "Huruf, angka, dan tanda hubung, mis. DD-2026-001",
+    "name": "Nama proyek",
+    "client": "Klien (buy-side)",
+    "target": "Perusahaan target (sell-side)",
+    "period": "Periode",
+    "template": "Template",
+    "templateNone": "Tanpa template",
+    "workstreams": "Workstream",
+    "workstreamsHelp": "Opsional bila template dipilih",
+    "stage": "Tahap",
+    "status": "Status",
+    "statusValues": {
+      "ACTIVE": "Aktif",
+      "ARCHIVED": "Diarsipkan"
+    },
+    "myRole": "Peran saya",
+    "empty": "Belum ada proyek",
+    "emptyHint": "Proyek tempat Anda menjadi anggota akan tampil di sini.",
+    "searchPlaceholder": "Cari kode atau nama",
+    "created": "Proyek dibuat",
+    "open": "Buka"
+  },
+  "project": {
+    "overview": "Dashboard",
+    "team": "Tim",
+    "settings": "Pengaturan",
+    "completion": "Request list terpenuhi",
+    "completionHelp": "Item diterima atau ditutup dari item yang diminta",
+    "dueSoon": "Jatuh tempo ≤ 7 hari",
+    "overdue": "Lewat tenggat",
+    "members": "Anggota",
+    "findingsByRisk": "Temuan per tingkat risiko",
+    "requestProgress": "Request list per workstream",
+    "noRequests": "Belum ada item request (request list hadir pada sprint 9–10)",
+    "itemsSummary": "{fulfilled} dari {requested} terpenuhi",
+    "addMember": "Tambah anggota",
+    "user": "Pengguna",
+    "userSearch": "Cari nama atau e-mail",
+    "projectRole": "Peran di proyek",
+    "workstream": "Workstream",
+    "allWorkstreams": "Semua workstream",
+    "accessUntil": "Akses sampai",
+    "remove": "Hapus",
+    "removeConfirm": "Hapus anggota ini dari proyek?",
+    "save": "Simpan perubahan",
+    "archive": "Arsipkan proyek",
+    "archiveConfirm": "Arsipkan proyek? Pengguna eksternal (klien dan target) langsung kehilangan akses.",
+    "reactivate": "Aktifkan kembali",
+    "archivedNotice": "Proyek ini diarsipkan dan hanya dapat dibaca.",
+    "readOnly": "Hanya partner dan project manager proyek yang dapat mengubah pengaturan ini.",
+    "externalHint": "Pengguna klien dan target hanya dapat ditambahkan dari organisasi klien atau target proyek ini."
+  },
+  "templates": {
+    "title": "Template proyek",
+    "create": "Template baru",
+    "edit": "Ubah template",
+    "duplicate": "Duplikat",
+    "duplicateName": "Nama salinan",
+    "description": "Deskripsi",
+    "requestItems": "Item request list",
+    "requestItemsHelp": "Satu item per baris: WORKSTREAM | kategori | deskripsi",
+    "findingCategories": "Kategori temuan",
+    "findingCategoriesHelp": "Satu per baris: WORKSTREAM | kategori",
+    "folders": "Folder data room",
+    "foldersHelp": "Satu folder per baris",
+    "counts": "{requestItems} item request · {findingCategories} kategori temuan · {folders} folder",
+    "invalidLine": "Baris {line} tidak valid"
   }
 }

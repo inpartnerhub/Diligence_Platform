@@ -4,6 +4,7 @@ import java.net.URI;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,6 +29,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ResourceConflictException.class)
     ProblemDetail handleConflict(ResourceConflictException ex) {
         return problem(HttpStatus.CONFLICT, ProblemTypes.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    ProblemDetail handleInvalid(InvalidRequestException ex) {
+        return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, ex.getMessage());
+    }
+
+    /** Unique constraints that the application could not pre-check (e.g. rows hidden by row-level security). */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.info("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        return problem(HttpStatus.CONFLICT, ProblemTypes.CONFLICT, "The request conflicts with existing data.");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
