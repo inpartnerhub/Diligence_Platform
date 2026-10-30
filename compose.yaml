@@ -140,7 +140,7 @@ services:
 
   vault:
     # Dev mode: in-memory, auto-unsealed. Mirrors the secret layout used in real environments.
-    image: hashicorp/vault:1.20
+    image: hashicorp/vault:2.2
     command: ["server", "-dev", "-dev-listen-address=0.0.0.0:8200"]
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN}
