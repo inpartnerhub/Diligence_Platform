@@ -156,7 +156,7 @@ Browser ─▶ Next route handler (streams, adds token) ─▶ POST /folders/{id
    └─ DocumentUploaded (outbox, same transaction) ─▶ RabbitMQ diligence.dataroom.events ─▶ diligence.ingestion.document-uploaded
         ingestion worker (@RabbitListener, JSON):
           ContentScanner (ClamAV INSTREAM) ── infected ─▶ INFECTED (signature recorded, audited)
-          │ clean: ContentTypeDetector (Tika /detect/stream, magic bytes) ── not on allowlist ─▶ REJECTED
+          │ clean: ContentTypeDetector (Tika 4 /detect or Tika 3 /detect/stream, magic bytes) ── not on allowlist ─▶ REJECTED
           │ allowed ─▶ enrich, then CLEAN          transient scan outage ×3 ─▶ FAILED (never stuck in PENDING)
           │   TextExtractor (Tika /tika, Tesseract OCR for images and scanned pages) ─▶ renditions/{v}/text.txt
           │   PDF: original │ Office/RTF/text: PreviewRenderer (Gotenberg LibreOffice) │ images: PDFBox
