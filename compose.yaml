@@ -237,7 +237,7 @@ services:
 
   grafana:
     profiles: [observability]
-    image: grafana/grafana:12.2.0
+    image: grafana/grafana:13.3.0
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
