@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "Diligence Platform",
+    "tagline": "Ruang kerja due diligence"
+  },
+  "nav": {
+    "projects": "Proyek",
+    "dashboard": "Dashboard",
+    "requests": "Request list",
+    "dataRoom": "Data room",
+    "findings": "Temuan",
+    "qna": "Tanya-jawab",
+    "reports": "Laporan",
+    "admin": "Administrasi",
+    "adminUsers": "Pengguna",
+    "adminOrganizations": "Organisasi",
+    "adminGroups": "Grup",
+    "adminAudit": "Log audit"
+  },
+  "header": {
+    "profile": "Profil saya",
+    "logout": "Keluar",
+    "language": "Bahasa"
+  },
+  "roles": {
+    "SUPER_ADMIN": "Super Admin",
+    "PARTNER": "Partner / Director",
+    "PROJECT_MANAGER": "Project Manager",
+    "ANALYST": "Analis / Reviewer",
+    "CLIENT": "Klien (buy-side)",
+    "TARGET": "Pihak target (sell-side)",
+    "OBSERVER": "Pengamat / Auditor"
+  },
+  "common": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "create": "Buat",
+    "search": "Cari",
+    "actions": "Aksi",
+    "status": "Status",
+    "name": "Nama",
+    "email": "E-mail",
+    "role": "Peran",
+    "organization": "Organisasi",
+    "none": "—",
+    "all": "Semua",
+    "saved": "Tersimpan",
+    "error": "Terjadi kesalahan. Silakan coba lagi.",
+    "yes": "Ya",
+    "no": "Tidak",
+    "forbidden": "Anda tidak memiliki akses ke halaman ini."
+  },
+  "comingSoon": {
+    "title": "{feature} sedang dikembangkan",
+    "subtitle": "Direncanakan pada sprint {sprint} fase MVP ({requirements})."
+  },
+  "home": {
+    "title": "Proyek",
+    "subtitle": "Proyek yang dapat Anda akses akan tampil di sini setelah manajemen proyek (PRJ-01…PRJ-04) selesai pada sprint 3–4.",
+    "empty": "Belum ada proyek"
+  },
+  "profile": {
+    "title": "Profil saya",
+    "mfa": "Autentikasi dua faktor",
+    "mfaOn": "Aktif",
+    "mfaOff": "Tidak diwajibkan untuk peran Anda",
+    "lastLogin": "Login terakhir",
+    "manageAccount": "Kelola kata sandi dan autentikator",
+    "roles": "Peran",
+    "language": "Bahasa antarmuka"
+  },
+  "users": {
+    "title": "Pengguna",
+    "invite": "Undang pengguna",
+    "inviteTitle": "Undang pengguna",
+    "firstName": "Nama depan",
+    "lastName": "Nama belakang",
+    "locale": "Bahasa",
+    "invited": "Undangan terkirim. Pengguna menerima e-mail untuk membuat kata sandi{extra}.",
+    "inviteExtraMfa": ", mengaktifkan autentikasi dua faktor",
+    "inviteExtraNda": " dan menyetujui NDA",
+    "lastLogin": "Login terakhir",
+    "changeRole": "Ubah peran",
+    "disable": "Nonaktifkan",
+    "enable": "Aktifkan",
+    "disableConfirm": "Nonaktifkan pengguna ini? Pengguna tidak dapat login lagi.",
+    "searchPlaceholder": "Cari nama atau e-mail",
+    "status": {
+      "INVITED": "Diundang",
+      "ACTIVE": "Aktif",
+      "DISABLED": "Nonaktif"
+    },
+    "mfa": "MFA"
+  },
+  "organizations": {
+    "title": "Organisasi",
+    "create": "Organisasi baru",
+    "type": "Tipe",
+    "types": {
+      "CONSULTANT": "Konsultan",
+      "CLIENT": "Klien",
+      "TARGET": "Target"
+    },
+    "status": {
+      "ACTIVE": "Aktif",
+      "INACTIVE": "Nonaktif"
+    },
+    "activate": "Aktifkan",
+    "deactivate": "Nonaktifkan",
+    "createdAt": "Dibuat"
+  },
+  "groups": {
+    "title": "Grup",
+    "create": "Grup baru",
+    "description": "Deskripsi",
+    "members": "Anggota",
+    "editMembers": "Ubah anggota"
+  },
+  "audit": {
+    "title": "Log audit",
+    "time": "Waktu",
+    "user": "Pengguna",
+    "action": "Aksi",
+    "object": "Objek",
+    "ip": "Alamat IP",
+    "outcome": "Hasil",
+    "filterAction": "Filter aksi",
+    "filterObject": "Tipe objek"
+  }
+}

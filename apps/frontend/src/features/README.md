@@ -1,12 +1,13 @@
 # Features
 
-One folder per business capability, mirroring backend modules (`document`, `search`, …):
+One folder per business capability, mirroring backend modules (`admin`, `project`, `dataroom`, `finding`, …):
 
 ```
 src/features/<feature>/
-├── api.ts          # server-side calls via apiFetch (types from schema.gen.ts)
-├── components/     # feature-specific Ant Design compositions
-└── index.ts        # the only file other features may import
+├── api.ts          # server-only reads via apiFetch (types from schema.gen.ts)
+├── actions.ts      # "use server" mutations returning ActionResult
+├── types.ts        # DTO types until generated types replace them
+└── *View.tsx       # client components (Ant Design), strings via next-intl
 ```
 
 Features must not import each other's internals; shared UI goes in `src/components`.

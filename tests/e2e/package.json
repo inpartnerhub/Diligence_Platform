@@ -1,5 +1,5 @@
 {
-  "name": "@platform/e2e",
+  "name": "@diligence/e2e",
   "private": true,
   "type": "module",
   "scripts": {

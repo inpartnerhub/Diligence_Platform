@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "Diligence Platform",
+    "tagline": "Due diligence workspace"
+  },
+  "nav": {
+    "projects": "Projects",
+    "dashboard": "Dashboard",
+    "requests": "Request list",
+    "dataRoom": "Data room",
+    "findings": "Findings",
+    "qna": "Q&A",
+    "reports": "Reports",
+    "admin": "Administration",
+    "adminUsers": "Users",
+    "adminOrganizations": "Organizations",
+    "adminGroups": "Groups",
+    "adminAudit": "Audit log"
+  },
+  "header": {
+    "profile": "My profile",
+    "logout": "Sign out",
+    "language": "Language"
+  },
+  "roles": {
+    "SUPER_ADMIN": "Super Admin",
+    "PARTNER": "Partner / Director",
+    "PROJECT_MANAGER": "Project Manager",
+    "ANALYST": "Analyst / Reviewer",
+    "CLIENT": "Client (buy-side)",
+    "TARGET": "Target (sell-side)",
+    "OBSERVER": "Observer / Auditor"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "search": "Search",
+    "actions": "Actions",
+    "status": "Status",
+    "name": "Name",
+    "email": "E-mail",
+    "role": "Role",
+    "organization": "Organization",
+    "none": "—",
+    "all": "All",
+    "saved": "Saved",
+    "error": "Something went wrong. Please try again.",
+    "yes": "Yes",
+    "no": "No",
+    "forbidden": "You do not have access to this page."
+  },
+  "comingSoon": {
+    "title": "{feature} is on the roadmap",
+    "subtitle": "Planned for sprint {sprint} of the MVP ({requirements})."
+  },
+  "home": {
+    "title": "Projects",
+    "subtitle": "Projects you can access will appear here once project management (PRJ-01…PRJ-04) is delivered in sprint 3–4.",
+    "empty": "No projects yet"
+  },
+  "profile": {
+    "title": "My profile",
+    "mfa": "Two-factor authentication",
+    "mfaOn": "Enabled",
+    "mfaOff": "Not required for your role",
+    "lastLogin": "Last login",
+    "manageAccount": "Manage password and authenticator",
+    "roles": "Roles",
+    "language": "Interface language"
+  },
+  "users": {
+    "title": "Users",
+    "invite": "Invite user",
+    "inviteTitle": "Invite a user",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "locale": "Language",
+    "invited": "Invitation sent. The user receives an e-mail to set a password{extra}.",
+    "inviteExtraMfa": ", set up two-factor authentication",
+    "inviteExtraNda": " and accept the NDA",
+    "lastLogin": "Last login",
+    "changeRole": "Change role",
+    "disable": "Disable",
+    "enable": "Enable",
+    "disableConfirm": "Disable this user? They are signed out of new sessions immediately.",
+    "searchPlaceholder": "Search name or e-mail",
+    "status": {
+      "INVITED": "Invited",
+      "ACTIVE": "Active",
+      "DISABLED": "Disabled"
+    },
+    "mfa": "MFA"
+  },
+  "organizations": {
+    "title": "Organizations",
+    "create": "New organization",
+    "type": "Type",
+    "types": {
+      "CONSULTANT": "Consultant",
+      "CLIENT": "Client",
+      "TARGET": "Target"
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive"
+    },
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "createdAt": "Created"
+  },
+  "groups": {
+    "title": "Groups",
+    "create": "New group",
+    "description": "Description",
+    "members": "Members",
+    "editMembers": "Edit members"
+  },
+  "audit": {
+    "title": "Audit log",
+    "time": "Time",
+    "user": "User",
+    "action": "Action",
+    "object": "Object",
+    "ip": "IP address",
+    "outcome": "Outcome",
+    "filterAction": "Filter by action",
+    "filterObject": "Object type"
+  }
+}

@@ -6,7 +6,7 @@ test("frontend health endpoint responds", async ({ request }) => {
   expect(await response.json()).toEqual({ status: "UP" });
 });
 
-test("home page renders", async ({ page }) => {
+test("home page requires sign-in", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Platform" })).toBeVisible();
+  await expect(page).toHaveURL(/openid-connect\/auth|\/auth\/login/); // protected: redirects to sign-in
 });

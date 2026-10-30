@@ -1,21 +1,26 @@
 import { AntdRegistry } from "@ant-design/nextjs-registry";
-import { ConfigProvider } from "antd";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 
-import { themeConfig } from "@/theme/themeConfig";
+import { Providers } from "@/components/Providers";
+import { toLocale } from "@/i18n/locales";
 
-export const metadata: Metadata = {
-  title: { default: "Platform", template: "%s · Platform" },
-  description: "Enterprise platform",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("app");
+  return { title: { default: t("name"), template: `%s · ${t("name")}` }, description: t("tagline") };
+}
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const locale = toLocale(await getLocale());
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body style={{ margin: 0 }}>
         <AntdRegistry>
-          <ConfigProvider theme={themeConfig}>{children}</ConfigProvider>
+          <NextIntlClientProvider>
+            <Providers locale={locale}>{children}</Providers>
+          </NextIntlClientProvider>
         </AntdRegistry>
       </body>
     </html>

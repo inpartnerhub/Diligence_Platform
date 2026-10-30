@@ -12,8 +12,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Public (browser) configuration is baked in at build time; server configuration is injected at runtime.
-ARG NEXT_PUBLIC_OIDC_ISSUER
-ARG NEXT_PUBLIC_OIDC_CLIENT_ID
 ARG NEXT_PUBLIC_APP_ENVIRONMENT
 ARG NEXT_PUBLIC_SENTRY_DSN
 RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build
@@ -25,6 +23,7 @@ RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 COPY --from=build --chown=app:app /app/public ./public
+COPY --from=build --chown=app:app /app/messages ./messages
 USER 10001:10001
 EXPOSE 3000
 CMD ["node", "server.js"]

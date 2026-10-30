@@ -1,5 +1,6 @@
 import "server-only";
 
+import { requireSession } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/config/env";
 
 /** RFC 9457 problem details, as returned by the backend for every error. */
@@ -19,22 +20,25 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions extends Omit<RequestInit, "body"> {
+  /** Defaults to the signed-in user's access token. */
   accessToken?: string;
   body?: unknown;
 }
 
 /**
- * Server-side API client. All backend traffic goes through Kong (`API_BASE_URL`); the browser never calls the
- * backend directly. Response types come from `schema.gen.ts`, generated from the OpenAPI spec (`npm run generate:api`).
+ * Server-side API client. All backend traffic goes through Kong (`API_BASE_URL`) with the user's access token
+ * from the server-side session; the browser never holds tokens or calls the backend directly. Response types come
+ * from `schema.gen.ts`, generated from the OpenAPI spec (`npm run generate:api`).
  */
 export async function apiFetch<T>(path: `/api/${string}`, options: RequestOptions = {}): Promise<T> {
   const { accessToken, body, headers, ...init } = options;
+  const token = accessToken ?? (await requireSession()).accessToken;
   const response = await fetch(new URL(path, serverEnv.apiBaseUrl), {
     ...init,
     headers: {
       Accept: "application/json",
+      Authorization: `Bearer ${token}`,
       ...(body !== undefined && { "Content-Type": "application/json" }),
-      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
