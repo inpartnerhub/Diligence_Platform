@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /apps/backend
+    schedule: { interval: weekly }
+    groups:
+      spring: { patterns: ["org.springframework*", "io.spring*"] }
+  - package-ecosystem: npm
+    directory: /apps/frontend
+    schedule: { interval: weekly }
+    groups:
+      next-react: { patterns: ["next", "react", "react-dom", "eslint-config-next", "@types/react*"] }
+      antd: { patterns: ["antd", "@ant-design/*"] }
+  - package-ecosystem: docker
+    directories: ["/apps/backend", "/apps/frontend"]
+    schedule: { interval: weekly }
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: terraform
+    directories: ["/infrastructure/terraform/environments/*"]
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

@@ -1,0 +1,149 @@
+# Production-oriented defaults. Every environment-specific value is injected via environment variables
+# (local: .env / docker compose; Kubernetes: ConfigMap + Vault-injected secrets). No secrets live in this file.
+spring:
+  application:
+    name: platform-backend
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      connection-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate # schema is owned exclusively by Flyway
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    template:
+      observation-enabled: true # propagate trace context into messages
+    listener:
+      simple:
+        observation-enabled: true
+        acknowledge-mode: auto
+        default-requeue-rejected: false # failed messages go to the DLQ instead of looping
+        retry:
+          enabled: true
+          max-attempts: 3
+  modulith:
+    events:
+      externalization:
+        enabled: true
+      republish-outstanding-events-on-restart: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI}
+          audiences: ${OIDC_AUDIENCE:platform-backend}
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+server:
+  port: 8080
+  shutdown: graceful
+  forward-headers-strategy: framework # trust X-Forwarded-* from Kong only (enforced by network policy)
+  error:
+    include-stacktrace: never
+    include-message: never
+
+platform:
+  security:
+    client-id: ${OIDC_CLIENT_ID:platform-backend}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  object-storage:
+    endpoint: ${S3_ENDPOINT:}
+    region: ${S3_REGION:us-east-1}
+    bucket: ${S3_BUCKET:platform-documents}
+    path-style: ${S3_PATH_STYLE:true}
+  search:
+    url: ${OPENSEARCH_URL:http://localhost:9200}
+    index-prefix: ${OPENSEARCH_INDEX_PREFIX:platform}
+  ingestion:
+    tika-url: ${TIKA_URL:http://localhost:9998}
+    clamav-host: ${CLAMAV_HOST:localhost}
+    clamav-port: ${CLAMAV_PORT:3310}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${API_DOCS_ENABLED:true}
+  default-produces-media-type: application/json
+  paths-to-match: /api/**
+
+management:
+  server:
+    port: 8081 # actuator isolated from public traffic; not routed through Kong
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics, modulith
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  observations:
+    key-values:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    logging:
+      endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${APP_ENVIRONMENT:local}
+  traces-sample-rate: 0.0 # traces go to OpenTelemetry; Sentry is for errors only
+  send-default-pii: false
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:ecs} # JSON logs, shipped to OpenSearch by the log collector
+  level:
+    root: INFO
+    com.example.platform: ${APP_LOG_LEVEL:INFO}

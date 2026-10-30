@@ -1,0 +1,55 @@
+name: Deploy
+
+# Promotion template: deploys immutable images (by git SHA) to an environment. Each GitHub environment
+# (dev / staging / prod) holds its own cloud credentials and protection rules (prod requires approval).
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, staging, prod]
+        required: true
+      image-tag:
+        description: Image tag to deploy (sha-<full git sha>)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write # OIDC federation to the cloud provider; no long-lived credentials
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      OVERLAY: infrastructure/kubernetes/overlays/${{ inputs.environment }}
+      REGISTRY: ghcr.io/${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-kubectl@v5
+      # Configure cluster access here, e.g. aws-actions/configure-aws-credentials with role-to-assume
+      # followed by `aws eks update-kubeconfig --name platform-${{ inputs.environment }}`.
+      - name: Pin images
+        working-directory: ${{ env.OVERLAY }}
+        run: |
+          kustomize_bin=$(command -v kustomize || true)
+          if [ -z "$kustomize_bin" ]; then
+            curl -sSL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+            kustomize_bin=./kustomize
+          fi
+          $kustomize_bin edit set image \
+            "ghcr.io/example/platform-backend=$REGISTRY/platform-backend:${{ inputs.image-tag }}" \
+            "ghcr.io/example/platform-frontend=$REGISTRY/platform-frontend:${{ inputs.image-tag }}"
+      - name: Diff
+        run: kubectl diff -k "$OVERLAY" || true
+      - name: Apply
+        run: |
+          kubectl apply -k "$OVERLAY"
+          kubectl -n platform-${{ inputs.environment }} rollout status deploy/platform-backend --timeout=10m
+          kubectl -n platform-${{ inputs.environment }} rollout status deploy/platform-frontend --timeout=5m

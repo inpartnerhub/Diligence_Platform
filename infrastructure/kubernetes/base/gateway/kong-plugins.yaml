@@ -1,0 +1,29 @@
+# Kong Ingress Controller plugins (mirrors infrastructure/docker/kong/kong.yml).
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: platform-rate-limiting
+plugin: rate-limiting
+config:
+  minute: 600
+  policy: redis # shared counters across Kong replicas
+  limit_by: ip
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: platform-request-size
+plugin: request-size-limiting
+config:
+  allowed_payload_size: 100
+  size_unit: megabytes
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: platform-correlation-id
+plugin: correlation-id
+config:
+  header_name: X-Request-Id
+  generator: uuid
+  echo_downstream: true

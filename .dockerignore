@@ -1,0 +1,10 @@
+# Root build context is used by the backend image; keep it lean.
+**/node_modules
+**/.next
+**/build
+**/.gradle
+.git
+infrastructure/terraform/**/.terraform
+**/.env
+**/.env.*
+!**/.env.example

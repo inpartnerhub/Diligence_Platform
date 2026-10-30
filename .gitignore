@@ -1,0 +1,35 @@
+# Secrets & local config — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+backend.hcl
+*.tfvars
+!*.tfvars.example
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+crash.log
+
+# Build output
+**/build/
+**/.gradle/
+**/node_modules/
+**/.next/
+**/out/
+**/coverage/
+**/test-results/
+**/playwright-report/
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store

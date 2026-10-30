@@ -1,0 +1,7 @@
+# Server-side runtime configuration. NEXT_PUBLIC_* values are baked into the image at build time.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-frontend-config
+data:
+  API_BASE_URL: http://kong-gateway-proxy.kong.svc:80

@@ -1,0 +1,70 @@
+# Default deny; only explicitly declared flows are allowed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Backend accepts API traffic only from Kong; metrics port only from the monitoring namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: platform-backend } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
+      ports: [{ protocol: TCP, port: 8080 }]
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      ports: [{ protocol: TCP, port: 8081 }]
+---
+# Backend egress to data services. Managed services live outside the cluster: restrict CIDRs per environment.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: platform-backend } }
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - { protocol: TCP, port: 5432 } # PostgreSQL
+        - { protocol: TCP, port: 6379 } # Redis
+        - { protocol: TCP, port: 5671 } # RabbitMQ (TLS)
+        - { protocol: TCP, port: 443 } # S3, OpenSearch, Keycloak JWKS, Sentry
+        - { protocol: TCP, port: 9998 } # Tika
+        - { protocol: TCP, port: 3310 } # ClamAV
+        - { protocol: TCP, port: 4317 } # OTel Collector
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-ingress
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: platform-frontend } }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
+      ports: [{ protocol: TCP, port: 3000 }]
+  egress:
+    - ports: [{ protocol: TCP, port: 443 }, { protocol: TCP, port: 8000 }]

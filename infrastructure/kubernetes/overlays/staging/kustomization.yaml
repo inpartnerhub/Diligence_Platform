@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: platform-staging
+resources:
+  - ../../base
+labels:
+  - pairs:
+      app.kubernetes.io/environment: staging
+    includeSelectors: false
+images:
+  # CI sets immutable digests: kustomize edit set image platform-backend=ghcr.io/...@sha256:...
+  - name: ghcr.io/example/platform-backend
+    newTag: "0.1.0"
+  - name: ghcr.io/example/platform-frontend
+    newTag: "0.1.0"
+patches:
+  - target: { kind: Namespace, name: platform }
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: platform-staging
+  - target: { kind: HorizontalPodAutoscaler }
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 2
+  - target: { kind: VaultStaticSecret, name: platform-backend-infrastructure }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: platform/staging/backend/infrastructure
+  - target: { kind: VaultStaticSecret, name: platform-backend-application }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: platform/staging/backend/application
+  - path: config.yaml

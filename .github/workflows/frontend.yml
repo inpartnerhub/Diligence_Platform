@@ -1,0 +1,61 @@
+name: Frontend
+
+on:
+  pull_request:
+    paths: ["apps/frontend/**", ".github/workflows/frontend.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/frontend/**", ".github/workflows/frontend.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: apps/frontend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # job-level so step `if:` can test it
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - name: SonarQube analysis
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v8
+        with:
+          projectBaseDir: apps/frontend
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+  image:
+    needs: build
+    uses: ./.github/workflows/container-image.yml
+    with:
+      image-name: platform-frontend
+      context: apps/frontend
+      dockerfile: apps/frontend/Dockerfile
+      push: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    secrets: inherit

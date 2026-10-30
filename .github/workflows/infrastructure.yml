@@ -1,0 +1,54 @@
+name: Infrastructure
+
+on:
+  pull_request:
+    paths: ["infrastructure/**", "compose.yaml", ".github/workflows/infrastructure.yml"]
+  push:
+    branches: [main]
+    paths: ["infrastructure/**", "compose.yaml", ".github/workflows/infrastructure.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, prod]
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+      - run: terraform fmt -check -recursive ../..
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+      - uses: terraform-linters/setup-tflint@v6
+      - run: tflint --init --config "$GITHUB_WORKSPACE/infrastructure/terraform/.tflint.hcl" && tflint --recursive --config "$GITHUB_WORKSPACE/infrastructure/terraform/.tflint.hcl"
+        working-directory: infrastructure/terraform
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-kubectl@v5
+      - name: Render and validate overlays
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          for env in dev staging prod; do
+            kubectl kustomize "infrastructure/kubernetes/overlays/$env" | ./kubeconform -strict -summary \
+              -ignore-missing-schemas \
+              -schema-location default \
+              -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+          done
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: cp .env.example .env && docker compose --profile app --profile observability config -q

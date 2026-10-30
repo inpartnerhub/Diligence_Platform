@@ -1,0 +1,8 @@
+# Replace the placeholder teams with your organization's teams.
+*                         @example-org/platform-architects
+/apps/backend/            @example-org/backend
+/apps/frontend/           @example-org/frontend
+/database/                @example-org/backend @example-org/dba
+/infrastructure/          @example-org/platform-ops
+/.github/                 @example-org/platform-ops
+SECURITY.md               @example-org/security

@@ -1,0 +1,61 @@
+name: Backend
+
+on:
+  pull_request:
+    paths: ["apps/backend/**", "database/**", ".github/workflows/backend.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/backend/**", "database/**", ".github/workflows/backend.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: apps/backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # job-level so step `if:` can test it
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 } # full history for SonarQube blame data
+      - uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build, unit & modularity tests
+        run: ./gradlew build
+      - name: Integration tests (Testcontainers)
+        run: ./gradlew integrationTest
+      - name: SonarQube analysis
+        if: env.SONAR_TOKEN != ''
+        run: ./gradlew sonar -Dsonar.host.url="$SONAR_HOST_URL"
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: backend-test-reports
+          path: apps/backend/build/reports
+          retention-days: 7
+
+  image:
+    needs: build
+    uses: ./.github/workflows/container-image.yml
+    with:
+      image-name: platform-backend
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      push: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    secrets: inherit

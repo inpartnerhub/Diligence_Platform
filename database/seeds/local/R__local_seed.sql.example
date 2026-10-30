@@ -1,0 +1,3 @@
+-- Local-only seed data. Copy to R__local_seed.sql (git-ignored) and load with:
+--   make db-seed
+-- Never place seed files in migrations/: they would run in every environment.

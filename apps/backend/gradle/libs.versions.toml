@@ -1,0 +1,21 @@
+[versions]
+spring-boot = "4.1.2"
+spring-dependency-management = "1.1.7"
+spring-modulith = "2.1.2"
+springdoc = "3.0.3"
+sentry = "8.62.0"
+aws-sdk = "2.57.7"
+opensearch-java = "3.10.0"
+sonarqube = "7.5.0.8588"
+
+[libraries]
+spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+aws-sdk-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
+sentry-bom = { module = "io.sentry:sentry-bom", version.ref = "sentry" }
+springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+opensearch-java = { module = "org.opensearch.client:opensearch-java", version.ref = "opensearch-java" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }

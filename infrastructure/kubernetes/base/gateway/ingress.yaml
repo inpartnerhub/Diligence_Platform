@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-api
+  annotations:
+    konghq.com/plugins: platform-rate-limiting,platform-request-size,platform-correlation-id
+    konghq.com/protocols: https
+    konghq.com/https-redirect-status-code: "308"
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: kong
+  tls:
+    - hosts: [api.example.com]
+      secretName: platform-api-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /api/v1
+            pathType: Prefix
+            backend: { service: { name: platform-backend, port: { name: http } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-web
+  annotations:
+    konghq.com/plugins: platform-correlation-id
+    konghq.com/protocols: https
+    konghq.com/https-redirect-status-code: "308"
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: kong
+  tls:
+    - hosts: [app.example.com]
+      secretName: platform-web-tls
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: platform-frontend, port: { name: http } } }
