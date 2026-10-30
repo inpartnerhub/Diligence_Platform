@@ -28,4 +28,35 @@ export async function proxyGet(path: string, search = ""): Promise<Response> {
   return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
 }
 
+/**
+ * Streams a multipart upload to the backend with the user's access token (the browser never sees tokens). The body
+ * is passed through without buffering, so large files do not hit server-action or proxy body limits. Cross-origin
+ * posts are rejected.
+ */
+export async function proxyMultipart(request: Request, path: string): Promise<Response> {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(serverEnv.appBaseUrl).origin) {
+    return Response.json({ status: 403, detail: "Cross-origin upload rejected" }, { status: 403 });
+  }
+  const session = await getSession();
+  if (!session) {
+    return Response.json({ status: 401, detail: "Authentication required" }, { status: 401 });
+  }
+  const upstream = await fetch(new URL(path, serverEnv.apiBaseUrl), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      "Content-Type": request.headers.get("content-type") ?? "application/octet-stream",
+      Accept: "application/json",
+      ...(await forwardedFor()),
+    },
+    body: request.body,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
+  });
+}
+
 export const segment = (value: string) => encodeURIComponent(value);

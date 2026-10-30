@@ -14,13 +14,19 @@ public final class ProjectEvents {
     }
 
     /**
-     * @param folders  initial data-room folder paths from the template ("Parent/Child"); empty without template
+     * @param folders       initial data-room folder paths from the template ("Parent/Child"); empty without template
+     * @param requestItems  the template's request-list items for the project's workstreams (PRD REQ-01)
      */
-    public record ProjectCreated(UUID projectId, String code, List<String> folders, RequestMetadata requestMetadata)
-            implements AuditableEvent {
+    public record ProjectCreated(UUID projectId, String code, List<String> folders,
+            List<TemplateRequestItem> requestItems, RequestMetadata requestMetadata) implements AuditableEvent {
 
         public ProjectCreated {
             folders = folders == null ? List.of() : List.copyOf(folders);
+            requestItems = requestItems == null ? List.of() : List.copyOf(requestItems);
+        }
+
+        public ProjectCreated(UUID projectId, String code, List<String> folders, RequestMetadata requestMetadata) {
+            this(projectId, code, folders, List.of(), requestMetadata);
         }
 
         @Override
@@ -42,6 +48,11 @@ public final class ProjectEvents {
         public Map<String, String> auditDetails() {
             return Map.of("code", code);
         }
+    }
+
+    /** A request-list item from a project template, resolved to the new project's workstream. */
+    public record TemplateRequestItem(UUID workstreamId, WorkstreamType workstream, String category,
+            String description) {
     }
 
     public record ProjectUpdated(UUID projectId, String change, RequestMetadata requestMetadata)

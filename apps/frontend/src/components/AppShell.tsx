@@ -24,6 +24,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useRef, useTransition, type ReactNode } from "react";
 
+import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { setLocale } from "@/lib/actions/locale";
 import type { NavKey } from "@/lib/auth/permissions";
 import type { SessionUser } from "@/lib/auth/session-store";
@@ -119,6 +120,7 @@ export function AppShell({
           }}
         >
           <Flex justify="end" align="center" gap={16} style={{ height: "100%" }}>
+            <NotificationBell />
             <Select
               aria-label={t("header.language")}
               value={locale}

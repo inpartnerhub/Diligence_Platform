@@ -1,15 +1,10 @@
-import { getTranslations } from "next-intl/server";
-
-import { ComingSoon } from "@/components/ComingSoon";
+import { projectsApi } from "@/features/projects/api";
+import { RequestIndexView } from "@/features/requests/RequestIndexView";
 import { requireAccess } from "@/lib/auth/session";
 
+/** Entry point from the navigation: pick the project whose request list to open. */
 export default async function RequestsPage() {
   await requireAccess("requests");
-  const t = await getTranslations();
-  return (
-    <ComingSoon
-      title={t("comingSoon.title", { feature: t("nav.requests") })}
-      subtitle={t("comingSoon.subtitle", { sprint: "9–10", requirements: "REQ-01…REQ-05" })}
-    />
-  );
+  const projects = await projectsApi.list({ status: "ACTIVE", size: 100 });
+  return <RequestIndexView projects={projects.items} />;
 }

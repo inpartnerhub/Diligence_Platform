@@ -67,12 +67,12 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 | `security` | ADM-02, Bab 3 | JWT validation, Keycloak role mapping, `Role`, `CurrentUserProvider`, ABAC API, RLS transaction context | ✅ |
 | `admin` | ADM-01 | Organizations, user accounts, groups, invitations; Keycloak Admin API adapter; `/api/v1/me` | ✅ sprint 1–2 |
 | `audit` | ADM-03, ADM-04 | Append-only audit log fed by every `AuditableEvent`; search API | ✅ sprint 1–2 |
-| `notification` | ADM-05, REQ-04 | E-mail port + SMTP adapter, notification preferences | 🟡 skeleton |
+| `notification` | ADM-05, REQ-04 | `Notifier` API: in-app inbox and e-mail per user preference; SMTP adapter | ✅ sprint 9–10 |
 | `project` | PRJ | Projects, members, workstreams, templates, dashboards | ✅ sprint 3–4 |
 | `dataroom` | DOC | Folder tree with per-folder grants, uploads, versions, duplicates; watermarked preview, download control, search | ✅ sprint 5–8 |
 | `ingestion` | DOC-02/03/06 | RabbitMQ worker: ClamAV scan, Tika type detection, text/OCR, PDF rendition, page images | ✅ sprint 5–8 |
 | `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
-| `request` | REQ | Request lists, statuses, reminders, Excel import/export | ⏳ schema only (sprint 9–10) |
+| `request` | REQ | Request lists from template/Excel, waves, six-status workflow, delivery by the target, reminders, Excel/PDF export | ✅ sprint 9–10 |
 | `finding` | FND | Findings, risk register; risk matrix (Appendix A) implemented | 🟡 `RiskMatrix` (sprint 11–12) |
 | `qna` | QNA | Questions with approval before release to the target | ⏳ schema only (sprint 13–14) |
 | `report` | RPT | Word/PDF reports from released findings, approvals | ⏳ schema only (sprint 13–14) |
@@ -112,7 +112,7 @@ Enforcement is layered so a UI bug cannot leak data:
    non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`.
    Policies in `V5__row_level_security.sql` make other projects invisible and enforce the barriers: the target
    never reads `fnd.*`, the client reads only `RELEASED` findings, `ISSUED` reports and its own questions, the target
-   reads only `SENT`/`ANSWERED` questions. The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
+   reads only `SENT`/`ANSWERED` questions, released request items (V9) and never internal request notes. The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
 4. **Audit**: `audit.audit_log` accepts only INSERT/SELECT from the runtime role and triggers reject UPDATE, DELETE
    and TRUNCATE for everyone.
 
@@ -181,7 +181,33 @@ Unexpected errors in the worker are retried by the listener container, then dead
 `diligence.ingestion.document-uploaded.dlq`. The worker can be scaled separately later by running the same image
 with only the ingestion listener enabled.
 
-## 7. Frontend
+## 7. Request list and notifications (PRD REQ-01…REQ-06, ADM-05; sprint 9–10)
+
+```
+Project created from a template ─▶ ProjectCreated (sync) ─▶ request: items per workstream, numbered LEG-001 …
+Internal team: add/edit items, Excel import (dry run, all-or-nothing), waves 1–20
+Release (PM/partner) ─▶ NOT_REQUESTED → REQUESTED, history row ─▶ RequestItemsReleased ─┐
+Target: attach data-room documents (upload or pick; DocumentDirectory checks folder access) │ audit log
+        ─▶ report PARTIAL / RECEIVED ─▶ RequestStatusChanged(byTarget) ─────────────────────┤ (AuditableEvent)
+Team: close, or reject with a reason the target sees ─▶ RequestStatusChanged ──────────────┤
+Comments: public or internal notes (internal never reach the target: RLS + no notification) ┘
+   └─ @ApplicationModuleListener (after commit, system context) ─▶ RequestNotifications: recipients from the
+      project roster (assignee, else target members of the workstream; managers + workstream analysts)
+      ─▶ Notifier ─▶ ntf.notification (inbox, header bell polls the unread count) + e-mail per preference
+Scheduler (REQUEST_REMINDER_CRON, ShedLock: one replica) ─▶ RequestReminderService: open items due within
+      REQUEST_REMINDER_DAYS_BEFORE days or overdue, each at most once per day ─▶ one reminder per target per
+      project + overdue digest for managers
+Export ─▶ XLSX (Apache POI, the same columns the import reads) or PDF (the XLSX converted by Gotenberg) ─▶ audited
+```
+
+Statuses (`RequestStatus`): the internal team moves items along the workflow; the target only reports `PARTIAL` or
+`RECEIVED` on open items (`REQUESTED`, `PARTIAL`, `REJECTED`) once at least one document is attached. `REJECTED`
+means the delivery was not sufficient and the item is open again. Every change is a row in
+`req.request_item_status_history` (KPI "kick-off → 80% fulfilled", REQ-06 history). Row-level security (V9) hides
+unreleased items and internal notes from the target and lets it neither create, delete, hide nor close items. The
+client side has no request list; it follows progress on the project dashboard.
+
+## 8. Frontend
 
 - App Router; `src/app/(app)` is the authenticated area rendered inside `AppShell` (Ant Design layout, role-based
   navigation from PRD Bab 11.1, language switch, user menu). Pages for later sprints show their sprint and PRD IDs.
@@ -192,7 +218,7 @@ with only the ingestion listener enabled.
 - i18n: `next-intl` with `messages/id.json` (default) and `messages/en.json`; the language is a cookie, synced to the
   user profile (`PATCH /api/v1/me`) and applied to Ant Design and Keycloak (`ui_locales`).
 
-## 8. Observability
+## 9. Observability
 
 | Signal | Producer | Path | Consumer |
 |--------|----------|------|----------|
@@ -202,7 +228,7 @@ with only the ingestion listener enabled.
 | Errors | Sentry SDK (backend + frontend), no PII | Sentry | Sentry |
 | Security events | Keycloak login events, `audit.audit_log` | Keycloak event store, PostgreSQL | Admin → Audit log, alerting |
 
-## 9. Deployment
+## 10. Deployment
 
 ```
 GitHub Actions ──build/test/scan──▶ GHCR (sha-tagged images, SBOM, provenance)
@@ -224,7 +250,7 @@ Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, 
 Hosting model and data residency (UU PDP) are still open — see [ADR-0003](docs/adr/0003-hosting-and-data-residency.md).
 Migrations run at backend startup (Flyway advisory lock) and must be backward compatible with the previous release.
 
-## 10. Integration boundaries
+## 11. Integration boundaries
 
 | Boundary | Contract | Owner |
 |----------|----------|-------|

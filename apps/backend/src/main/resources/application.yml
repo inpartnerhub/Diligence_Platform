@@ -98,6 +98,8 @@ diligence:
     invitation-lifespan: 72h
   notification:
     from: ${MAIL_FROM:Diligence Platform <no-reply@diligence.local>}
+    # Links in notification e-mails point to the web application.
+    app-base-url: ${APP_BASE_URL:http://localhost:3000}
   security:
     client-id: ${OIDC_CLIENT_ID:diligence-api}
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
@@ -109,6 +111,11 @@ diligence:
   dataroom:
     # Time zone of the timestamp in viewer watermarks (PRD DOC-04).
     watermark-zone: ${WATERMARK_ZONE:Asia/Jakarta}
+  request:
+    # PRD REQ-04: daily reminders for open items due within these days (and overdue ones), in this time zone.
+    reminder-cron: ${REQUEST_REMINDER_CRON:0 0 8 * * MON-FRI}
+    reminder-zone: ${REQUEST_REMINDER_ZONE:Asia/Jakarta}
+    reminder-days-before: ${REQUEST_REMINDER_DAYS_BEFORE:3}
   search:
     url: ${OPENSEARCH_URL:http://localhost:9200}
     username: ${OPENSEARCH_USERNAME:}

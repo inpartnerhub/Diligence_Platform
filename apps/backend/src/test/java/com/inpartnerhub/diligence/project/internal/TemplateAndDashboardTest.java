@@ -20,8 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Sort;
 
 import com.inpartnerhub.diligence.finding.FindingStatistics;
+import com.inpartnerhub.diligence.project.RequestStatistics;
 import com.inpartnerhub.diligence.project.WorkstreamType;
-import com.inpartnerhub.diligence.request.RequestStatistics;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;

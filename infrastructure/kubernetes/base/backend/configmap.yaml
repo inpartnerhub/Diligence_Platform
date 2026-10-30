@@ -26,6 +26,10 @@ data:
   # Tesseract languages for scanned documents; "ind" needs a Tika image with that trained data (see ARCHITECTURE §6).
   OCR_LANGUAGES: eng
   WATERMARK_ZONE: Asia/Jakarta
+  # PRD REQ-04: request-list reminders on working days at 08:00 WIB for items due within 3 days or overdue.
+  REQUEST_REMINDER_CRON: "0 0 8 * * MON-FRI"
+  REQUEST_REMINDER_ZONE: Asia/Jakarta
+  REQUEST_REMINDER_DAYS_BEFORE: "3"
   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector.monitoring.svc:4318/v1/traces
   OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://otel-collector.monitoring.svc:4318/v1/logs
   TRACING_SAMPLING_PROBABILITY: "0.1"

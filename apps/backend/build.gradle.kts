@@ -45,6 +45,9 @@ dependencies {
     implementation(libs.opensearch.java)
     implementation("org.apache.httpcomponents.client5:httpclient5")
     implementation(libs.pdfbox) // page rasterising (previews) and watermarked PDF downloads
+    implementation(libs.poi.ooxml) // request-list Excel import/export (REQ-01, REQ-05)
+    implementation(libs.shedlock.spring) // one replica runs scheduled jobs (REQ-04 reminders)
+    implementation(libs.shedlock.jdbc)
 
     // Messaging & notifications
     implementation("org.springframework.boot:spring-boot-starter-amqp")

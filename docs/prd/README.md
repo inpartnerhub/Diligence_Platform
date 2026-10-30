@@ -23,7 +23,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | 3–4 | Projects, members, templates, workstreams; core data model and audit log | ✅ delivered |
 | 5–6 | Data room: upload, encrypted storage, malware scan, folders, permissions | ✅ delivered |
 | 7–8 | Preview, dynamic watermark, download control, search and OCR | ✅ delivered |
-| 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ⏳ |
+| 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ✅ delivered |
 | 11–12 | Findings, source document links, risk rating, validation workflow | 🟡 risk matrix done |
 | 13–14 | Q&A with approval; report builder (Word/PDF) from templates | ⏳ |
 | 15–16 | Hardening: performance, penetration test, fixes, UAT, documentation, training | ⏳ |
@@ -38,12 +38,12 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | PRJ-04 | Project dashboard | M | `DashboardService`, project dashboard tab | ✅ |
 | PRJ-05 | Portfolio dashboard | S | — | phase 2 |
 | PRJ-06 | Time / workload tracking | C | — | phase 3 |
-| REQ-01 | Request list from template or Excel | M | `request`, `req.request_item` | schema |
-| REQ-02 | Item statuses (6) | M | `req.request_item.status` | schema |
-| REQ-03 | Target links documents and comments | M | `req.request_item_document` | schema + RLS |
-| REQ-04 | Automatic reminders (e-mail + in-app) | M | `notification` | e-mail port |
-| REQ-05 | Export to Excel/PDF | S (MVP) | — | sprint 9–10 |
-| REQ-06 | Staged waves with history | S | `req.request_item.wave` | schema |
+| REQ-01 | Request list from template or Excel | M | `RequestService` (template on `ProjectCreated`), `RequestTransferService` import (dry run) | ✅ |
+| REQ-02 | Item statuses (6) | M | `RequestStatus` workflow, `req.request_item_status_history` | ✅ |
+| REQ-03 | Target links documents and comments | M | `DocumentDirectory`, `req.request_item_document`, `req.request_item_comment` (internal notes, RLS V9) | ✅ |
+| REQ-04 | Automatic reminders (e-mail + in-app) | M | `RequestReminderService` (ShedLock), `RequestNotifications`, `Notifier` | ✅ |
+| REQ-05 | Export to Excel/PDF | S (MVP) | `RequestSpreadsheet` (Apache POI), PDF via Gotenberg, audited | ✅ |
+| REQ-06 | Staged waves with history | S | release per wave/workstream, status history | ✅ |
 | DOC-01 | Folders from template, per-folder permissions | M | `FolderService`, `dr.folder_access`, RLS V7 | ✅ |
 | DOC-02 | Bulk upload, indexing, malware scan | M | drag-and-drop/folder upload, RabbitMQ worker, ClamAV, `SearchIndexer` | ✅ |
 | DOC-03 | In-browser preview | M | Gotenberg/PDFBox renditions, pre-rendered pages, `DocumentViewer` | ✅ |
@@ -70,7 +70,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | ADM-02 | Strong passwords; MFA for externals and admins; SSO for internal | M | Keycloak realm, `browser-mfa`, bootstrap script | ✅ |
 | ADM-03 | Immutable audit trail | M | `audit`, `audit.audit_log` triggers | ✅ |
 | ADM-04 | Activity report per user / document | S (MVP) | `GET /api/v1/admin/audit-logs`, `/admin/audit` | ✅ basic |
-| ADM-05 | E-mail and in-app notifications, preferences | M | `notification`, `ntf.notification_preference` | skeleton |
+| ADM-05 | E-mail and in-app notifications, preferences | M | `notification` (`ntf.notification`, preferences), header bell, `/notifications` | ✅ |
 | ADM-06 | Retention and automatic deletion | S | — | phase 2 |
 | ADM-07 | Public API and webhooks | C | OpenAPI already published | phase 3 |
 

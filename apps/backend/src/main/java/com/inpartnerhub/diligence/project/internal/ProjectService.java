@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.inpartnerhub.diligence.admin.Directory.OrganizationType;
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectCreated;
+import com.inpartnerhub.diligence.project.ProjectEvents.TemplateRequestItem;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectUpdated;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.ProjectStage;
@@ -99,10 +101,17 @@ class ProjectService {
                 command.startDate(), command.endDate(), command.templateId(), user.id()));
         var creatorRole = user.hasRole(Role.PARTNER) ? ProjectRole.PARTNER : ProjectRole.PROJECT_MANAGER;
         members.save(new ProjectMember(project.getId(), user.id(), creatorRole, null, null));
-        selected.forEach(type -> workstreams.save(new Workstream(project.getId(), type)));
-        // Published synchronously within this transaction: the data room creates the template's folders.
+        var created = selected.stream().map(type -> workstreams.save(new Workstream(project.getId(), type)))
+                .collect(Collectors.toMap(Workstream::getType, Workstream::getId));
+        var requestItems = template == null ? List.<TemplateRequestItem>of() : template.requestItems().stream()
+                .filter(item -> created.containsKey(item.workstream()))
+                .map(item -> new TemplateRequestItem(created.get(item.workstream()), item.workstream(),
+                        item.category(), item.description()))
+                .toList();
+        // Published synchronously within this transaction: the data room creates the template's folders and the
+        // request list its items.
         events.publishEvent(new ProjectCreated(project.getId(), project.getCode(),
-                template == null ? List.of() : template.folders(), RequestMetadata.capture()));
+                template == null ? List.of() : template.folders(), requestItems, RequestMetadata.capture()));
         return project;
     }
 

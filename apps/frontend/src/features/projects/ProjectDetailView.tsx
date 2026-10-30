@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowLeftOutlined, FolderOpenOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  ArrowLeftOutlined,
+  FolderOpenOutlined,
+  PlusOutlined,
+  UnorderedListOutlined,
+} from "@ant-design/icons";
 import {
   Alert,
   App,
@@ -89,9 +94,14 @@ export function ProjectDetailView({
           </Tag>
           <Tag color="blue">{t(`stages.${project.stage}`)}</Tag>
           {!project.myRoles.every((role) => role === "CLIENT") && (
-            <Link href={`/projects/${project.id}/data-room`}>
-              <Button icon={<FolderOpenOutlined />}>{t("dataRoom.open")}</Button>
-            </Link>
+            <>
+              <Link href={`/projects/${project.id}/requests`}>
+                <Button icon={<UnorderedListOutlined />}>{t("nav.requests")}</Button>
+              </Link>
+              <Link href={`/projects/${project.id}/data-room`}>
+                <Button icon={<FolderOpenOutlined />}>{t("dataRoom.open")}</Button>
+              </Link>
+            </>
           )}
         </Flex>
         <Typography.Text type="secondary">

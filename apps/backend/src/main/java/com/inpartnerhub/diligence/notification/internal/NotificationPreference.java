@@ -8,7 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 
-/** Per-user, per-notification-type channel preferences (PRD ADM-05). */
+/** Per-user, per-notification-type channel preferences (PRD ADM-05). Without a row both channels are on. */
 @Entity
 @IdClass(NotificationPreference.Key.class)
 @Table(schema = "ntf", name = "notification_preference")
@@ -36,5 +36,33 @@ class NotificationPreference {
     private boolean inAppEnabled = true;
 
     protected NotificationPreference() {
+    }
+
+    NotificationPreference(UUID userId, String notificationType, boolean emailEnabled, boolean inAppEnabled) {
+        this.userId = userId;
+        this.notificationType = notificationType;
+        this.emailEnabled = emailEnabled;
+        this.inAppEnabled = inAppEnabled;
+    }
+
+    void change(boolean emailEnabled, boolean inAppEnabled) {
+        this.emailEnabled = emailEnabled;
+        this.inAppEnabled = inAppEnabled;
+    }
+
+    UUID getUserId() {
+        return userId;
+    }
+
+    String getNotificationType() {
+        return notificationType;
+    }
+
+    boolean isEmailEnabled() {
+        return emailEnabled;
+    }
+
+    boolean isInAppEnabled() {
+        return inAppEnabled;
     }
 }

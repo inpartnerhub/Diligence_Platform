@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.finding.FindingStatistics;
 import com.inpartnerhub.diligence.project.ProjectStage;
+import com.inpartnerhub.diligence.project.RequestStatistics;
 import com.inpartnerhub.diligence.project.WorkstreamType;
-import com.inpartnerhub.diligence.request.RequestStatistics;
 
 /**
  * Project dashboard (PRD PRJ-04): request-list progress per workstream, findings by risk level and approaching or

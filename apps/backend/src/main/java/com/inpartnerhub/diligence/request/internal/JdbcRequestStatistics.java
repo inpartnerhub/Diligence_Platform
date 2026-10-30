@@ -10,13 +10,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.inpartnerhub.diligence.request.RequestStatistics;
+import com.inpartnerhub.diligence.project.RequestStatistics;
 
 @Component
 @Transactional(readOnly = true)
 class JdbcRequestStatistics implements RequestStatistics {
 
-    private static final String OPEN_STATUSES = "('REQUESTED', 'PARTIAL')";
+    private static final String OPEN_STATUSES = "('REQUESTED', 'PARTIAL', 'REJECTED')";
 
     private final JdbcTemplate jdbc;
 

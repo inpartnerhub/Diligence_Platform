@@ -29,7 +29,26 @@ public class ProjectTestApi {
                 targetOrg, LocalDate.now(), null, template.getId(), Set.of())).getId();
     }
 
+    /**
+     * Creates a template with request-list items ({workstream, category, description}) and a project from it, as
+     * the signed-in user.
+     */
+    public UUID createWithRequestItems(String suffix, UUID clientOrg, UUID targetOrg, List<WorkstreamType> workstreams,
+            List<String[]> requestItems, List<String> folders) {
+        var items = requestItems.stream().map(i -> new TemplateDefinition.RequestItem(WorkstreamType.valueOf(i[0]),
+                i[1], i[2])).toList();
+        var template = templates.create("Template " + suffix, null,
+                new TemplateDefinition(workstreams, items, null, folders));
+        return projects.create(new ProjectService.CreateCommand("RQ-" + suffix, "Requests " + suffix, clientOrg,
+                targetOrg, LocalDate.now(), null, template.getId(), Set.of())).getId();
+    }
+
     public void addMember(UUID projectId, UUID userId, String role) {
-        members.add(projectId, new MemberService.AddCommand(userId, ProjectRole.valueOf(role), null, null));
+        addMember(projectId, userId, role, null);
+    }
+
+    /** @param workstreamId  limits the membership to one workstream; {@code null} for all */
+    public void addMember(UUID projectId, UUID userId, String role, UUID workstreamId) {
+        members.add(projectId, new MemberService.AddCommand(userId, ProjectRole.valueOf(role), workstreamId, null));
     }
 }

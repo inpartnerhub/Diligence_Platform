@@ -4,7 +4,7 @@
  * visibility is enforced by PostgreSQL row-level security on top of the checks in this module.
  */
 @ApplicationModule(displayName = "Projects",
-        allowedDependencies = { "shared", "security", "admin", "request", "finding" })
+        allowedDependencies = { "shared", "security", "admin", "finding" })
 package com.inpartnerhub.diligence.project;
 
 import org.springframework.modulith.ApplicationModule;
