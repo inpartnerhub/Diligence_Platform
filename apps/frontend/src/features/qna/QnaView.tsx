@@ -8,7 +8,6 @@ import {
   EyeOutlined,
   FileExcelOutlined,
   FilePdfOutlined,
-  LinkOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
 import {
@@ -34,7 +33,6 @@ import {
   Table,
   Tag,
   Timeline,
-  TreeSelect,
   Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -42,12 +40,11 @@ import dayjs, { type Dayjs } from "dayjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
+import { DocumentSource } from "@/features/dataroom/DocumentSource";
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
-import { buildTree, type DataRoomDocument, type Folder } from "@/features/dataroom/types";
 import type { Member, Project, Workstream } from "@/features/projects/types";
-import { loadFolderDocuments, loadFolders } from "@/features/requests/actions";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
 import {
@@ -609,9 +606,9 @@ function QuestionDrawer({
                   />
                 )}
                 {answerable && (permissions.answer || permissions.edit) && (
-                  <DocumentLinker
+                  <DocumentSource
                     projectId={project.id}
-                    onLink={(documentId) =>
+                    onChoose={(documentId) =>
                       act(() => linkAnswerDocument(project.id, question.id, documentId))
                     }
                     busy={pending}
@@ -712,90 +709,5 @@ function FeedbackModal({
         onChange={(e) => setFeedback(e.target.value)}
       />
     </Modal>
-  );
-}
-
-/** Attach a data-room document the caller can see (upload it in the data room first). */
-function DocumentLinker({
-  projectId,
-  onLink,
-  busy,
-}: Readonly<{ projectId: string; onLink: (documentId: string) => void; busy: boolean }>) {
-  const t = useTranslations("qna");
-  const [folders, setFolders] = useState<Folder[] | null>(null);
-  const [folderId, setFolderId] = useState<string | undefined>();
-  const [documents, setDocuments] = useState<DataRoomDocument[]>([]);
-  const [documentId, setDocumentId] = useState<string | undefined>();
-
-  useEffect(() => {
-    let active = true;
-    void loadFolders(projectId).then((result) => {
-      if (active) setFolders(result.ok ? (result.data ?? []) : []);
-    });
-    return () => {
-      active = false;
-    };
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!folderId) return undefined;
-    let active = true;
-    void loadFolderDocuments(projectId, folderId).then((result) => {
-      if (active) setDocuments(result.ok ? (result.data ?? []) : []);
-    });
-    return () => {
-      active = false;
-    };
-  }, [projectId, folderId]);
-
-  const treeData = useMemo(() => {
-    const toNode = (node: ReturnType<typeof buildTree>[number]): object => ({
-      value: node.folder.id,
-      title: node.folder.name,
-      children: node.children.map(toNode),
-    });
-    return folders ? buildTree(folders).map(toNode) : [];
-  }, [folders]);
-
-  if (folders === null) return <Spin size="small" />;
-  if (folders.length === 0) return <Typography.Text type="secondary">{t("noFolders")}</Typography.Text>;
-  return (
-    <Flex gap={8} wrap>
-      <TreeSelect
-        placeholder={t("chooseFolder")}
-        treeData={treeData}
-        value={folderId}
-        onChange={(value: string) => {
-          setFolderId(value);
-          setDocumentId(undefined);
-        }}
-        treeDefaultExpandAll
-        style={{ minWidth: 200, flex: 1 }}
-      />
-      <Select
-        showSearch={{ optionFilterProp: "label" }}
-        placeholder={t("chooseDocument")}
-        disabled={!folderId}
-        value={documentId}
-        onChange={setDocumentId}
-        style={{ minWidth: 200, flex: 1 }}
-        options={documents
-          .filter((d) => d.scanStatus === "CLEAN")
-          .map((d) => ({ value: d.id, label: d.name }))}
-      />
-      <Button
-        icon={<LinkOutlined />}
-        disabled={!documentId}
-        loading={busy}
-        onClick={() => {
-          if (documentId) {
-            onLink(documentId);
-            setDocumentId(undefined);
-          }
-        }}
-      >
-        {t("attach")}
-      </Button>
-    </Flex>
   );
 }

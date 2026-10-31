@@ -316,6 +316,15 @@
       "askQuestion": "Ask a question"
     }
   },
+  "documentSource": {
+    "chooseFolder": "Data-room folder",
+    "uploadAndAttach": "Upload and attach",
+    "chooseExisting": "or choose a scanned document in this folder",
+    "attach": "Attach",
+    "uploadFailed": "{name}: upload failed",
+    "noFolders": "No data-room folder is shared with you yet. Ask the project manager for upload access.",
+    "noUploadHere": "You cannot upload into this folder; choose another one."
+  },
   "requests": {
     "title": "Request list",
     "open": "Open",
@@ -404,15 +413,8 @@
     "unlinkConfirm": "Remove this document from the item? The document stays in the data room.",
     "hiddenDocuments": "{count, plural, one {# further document is} other {# further documents are}} in folders you cannot open.",
     "deliver": "Attach a document",
-    "chooseFolder": "Data-room folder",
     "documentNote": "Note for the reviewers (optional)",
-    "uploadAndLink": "Upload and attach",
-    "chooseExisting": "or choose a document in this folder",
-    "link": "Attach",
     "linked": "Document attached",
-    "uploadFailed": "{name}: upload failed",
-    "noFolders": "No data-room folder is shared with you yet. Ask the project manager for upload access.",
-    "noUploadHere": "You cannot upload into this folder; choose another one.",
     "comments": "Comments",
     "noComments": "No comments yet.",
     "commentPlaceholder": "Write a comment",
@@ -637,10 +639,6 @@
     "view": "View",
     "unlink": "Remove",
     "unlinkConfirm": "Remove this document from the answer?",
-    "attach": "Attach",
-    "chooseFolder": "Data-room folder",
-    "chooseDocument": "Document",
-    "noFolders": "No data-room folder is shared with you yet.",
     "history": "History",
     "edit": "Edit",
     "delete": "Delete",

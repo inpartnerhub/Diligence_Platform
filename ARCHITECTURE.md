@@ -235,7 +235,7 @@ heat map in the configured thresholds and the share of findings with a source do
 Team: draft question (Q-001; links to a request item, document or finding) ─▶ submit ─▶ PENDING_APPROVAL
 Client: ask ─▶ PENDING_APPROVAL (numbers via qna.next_question_number(): the client cannot see others' questions)
 PM/partner: approve and send ─▶ SENT ─▶ target notified    │ return with feedback ─▶ DRAFT (author notified)
-Target: answer (+ data-room documents) ─▶ ANSWERED ─▶ team notified
+Target: answer (+ documents uploaded or picked in the data room) ─▶ ANSWERED ─▶ team notified
 Team: close ─▶ CLOSED (a client asker is notified and can now read the answer) │ follow-up ─▶ SENT with feedback
 Export: GET /questions/export?format=xlsx|pdf — the log as the caller sees it (Apache POI, PDF via Gotenberg)
 

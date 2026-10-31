@@ -36,7 +36,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
 import { buildTree, type DataRoomDocument, type Folder } from "@/features/dataroom/types";
 import type { Project } from "@/features/projects/types";
-import { loadFolderDocuments, loadFolders } from "@/features/requests/actions";
+import { loadFolderDocuments, loadFolders } from "@/features/dataroom/actions";
 
 import {
   addFindingNote,

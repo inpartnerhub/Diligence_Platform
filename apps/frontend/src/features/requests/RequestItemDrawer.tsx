@@ -4,10 +4,8 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
-  LinkOutlined,
   LockOutlined,
   QuestionCircleOutlined,
-  UploadOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
@@ -23,41 +21,23 @@ import {
   List,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Spin,
   Tag,
   Timeline,
-  TreeSelect,
   Typography,
-  Upload,
 } from "antd";
-import type { UploadProps } from "antd";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
+import { DocumentSource } from "@/features/dataroom/DocumentSource";
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
-import {
-  buildTree,
-  formatBytes,
-  type DataRoomDocument,
-  type Folder,
-  type UploadResponse,
-} from "@/features/dataroom/types";
+import { formatBytes } from "@/features/dataroom/types";
 import type { Project } from "@/features/projects/types";
 
-import {
-  addComment,
-  changeStatus,
-  deleteItem,
-  linkDocument,
-  loadFolderDocuments,
-  loadFolders,
-  loadItem,
-  unlinkDocument,
-} from "./actions";
+import { addComment, changeStatus, deleteItem, linkDocument, loadItem, unlinkDocument } from "./actions";
 import {
   PRIORITY_COLORS,
   STATUS_COLORS,
@@ -392,129 +372,31 @@ function DeliveryPanel({
 }: Readonly<{ projectId: string; itemId: string; onLinked: () => void }>) {
   const t = useTranslations("requests");
   const { message } = App.useApp();
-  const [folders, setFolders] = useState<Folder[] | null>(null);
-  const [folderId, setFolderId] = useState<string | undefined>();
-  const [documents, setDocuments] = useState<DataRoomDocument[]>([]);
-  const [documentId, setDocumentId] = useState<string | undefined>();
   const [comment, setComment] = useState("");
   const [busy, startTransition] = useTransition();
 
-  useEffect(() => {
-    let active = true;
-    void loadFolders(projectId).then((result) => {
-      if (active) setFolders(result.ok ? (result.data ?? []) : []);
-    });
-    return () => {
-      active = false;
-    };
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!folderId) return undefined;
-    let active = true;
-    void loadFolderDocuments(projectId, folderId).then((result) => {
-      if (active) setDocuments(result.ok ? (result.data ?? []) : []);
-    });
-    return () => {
-      active = false;
-    };
-  }, [projectId, folderId]);
-
-  const treeData = useMemo(() => {
-    const toNode = (node: ReturnType<typeof buildTree>[number]): object => ({
-      value: node.folder.id,
-      title: node.folder.name,
-      children: node.children.map(toNode),
-    });
-    return folders ? buildTree(folders).map(toNode) : [];
-  }, [folders]);
-  const folder = folders?.find((f) => f.id === folderId);
-
-  const link = (id: string) =>
+  const link = (documentId: string) =>
     startTransition(async () => {
-      const result = await linkDocument(projectId, itemId, id, comment.trim() || undefined);
+      const result = await linkDocument(projectId, itemId, documentId, comment.trim() || undefined);
       if (!result.ok) {
         message.error(result.message || t("error"));
         return;
       }
       message.success(t("linked"));
-      setDocumentId(undefined);
       setComment("");
       onLinked();
     });
 
-  const customRequest: UploadProps["customRequest"] = ({ file, onSuccess, onError }) => {
-    if (!folderId) return;
-    const upload = file as File;
-    const body = new FormData();
-    body.append("file", upload);
-    void fetch(
-      `/api/projects/${encodeURIComponent(projectId)}/folders/${encodeURIComponent(folderId)}/documents`,
-      {
-        method: "POST",
-        body,
-      },
-    ).then(async (response) => {
-      const payload = (await response.json().catch(() => ({}))) as UploadResponse & { detail?: string };
-      if (!response.ok) {
-        message.error(
-          payload.detail ? `${upload.name}: ${payload.detail}` : t("uploadFailed", { name: upload.name }),
-        );
-        onError?.(new Error(payload.detail ?? `HTTP ${response.status}`));
-        return;
-      }
-      onSuccess?.(payload);
-      link(payload.document.id);
-    });
-  };
-
-  if (folders === null) return <Spin size="small" />;
-  if (folders.length === 0) return <Alert type="warning" showIcon title={t("noFolders")} />;
   return (
     <Flex vertical gap={8} style={{ padding: 12, border: "1px dashed #d9d9d9", borderRadius: 8 }}>
       <Typography.Text strong>{t("deliver")}</Typography.Text>
-      <TreeSelect
-        placeholder={t("chooseFolder")}
-        treeData={treeData}
-        value={folderId}
-        onChange={(value: string) => {
-          setFolderId(value);
-          setDocumentId(undefined);
-        }}
-        treeDefaultExpandAll
-        style={{ width: "100%" }}
-      />
       <Input
         placeholder={t("documentNote")}
         maxLength={4000}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
-      <Flex gap={8} wrap>
-        <Upload customRequest={customRequest} showUploadList={false} disabled={!folder?.canUpload || busy}>
-          <Button icon={<UploadOutlined />} disabled={!folder?.canUpload} loading={busy}>
-            {t("uploadAndLink")}
-          </Button>
-        </Upload>
-        <Select
-          showSearch={{ optionFilterProp: "label" }}
-          placeholder={t("chooseExisting")}
-          disabled={!folderId}
-          value={documentId}
-          onChange={setDocumentId}
-          style={{ minWidth: 220, flex: 1 }}
-          options={documents.map((d) => ({ value: d.id, label: d.name }))}
-        />
-        <Button
-          icon={<LinkOutlined />}
-          disabled={!documentId}
-          loading={busy}
-          onClick={() => documentId && link(documentId)}
-        >
-          {t("link")}
-        </Button>
-      </Flex>
-      {folder && !folder.canUpload && <Typography.Text type="secondary">{t("noUploadHere")}</Typography.Text>}
+      <DocumentSource projectId={projectId} busy={busy} onChoose={link} />
     </Flex>
   );
 }

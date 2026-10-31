@@ -316,6 +316,15 @@
       "askQuestion": "Ajukan pertanyaan"
     }
   },
+  "documentSource": {
+    "chooseFolder": "Folder data room",
+    "uploadAndAttach": "Unggah dan lampirkan",
+    "chooseExisting": "atau pilih dokumen yang sudah dipindai di folder ini",
+    "attach": "Lampirkan",
+    "uploadFailed": "{name}: unggahan gagal",
+    "noFolders": "Belum ada folder data room yang dibagikan kepada Anda. Minta akses unggah ke manajer proyek.",
+    "noUploadHere": "Anda tidak bisa mengunggah ke folder ini; pilih folder lain."
+  },
   "requests": {
     "title": "Daftar permintaan",
     "open": "Buka",
@@ -404,15 +413,8 @@
     "unlinkConfirm": "Lepas dokumen ini dari item? Dokumen tetap ada di data room.",
     "hiddenDocuments": "{count} dokumen lain berada di folder yang tidak bisa Anda buka.",
     "deliver": "Lampirkan dokumen",
-    "chooseFolder": "Folder data room",
     "documentNote": "Catatan untuk reviewer (opsional)",
-    "uploadAndLink": "Unggah dan lampirkan",
-    "chooseExisting": "atau pilih dokumen di folder ini",
-    "link": "Lampirkan",
     "linked": "Dokumen terlampir",
-    "uploadFailed": "{name}: unggahan gagal",
-    "noFolders": "Belum ada folder data room yang dibagikan kepada Anda. Minta akses unggah ke manajer proyek.",
-    "noUploadHere": "Anda tidak bisa mengunggah ke folder ini; pilih folder lain.",
     "comments": "Komentar",
     "noComments": "Belum ada komentar.",
     "commentPlaceholder": "Tulis komentar",
@@ -637,10 +639,6 @@
     "view": "Lihat",
     "unlink": "Lepas",
     "unlinkConfirm": "Lepas dokumen ini dari jawaban?",
-    "attach": "Lampirkan",
-    "chooseFolder": "Folder data room",
-    "chooseDocument": "Dokumen",
-    "noFolders": "Belum ada folder data room yang dibagikan kepada Anda.",
     "history": "Riwayat",
     "edit": "Ubah",
     "delete": "Hapus",

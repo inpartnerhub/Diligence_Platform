@@ -4,26 +4,32 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 
-import type { DocumentVersion, Grant, PreviewInfo, SearchResponse } from "./types";
+import type { DataRoomDocument, DocumentVersion, Folder, Grant, PreviewInfo, SearchResponse } from "./types";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
 
 async function run<T>(projectId: string, call: () => Promise<T>): Promise<Result<T>> {
-  try {
-    const data = await call();
-    revalidatePath(`/projects/${encodeURIComponent(projectId)}/data-room`);
-    return { ok: true, data };
-  } catch (error) {
-    if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
-    }
-    console.error("Data room action failed", error);
-    return { ok: false, message: "" };
-  }
+  const result = await attempt(call);
+  if (result.ok) revalidatePath(`/projects/${encodeURIComponent(projectId)}/data-room`);
+  return result;
 }
 
 const folders = (projectId: string, suffix = "") =>
   `/api/v1/projects/${encodeURIComponent(projectId)}/folders${suffix}` as `/api/${string}`;
+
+/** Folders the caller can see, for attaching documents from other features (requests, Q&A, findings). */
+export async function loadFolders(projectId: string): Promise<Result<Folder[]>> {
+  return attempt(() => apiFetch<Folder[]>(folders(projectId)));
+}
+
+export async function loadFolderDocuments(
+  projectId: string,
+  folderId: string,
+): Promise<Result<DataRoomDocument[]>> {
+  return attempt(() =>
+    apiFetch<DataRoomDocument[]>(folders(projectId, `/${encodeURIComponent(folderId)}/documents`)),
+  );
+}
 
 export async function createFolder(projectId: string, name: string, parentId?: string): Promise<Result> {
   return run(projectId, () =>

@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 
-import type { DataRoomDocument, Folder } from "@/features/dataroom/types";
 import { ApiError, apiFetch } from "@/lib/api/client";
 
 import type { ItemInput, RequestComment, RequestItem, RequestItemDetail, RequestStatus } from "./types";
@@ -109,22 +108,6 @@ export async function addComment(
       method: "POST",
       body: { body, internal },
     }),
-  );
-}
-
-/** Data-room folders the caller can see, for linking or uploading delivered documents. */
-export async function loadFolders(projectId: string): Promise<Result<Folder[]>> {
-  return attempt(() => apiFetch<Folder[]>(`/api/v1/projects/${encodeURIComponent(projectId)}/folders`));
-}
-
-export async function loadFolderDocuments(
-  projectId: string,
-  folderId: string,
-): Promise<Result<DataRoomDocument[]>> {
-  return attempt(() =>
-    apiFetch<DataRoomDocument[]>(
-      `/api/v1/projects/${encodeURIComponent(projectId)}/folders/${encodeURIComponent(folderId)}/documents`,
-    ),
   );
 }
 
