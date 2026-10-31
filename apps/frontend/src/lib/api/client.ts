@@ -5,6 +5,9 @@ import { headers as requestHeaders } from "next/headers";
 import { requireSession } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/config/env";
 
+import { backendUrl } from "./backendUrl";
+import { clientAddress } from "./clientAddress";
+
 /** RFC 9457 problem details, as returned by the backend for every error. */
 export interface ProblemDetail {
   type?: string;
@@ -35,7 +38,7 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 export async function apiFetch<T>(path: `/api/${string}`, options: RequestOptions = {}): Promise<T> {
   const { accessToken, body, headers, ...init } = options;
   const token = accessToken ?? (await requireSession()).accessToken;
-  const response = await fetch(new URL(path, serverEnv.apiBaseUrl), {
+  const response = await fetch(backendUrl(path, serverEnv.apiBaseUrl), {
     ...init,
     headers: {
       Accept: "application/json",
@@ -57,13 +60,12 @@ export async function apiFetch<T>(path: `/api/${string}`, options: RequestOption
 
 /**
  * The browser's address for audit logs and watermarks (PRD ADM-03, DOC-04). The backend only sees this server, so
- * the address the ingress reported to us is passed on; outside a request (or without a proxy) nothing is sent.
+ * the address our ingress reported to us is passed on (see clientAddress); outside a request nothing is sent.
  */
 export async function forwardedFor(): Promise<Record<string, string>> {
   try {
     const incoming = await requestHeaders();
-    const address =
-      incoming.get("x-forwarded-for")?.split(",")[0]?.trim() || incoming.get("x-real-ip")?.trim();
+    const address = clientAddress(incoming.get("x-forwarded-for"), serverEnv.trustedProxyHops);
     return address ? { "X-Forwarded-For": address } : {};
   } catch {
     return {};

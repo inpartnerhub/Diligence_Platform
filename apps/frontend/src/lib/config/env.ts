@@ -42,6 +42,14 @@ export const serverEnv = {
   get secureCookies(): boolean {
     return this.appBaseUrl.startsWith("https://");
   },
+  /** Proxies in front of this server that append to X-Forwarded-For (the ingress); 0 when browsers connect directly. */
+  get trustedProxyHops(): number {
+    const hops = Number(process.env.TRUSTED_PROXY_HOPS ?? "0");
+    if (!Number.isInteger(hops) || hops < 0) {
+      throw new Error("TRUSTED_PROXY_HOPS must be a non-negative integer");
+    }
+    return hops;
+  },
   /** Plain-HTTP identity provider, local stack only. Never set in deployed environments. */
   get oidcAllowHttp(): boolean {
     return process.env.OIDC_ALLOW_HTTP === "true";

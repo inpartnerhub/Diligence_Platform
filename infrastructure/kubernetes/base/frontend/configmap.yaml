@@ -6,5 +6,7 @@ metadata:
 data:
   APP_BASE_URL: https://app.example.com
   API_BASE_URL: http://kong-gateway-proxy.kong.svc:80
+  # Kong (ingress) appends the browser's address to X-Forwarded-For; see docs/security/client-addresses.md.
+  TRUSTED_PROXY_HOPS: "1"
   OIDC_ISSUER: https://auth.example.com/realms/diligence
   OIDC_CLIENT_ID: diligence-web

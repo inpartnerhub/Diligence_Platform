@@ -2,6 +2,8 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+import { NON_DOCUMENT_POLICY } from "./src/lib/security/csp";
+
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const securityHeaders = [
@@ -19,7 +21,13 @@ const nextConfig: NextConfig = {
   transpilePackages: ["antd", "@ant-design/icons"],
   serverExternalPackages: ["redis"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    // Pages get their nonce-based Content-Security-Policy from src/proxy.ts.
+    const nonDocument = [{ key: "Content-Security-Policy", value: NON_DOCUMENT_POLICY }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/api/:path*", headers: nonDocument },
+      { source: "/auth/:path*", headers: nonDocument },
+    ];
   },
 };
 

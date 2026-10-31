@@ -3,6 +3,7 @@ import "server-only";
 import { getSession } from "@/lib/auth/session";
 import { serverEnv } from "@/lib/config/env";
 
+import { backendUrl } from "./backendUrl";
 import { forwardedFor } from "./client";
 
 const PASSED_HEADERS = ["content-type", "content-disposition", "content-length"];
@@ -16,7 +17,9 @@ export async function proxyGet(path: string, search = ""): Promise<Response> {
   if (!session) {
     return Response.json({ status: 401, detail: "Authentication required" }, { status: 401 });
   }
-  const upstream = await fetch(new URL(path + search, serverEnv.apiBaseUrl), {
+  const url = safeBackendUrl(path + search);
+  if (!url) return invalidPath();
+  const upstream = await fetch(url, {
     headers: { Authorization: `Bearer ${session.accessToken}`, ...(await forwardedFor()) },
     cache: "no-store",
   });
@@ -42,7 +45,9 @@ export async function proxyMultipart(request: Request, path: string): Promise<Re
   if (!session) {
     return Response.json({ status: 401, detail: "Authentication required" }, { status: 401 });
   }
-  const upstream = await fetch(new URL(path, serverEnv.apiBaseUrl), {
+  const url = safeBackendUrl(path);
+  if (!url) return invalidPath();
+  const upstream = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
@@ -60,3 +65,14 @@ export async function proxyMultipart(request: Request, path: string): Promise<Re
 }
 
 export const segment = (value: string) => encodeURIComponent(value);
+
+function safeBackendUrl(path: string): URL | undefined {
+  try {
+    return backendUrl(path, serverEnv.apiBaseUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+const invalidPath = () =>
+  Response.json({ status: 400, detail: "Invalid resource identifier" }, { status: 400 });
