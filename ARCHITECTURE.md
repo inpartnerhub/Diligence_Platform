@@ -258,7 +258,8 @@ phase 2.
 - Server components fetch through `apiFetch` (server-only); mutations use server actions
   (`src/features/<feature>/actions.ts`). Filters and paging live in the URL.
 - Ant Design compound components are used from client components; one theme in `src/theme/themeConfig.ts`,
-  including risk colors from Appendix A.
+  including risk colors from Appendix A. Its CSS is extracted at build time (`scripts/extract-antd-css.mjs`, run
+  before `dev` and `build`) and antd runs in zero-runtime mode, so no CSS-in-JS is generated per request.
 - i18n: `next-intl` with `messages/id.json` (default) and `messages/en.json`; the language is a cookie, synced to the
   user profile (`PATCH /api/v1/me`) and applied to Ant Design and Keycloak (`ui_locales`).
 

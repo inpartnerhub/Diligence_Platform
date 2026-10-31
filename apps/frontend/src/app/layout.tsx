@@ -5,6 +5,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/components/Providers";
+
+import "./antd.generated.css";
 import { toLocale } from "@/i18n/locales";
 
 export async function generateMetadata(): Promise<Metadata> {

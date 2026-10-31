@@ -263,6 +263,7 @@ function HeatMap({ findings, matrix }: Readonly<{ findings: Finding[]; matrix: R
                       color: "#fff",
                       fontWeight: 600,
                       textAlign: "center",
+                      height: 30, // empty cells (no findings) keep their size
                       lineHeight: "30px",
                       borderRadius: 4,
                     }}

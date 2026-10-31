@@ -78,7 +78,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 
 | Aspect | Target | How it is addressed |
 |--------|--------|---------------------|
-| Performance | Pages ≤ 2 s P95; preview ≤ 3 s (≤ 20 MB); search ≤ 2 s on 500k docs | Async pipeline, pre-rendered PDF renditions, OpenSearch; k6 in `tests/performance` |
+| Performance | Pages ≤ 2 s P95; preview ≤ 3 s (≤ 20 MB); search ≤ 2 s on 500k docs | Async pipeline, pre-rendered PDF renditions, OpenSearch, Ant Design CSS extracted at build time; k6 in `tests/performance` (local stress results in its README) |
 | Scalability | ≥ 200 projects, ≥ 1,000 concurrent users, ≥ 20 TB | Stateless pods + HPA, Redis sessions, S3, OpenSearch |
 | Availability | 99.5% business hours; RPO ≤ 1 h, RTO ≤ 4 h | Multi-AZ data services in prod, PITR backups, quarterly restore test |
 | Security | TLS 1.2+, AES-256 at rest | SECURITY.md |

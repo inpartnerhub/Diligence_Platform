@@ -1,0 +1,62 @@
+name: Performance
+
+# Runs the k6 load test (tests/performance/load.js) against a deployed environment on demand. The environment's
+# secrets hold a dedicated test user (PERF_USER / PERF_PASSWORD) that manages the target project. See
+# tests/performance/README.md for profiles and for what to exempt from Kong's per-IP rate limit.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, staging]
+        required: true
+      profile:
+        description: Load profile
+        type: choice
+        options: [smoke, baseline, stress]
+        default: baseline
+      project-id:
+        description: Project to load (e.g. a seeded PERF-001)
+        type: string
+        required: true
+      preview-project-id:
+        description: Project with rendered documents for the viewer scenario (defaults to project-id)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run k6
+        working-directory: tests/performance
+        env:
+          APP_URL: ${{ vars.PERF_APP_URL }}
+          API_URL: ${{ vars.PERF_API_URL }}
+          OIDC_ISSUER: ${{ vars.PERF_OIDC_ISSUER }}
+          PROJECT_ID: ${{ inputs.project-id }}
+          PREVIEW_PROJECT_ID: ${{ inputs.preview-project-id }}
+          K6_USER: ${{ secrets.PERF_USER }}
+          K6_PASSWORD: ${{ secrets.PERF_PASSWORD }}
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/scripts" -w /scripts \
+            -e APP_URL -e API_URL -e OIDC_ISSUER -e PROJECT_ID -e PREVIEW_PROJECT_ID -e K6_USER -e K6_PASSWORD \
+            -e PROFILE=${{ inputs.profile }} \
+            grafana/k6:2.3.0 run --summary-export summary.json load.js
+      - name: Upload summary
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: k6-${{ inputs.environment }}-${{ inputs.profile }}
+          path: tests/performance/summary.json
+          if-no-files-found: ignore

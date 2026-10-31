@@ -10,7 +10,8 @@ import { themeConfig } from "@/theme/themeConfig";
 
 export function Providers({ locale, children }: Readonly<{ locale: Locale; children: ReactNode }>) {
   return (
-    <ConfigProvider theme={themeConfig} locale={locale === "en" ? enUS : idID}>
+    // Zero runtime: the styles come from antd.generated.css (built from themeConfig), not from CSS-in-JS per request.
+    <ConfigProvider theme={{ ...themeConfig, zeroRuntime: true }} locale={locale === "en" ? enUS : idID}>
       <App>{children}</App>
     </ConfigProvider>
   );

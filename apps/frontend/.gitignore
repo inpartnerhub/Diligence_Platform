@@ -6,3 +6,5 @@ next-env.d.ts
 .env*.local
 .env
 src/lib/api/schema.gen.ts
+# Generated before dev/build by scripts/extract-antd-css.mjs
+src/app/antd.generated.css
