@@ -7,7 +7,9 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "predev": "node scripts/extract-antd-css.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/extract-antd-css.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -34,6 +36,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@ant-design/static-style-extract": "^2.1.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

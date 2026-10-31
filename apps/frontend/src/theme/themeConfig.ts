@@ -3,6 +3,8 @@ import type { ThemeConfig } from "antd";
 /** Design tokens shared by every page. Change brand values here, not in components. */
 export const themeConfig: ThemeConfig = {
   cssVar: { key: "diligence" },
+  // Plain class names, so the stylesheet extracted at build time (scripts/extract-antd-css.mjs) matches at runtime.
+  hashed: false,
   token: {
     colorPrimary: "#1f4fd6",
     borderRadius: 6,
