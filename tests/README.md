@@ -13,7 +13,7 @@ Test pyramid and where each layer lives:
 | Client address | `ClientAddressIntegrationTest` (real Tomcat): forged `X-Forwarded-For` entries are ignored | every PR | Docker |
 | Passive DAST | `tests/security` (OWASP ZAP baseline, `make zap-baseline`) | before releases | running stack |
 | End-to-end | `tests/e2e` (Playwright) | after deploy to dev/staging | running stack |
-| Performance | `tests/performance` (k6) | on demand / nightly against staging | running stack + token |
+| Performance | `tests/performance/load.js` (k6): pages, preview and search against the PRD Bab 7 targets; seed data in `tests/performance/seed` ([README](performance/README.md)) | on demand (Performance workflow) | running stack + test user |
 
 ```bash
 cd tests/e2e && npm install && npx playwright install chromium
