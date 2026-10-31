@@ -55,13 +55,6 @@ class ProjectMember {
         return accessExpiresAt == null || accessExpiresAt.isAfter(at);
     }
 
-    /** PRD Bab 5 stage 8: external access is revoked when the project is closed and archived. */
-    void expireAt(Instant at) {
-        if (accessExpiresAt == null || accessExpiresAt.isAfter(at)) {
-            accessExpiresAt = at;
-        }
-    }
-
     UUID getId() {
         return id;
     }

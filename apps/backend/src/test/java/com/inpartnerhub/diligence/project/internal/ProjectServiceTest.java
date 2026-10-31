@@ -121,19 +121,14 @@ class ProjectServiceTest {
     @Test
     void archivingRevokesExternalAccessOnly() {
         var project = project(UUID.randomUUID());
-        var client = new ProjectMember(project.getId(), UUID.randomUUID(), ProjectRole.CLIENT, null, null);
-        var target = new ProjectMember(project.getId(), UUID.randomUUID(), ProjectRole.TARGET, null, null);
-        var analyst = new ProjectMember(project.getId(), UUID.randomUUID(), ProjectRole.ANALYST, null, null);
         when(access.manageable(project.getId())).thenReturn(project);
-        when(members.findByProjectIdOrderByCreatedAt(project.getId())).thenReturn(List.of(client, target, analyst));
 
         service.archive(project.getId());
 
         assertThat(project.isArchived()).isTrue();
         assertThat(project.getStage()).isEqualTo(ProjectStage.CLOSED);
-        assertThat(client.getAccessExpiresAt()).isNotNull();
-        assertThat(target.getAccessExpiresAt()).isNotNull();
-        assertThat(analyst.getAccessExpiresAt()).isNull();
+        // Expired at the database clock that row-level security compares against, for the external roles only.
+        verify(members).expireAccess(project.getId(), Set.of(ProjectRole.CLIENT, ProjectRole.TARGET));
 
         service.reactivate(project.getId());
         assertThat(project.isArchived()).isFalse();

@@ -43,8 +43,7 @@ class ProjectAccessTest {
         when(projects.findById(project.getId())).thenReturn(Optional.of(project));
         when(currentUser.requireCurrentUser()).thenReturn(caller());
         var expiredManager = new ProjectMember(project.getId(), callerId, ProjectRole.PROJECT_MANAGER, null,
-                Instant.now().plusSeconds(1));
-        expiredManager.expireAt(Instant.now().minusSeconds(1));
+                Instant.now().minusSeconds(1));
         var analyst = new ProjectMember(project.getId(), callerId, ProjectRole.ANALYST, null, null);
         when(members.findByProjectIdAndUserId(project.getId(), callerId)).thenReturn(List.of(expiredManager, analyst));
 

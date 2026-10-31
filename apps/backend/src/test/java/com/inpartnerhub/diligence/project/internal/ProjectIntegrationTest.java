@@ -122,6 +122,10 @@ class ProjectIntegrationTest {
         // Archiving revokes the target's access.
         signIn(pm, Role.PROJECT_MANAGER);
         projects.archive(project.getId());
+        // Expired by the database clock that row-level security uses, so no application clock skew keeps it open.
+        assertThat(jdbc.queryForObject("select count(*) from prj.project_member where project_id = ? and project_role "
+                + "in ('CLIENT', 'TARGET') and (access_expires_at is null or access_expires_at > now())", Long.class,
+                project.getId())).isZero();
         signIn(target, Role.TARGET);
         assertThat(projects.list(new ProjectService.ProjectFilter(null, null), PageRequest.of(0, 10))).isEmpty();
     }

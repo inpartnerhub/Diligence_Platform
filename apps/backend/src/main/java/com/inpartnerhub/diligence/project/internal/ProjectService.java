@@ -2,6 +2,7 @@ package com.inpartnerhub.diligence.project.internal;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +35,9 @@ import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 @Service
 @Transactional
 class ProjectService {
+
+    private static final Set<ProjectRole> EXTERNAL_ROLES = EnumSet.copyOf(
+            Arrays.stream(ProjectRole.values()).filter(ProjectRole::isExternal).toList());
 
     record CreateCommand(String code, String name, UUID clientOrganizationId, UUID targetOrganizationId,
             LocalDate startDate, LocalDate endDate, UUID templateId, Set<WorkstreamType> workstreams) {
@@ -133,11 +137,8 @@ class ProjectService {
         if (project.isArchived()) {
             return project;
         }
-        var now = Instant.now();
-        project.archive(now);
-        members.findByProjectIdOrderByCreatedAt(id).stream()
-                .filter(m -> m.getRole().isExternal())
-                .forEach(m -> m.expireAt(now));
+        project.archive(Instant.now());
+        members.expireAccess(id, EXTERNAL_ROLES);
         events.publishEvent(new ProjectUpdated(id, "archived", RequestMetadata.capture()));
         return project;
     }
