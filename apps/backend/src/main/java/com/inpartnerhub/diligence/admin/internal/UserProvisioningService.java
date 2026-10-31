@@ -2,6 +2,8 @@ package com.inpartnerhub.diligence.admin.internal;
 
 import java.util.Locale;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,8 @@ import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 @Service
 class UserProvisioningService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserProvisioningService.class);
+
     private final UserAccountRepository users;
     private final InvitationRepository invitations;
     private final ApplicationEventPublisher events;
@@ -34,10 +38,22 @@ class UserProvisioningService {
     @Transactional
     void onUserAuthenticated(UserAuthenticated event) {
         var user = event.user();
-        var account = users.findById(user.id()).orElseGet(() -> users.save(UserAccount.provisioned(user.id(),
-                user.email() == null ? user.username() : user.email().toLowerCase(Locale.ROOT),
-                user.displayName() == null ? user.username() : user.displayName(),
-                user.primaryRole().orElse(Role.OBSERVER))));
+        var account = users.findById(user.id()).orElse(null);
+        if (account == null) {
+            var email = user.email() == null ? user.username() : user.email().toLowerCase(Locale.ROOT);
+            var owner = users.findByEmailIgnoreCase(email);
+            if (owner.isPresent()) {
+                // Never adopt the other account: whoever can create an identity with this e-mail (SSO brokering
+                // included) would inherit its project memberships. An administrator re-links it deliberately.
+                log.warn("Identity {} not provisioned: its e-mail belongs to account {}", user.id(),
+                        owner.get().getId());
+                events.publishEvent(new UserLoggedIn(user.id(), RequestMetadata.capture()));
+                return;
+            }
+            account = users.save(UserAccount.provisioned(user.id(), email,
+                    user.displayName() == null ? user.username() : user.displayName(),
+                    user.primaryRole().orElse(Role.OBSERVER)));
+        }
         account.recordLogin(event.authenticatedAt());
         invitations.findByUserIdAndStatus(user.id(), Invitation.Status.PENDING)
                 .forEach(invitation -> invitation.accept(event.authenticatedAt()));

@@ -58,6 +58,7 @@ Method:
 | PT-02 | Medium | **API rate limit shared by all users.** Every browser request reaches the API through the BFF, so Kong's `limit_by: ip` counted the frontend pods' address: 600 requests/minute for everyone together. Kong also replaced `X-Forwarded-For` with the pod address, so in Kubernetes every watermark showed the pod's IP. | Kong trusts our proxy ranges and resolves the real client address. The settings are in compose and documented for the Kong release. | Manual (`docker compose`), [client-addresses.md](client-addresses.md) |
 | PT-03 | Medium | **No Content-Security-Policy.** An XSS bug anywhere would run with the user's session. | A nonce-based CSP for every page (`script-src 'nonce-…' 'strict-dynamic'`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'`, `form-action` limited to the app and Keycloak). Route handlers get `default-src 'none'; sandbox`. | `csp.test.ts`, browser check on the local stack |
 | PT-04 | Low | **Dot segments in BFF paths.** `encodeURIComponent` leaves `.` and `..` unchanged. An ID of `..` in a route parameter or server-action argument resolved to a different backend endpoint, still under the user's own token. | `backendUrl` rejects dot segments; the route handlers answer 400. | `backendUrl.test.ts` |
+| PT-05 | Low | **Failed login bookkeeping broke requests.** Just-in-time provisioning runs inside the security filter. When it failed, the request returned 500: for example, a Keycloak user recreated with the same e-mail and a new subject hit `user_account_email_uq`. This happened on the first request of every 15-minute throttle window, the account was never provisioned and the login was not audited. | The filter logs the failure and lets the request through: the token already authenticated the caller, and every resource is authorized separately. Provisioning never adopts an account that has the same e-mail, because anyone able to create an identity with that address (SSO brokering included) would inherit its project memberships. It logs both IDs and still audits the login. An administrator re-links the account deliberately. | `UserAuthenticationEventFilterTest`, `UserProvisioningServiceTest` |
 
 ### ZAP baseline (local stack, not signed in)
 
@@ -89,8 +90,4 @@ else came from the Keycloak login page the scan was redirected to, or was noise:
 - The web ingress (`app.*`) has no rate limit. Login brute force is handled by Keycloak's lockout. Check whether
   server actions need their own limit.
 - Users behind one corporate NAT share one per-IP bucket. Tune the limit from the load tests.
-- Just-in-time provisioning runs synchronously inside the security filter (`UserAuthenticationEventFilter` →
-  `UserProvisioningService`). If it fails, for example because a Keycloak user was recreated with the same e-mail and
-  a new subject (`user_account_email_uq`), every request from that user returns 500 until an administrator fixes
-  `adm.user_account`. Decide whether to fail open with an alert, or to link accounts by e-mail.
 - `style-src 'unsafe-inline'` remains, because Ant Design injects its CSS at runtime.

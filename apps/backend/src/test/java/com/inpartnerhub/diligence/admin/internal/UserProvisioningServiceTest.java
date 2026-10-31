@@ -3,6 +3,7 @@ package com.inpartnerhub.diligence.admin.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +60,20 @@ class UserProvisioningServiceTest {
         assertThat(saved.getValue().getGlobalRole()).isEqualTo(Role.OBSERVER); // least privilege until assigned
         assertThat(saved.getValue().getEmail()).isEqualTo("sso.user@example.com");
         assertThat(saved.getValue().getStatus()).isEqualTo(UserAccount.Status.ACTIVE);
+    }
+
+    @Test
+    void neverAdoptsAnotherAccountWithTheSameEmail() {
+        var id = UUID.randomUUID();
+        var existing = UserAccount.provisioned(UUID.randomUUID(), "sso.user@example.com", "Old", Role.PARTNER);
+        when(users.findById(id)).thenReturn(Optional.empty());
+        when(users.findByEmailIgnoreCase("sso.user@example.com")).thenReturn(Optional.of(existing));
+
+        service.onUserAuthenticated(new UserAuthenticated(user(id, Set.of(Role.PARTNER)), Instant.now()));
+
+        verify(users, never()).save(any());
+        assertThat(existing.getLastLoginAt()).isNull();
+        verify(events).publishEvent(any(UserLoggedIn.class)); // the login is still audited
     }
 
     private static AuthenticatedUser user(UUID id, Set<Role> roles) {

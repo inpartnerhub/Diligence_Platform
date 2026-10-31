@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -27,6 +29,8 @@ class UserAuthenticationEventFilter extends OncePerRequestFilter {
 
     static final Duration THROTTLE = Duration.ofMinutes(15);
 
+    private static final Logger log = LoggerFactory.getLogger(UserAuthenticationEventFilter.class);
+
     private final ApplicationEventPublisher events;
     private final Map<UUID, Instant> lastPublished = new ConcurrentHashMap<>();
 
@@ -43,7 +47,13 @@ class UserAuthenticationEventFilter extends OncePerRequestFilter {
             var previous = lastPublished.get(user.id());
             if (previous == null || previous.plus(THROTTLE).isBefore(now)) {
                 lastPublished.put(user.id(), now);
-                events.publishEvent(new UserAuthenticated(user, now));
+                try {
+                    events.publishEvent(new UserAuthenticated(user, now));
+                } catch (RuntimeException ex) {
+                    // Recording the login is bookkeeping: the token already authenticated the caller and every
+                    // resource is authorized on its own, so a failure here must not turn into a 500 for the user.
+                    log.error("Recording the login of {} failed", user.id(), ex);
+                }
             }
         }
         chain.doFilter(request, response);
