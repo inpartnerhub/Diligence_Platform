@@ -26,7 +26,7 @@ public record RequestMetadata(UUID actorId, String ipAddress, String userAgent) 
             return actor == null ? SYSTEM : new RequestMetadata(actor, null, null);
         }
         var request = attributes.getRequest();
-        // X-Forwarded-For is already resolved into getRemoteAddr() by forward-headers-strategy=framework.
+        // X-Forwarded-For is already resolved into getRemoteAddr() by Tomcat (forward-headers-strategy=native).
         return new RequestMetadata(actor, request.getRemoteAddr(), truncate(request.getHeader("User-Agent")));
     }
 

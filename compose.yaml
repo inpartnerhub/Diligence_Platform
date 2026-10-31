@@ -132,6 +132,11 @@ services:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
       KONG_PROXY_LISTEN: 0.0.0.0:8000
+      # Container networks are our own proxies: Kong forwards their X-Forwarded-For and rate-limits by the client
+      # address found there (docs/security/client-addresses.md). Callers from anywhere else get their own address.
+      KONG_TRUSTED_IPS: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      KONG_REAL_IP_HEADER: X-Forwarded-For
+      KONG_REAL_IP_RECURSIVE: "on"
       KONG_ADMIN_LISTEN: 127.0.0.1:8001
       KONG_STATUS_LISTEN: 0.0.0.0:8100
       KONG_TRACING_INSTRUMENTATIONS: all
@@ -208,6 +213,7 @@ services:
     environment:
       APP_BASE_URL: http://localhost:3000
       API_BASE_URL: http://kong:8000
+      TRUSTED_PROXY_HOPS: "0" # browsers connect to this container directly
       # Browser-facing issuer (redirects, token "iss") vs. the address the server uses for back-channel calls.
       OIDC_ISSUER: http://localhost:8180/realms/diligence
       OIDC_INTERNAL_ISSUER: http://keycloak:8180/realms/diligence

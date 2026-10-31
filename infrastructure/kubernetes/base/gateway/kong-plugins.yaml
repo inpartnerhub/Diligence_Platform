@@ -1,4 +1,7 @@
 # Kong Ingress Controller plugins (mirrors infrastructure/docker/kong/kong.yml).
+# limit_by: ip counts per browser only when Kong itself trusts the frontend pods' X-Forwarded-For: the Kong
+# release must set trusted_ips / real_ip_header / real_ip_recursive (docs/security/client-addresses.md).
+# Without them every user behind the BFF shares the frontend pods' bucket.
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:

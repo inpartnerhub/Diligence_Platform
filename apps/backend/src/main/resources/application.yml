@@ -82,7 +82,9 @@ spring:
 server:
   port: 8080
   shutdown: graceful
-  forward-headers-strategy: framework # trust X-Forwarded-* from Kong only (enforced by network policy)
+  # Tomcat's RemoteIpValve reads X-Forwarded-For from the right and skips our own proxies (private addresses by
+  # default; override with SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES), so entries a caller wrote are ignored.
+  forward-headers-strategy: native
   error:
     include-stacktrace: never
     include-message: never
