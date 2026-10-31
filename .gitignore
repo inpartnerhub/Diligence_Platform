@@ -26,6 +26,8 @@ crash.log
 **/coverage/
 **/test-results/
 **/playwright-report/
+# Playwright sign-in state per role (tests/e2e/specs/auth.setup.ts)
+**/.auth/
 
 # IDE / OS
 .idea/

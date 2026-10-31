@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Local Keycloak bootstrap for the "diligence" realm. Every credential comes from .env — nothing is hard-coded.
 #   1. sets the diligence-admin-api client secret to KEYCLOAK_ADMIN_CLIENT_SECRET (used by the backend)
-#   2. creates the local super admin (OTP is enforced on first login) and a project manager for e2e tests
+#   2. creates the local super admin (OTP is enforced on first login), a project manager and, when configured,
+#      one end-to-end test user per role
 #   3. optionally registers Microsoft Entra ID / Google SSO when their client ids are present in .env
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
@@ -29,6 +30,34 @@ create_user() { # username email first last password role
 }
 create_user "$KEYCLOAK_DEV_ADMIN" "$KEYCLOAK_DEV_ADMIN@diligence.test" Local Admin "$KEYCLOAK_DEV_ADMIN_PASSWORD" super_admin
 create_user "$KEYCLOAK_DEV_PM" "$KEYCLOAK_DEV_PM@diligence.test" Local Manager "$KEYCLOAK_DEV_PM_PASSWORD" project_manager
+
+# End-to-end test users, one per role (tests/e2e). External roles require OTP, so they get a TOTP credential from a
+# known secret and the tests compute the codes. Local only: set KEYCLOAK_E2E_PASSWORD and KEYCLOAK_E2E_TOTP_SECRET.
+create_e2e_user() { # username role first last [otp]
+  if [ -n "$(kc get users -r "$REALM" -q "username=$1" --fields id --format csv --noquotes)" ]; then
+    echo "User $1 already exists."; return
+  fi
+  python3 -c '
+import json, sys
+user, first, last, otp = sys.argv[1:5]
+credentials = [{"type": "password", "value": sys.argv[5], "temporary": False}]
+if otp == "otp":
+    credentials.append({"type": "otp", "userLabel": "e2e", "secretData": json.dumps({"value": sys.argv[6]}),
+        "credentialData": json.dumps({"subType": "totp", "digits": 6, "period": 30, "algorithm": "HmacSHA1",
+                                      "counter": 0})})
+print(json.dumps({"username": user, "email": user + "@diligence.test", "firstName": first, "lastName": last,
+                  "enabled": True, "emailVerified": True, "credentials": credentials}))
+' "$1" "$3" "$4" "${5:-}" "$KEYCLOAK_E2E_PASSWORD" "$KEYCLOAK_E2E_TOTP_SECRET" | kc create users -r "$REALM" -f -
+  kc add-roles -r "$REALM" --uusername "$1" --rolename "$2"
+  echo "Created $2 e2e user '$1'."
+}
+if [ -n "${KEYCLOAK_E2E_PASSWORD:-}" ] && [ -n "${KEYCLOAK_E2E_TOTP_SECRET:-}" ] \
+  && [[ "$KEYCLOAK_E2E_PASSWORD$KEYCLOAK_E2E_TOTP_SECRET" != *change-me* ]]; then
+  create_e2e_user e2e.partner partner E2E Partner
+  create_e2e_user e2e.analyst analyst E2E Analyst
+  create_e2e_user e2e.target target E2E Target otp
+  create_e2e_user e2e.client client E2E Client otp
+fi
 
 add_idp() { # alias providerId clientId clientSecret extra...
   local alias=$1 provider=$2 id=$3 secret=$4; shift 4
