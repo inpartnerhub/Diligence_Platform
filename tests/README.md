@@ -12,10 +12,7 @@ Test pyramid and where each layer lives:
 | Cross-project access | `CrossProjectAccessIntegrationTest`: every object ID of project B through project A's URL and by outsiders (IDOR) | every PR | Docker |
 | Client address | `ClientAddressIntegrationTest` (real Tomcat): forged `X-Forwarded-For` entries are ignored | every PR | Docker |
 | Passive DAST | `tests/security` (OWASP ZAP baseline, `make zap-baseline`) | before releases | running stack |
-| End-to-end | `tests/e2e` (Playwright) | after deploy to dev/staging | running stack |
+| End-to-end | `tests/e2e` (Playwright): one engagement end to end in every role, information barriers ([README](e2e/README.md)) | before UAT and after deploys to dev/staging | running stack + e2e users |
 | Performance | `tests/performance/load.js` (k6): pages, preview and search against the PRD Bab 7 targets; seed data in `tests/performance/seed` ([README](performance/README.md)) | on demand (Performance workflow) | running stack + test user |
 
-```bash
-cd tests/e2e && npm install && npx playwright install chromium
-E2E_PM_USER=pm.local E2E_PM_PASSWORD=<from .env> npm test   # login spec needs `make up-all && make keycloak-bootstrap`
-```
+See [e2e/README.md](e2e/README.md) for users and commands, and [performance/README.md](performance/README.md) for load tests.

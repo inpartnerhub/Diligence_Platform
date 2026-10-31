@@ -26,7 +26,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | 9–10 | Request list: import/export, statuses, notifications and reminders, target-side UI | ✅ delivered |
 | 11–12 | Findings, source document links, risk rating, validation workflow | ✅ delivered |
 | 13–14 | Q&A with approval; report builder (Word/PDF) from templates | ✅ delivered |
-| 15–16 | Hardening: performance, penetration test, fixes, UAT, documentation, training | ⏳ |
+| 15–16 | Hardening: performance, penetration test, fixes, UAT, documentation, training | 🟡 performance, pre-pentest and UAT plan done ([UAT](../uat/README.md)); training open |
 
 ## Requirement traceability
 
