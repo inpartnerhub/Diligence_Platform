@@ -43,7 +43,8 @@ Only the latest release deployed from `main` receives security fixes.
   the audit log is retained per policy and is not deletable by the application.
 - **NDA / terms of use**: external users must accept them on first login (Keycloak `TERMS_AND_CONDITIONS` required
   action). The text in the realm file is a placeholder that must be replaced with the approved NDA before go-live.
-- **Assessments**: independent penetration test before go-live and at least annually; ISO/IEC 27001 certification
+- **Assessments**: independent penetration test before go-live and at least annually (scope and internal pre-test:
+  [docs/security/penetration-test.md](docs/security/penetration-test.md)); ISO/IEC 27001 certification
   targeted within 12 months of go-live.
 
 ## AI principles (PRD 10.3, phase 3)
@@ -73,7 +74,8 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 | Redirects | Post-login targets must be same-origin relative paths (`safeReturnTo`) |
 | Authorization | Deny by default at every layer; admin API requires `SUPER_ADMIN` |
 | Input | Bean Validation on every request DTO; problem details (RFC 9457) without stack traces |
-| Headers | HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` |
+| Headers | HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`; nonce-based Content-Security-Policy on pages (`src/proxy.ts`), `default-src 'none'; sandbox` on route handlers |
+| Client addresses | Watermark, audit and rate-limit IPs come from our own proxies only, never from a caller's `X-Forwarded-For` ([docs/security/client-addresses.md](docs/security/client-addresses.md)) |
 | CORS | Explicit origin allow-list per environment |
 | Privacy | No PII in logs or Sentry; the OTel Collector strips `Authorization` and `Cookie` |
 

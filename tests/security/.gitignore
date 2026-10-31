@@ -1,0 +1,3 @@
+# Scan output and the automation plan ZAP writes for each run.
+reports/
+zap.yaml

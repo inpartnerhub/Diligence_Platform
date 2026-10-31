@@ -62,6 +62,16 @@ frontend-check: ## Format check, lint, typecheck, unit tests and build the front
 api-types: ## Regenerate frontend API types from the running backend's OpenAPI spec
 	cd apps/frontend && npm run generate:api
 
+.PHONY: zap-baseline
+zap-baseline: ## Passive OWASP ZAP scan of the running frontend (host network, so the redirect to Keycloak on localhost resolves); ZAP_COOKIE='diligence_sid=…' scans signed in
+	mkdir -p tests/security/reports
+	docker run --rm --network host -v "$(CURDIR)/tests/security:/zap/wrk:rw" \
+		ghcr.io/zaproxy/zaproxy:2.16.1 zap-baseline.py -t $${ZAP_TARGET:-http://host.docker.internal:3000} \
+		-c baseline.conf -r reports/zap-baseline.html -J reports/zap-baseline.json -I \
+		$${ZAP_COOKIE:+-z "-config replacer.full_list(0).description=session -config replacer.full_list(0).enabled=true \
+		-config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie \
+		-config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=$$ZAP_COOKIE"}
+
 .PHONY: verify
 verify: backend-test frontend-check ## Everything CI runs without Docker
 	kubectl kustomize infrastructure/kubernetes/overlays/prod > /dev/null
