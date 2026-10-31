@@ -41,6 +41,9 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
+import com.inpartnerhub.diligence.admin.Directory;
+import com.inpartnerhub.diligence.admin.Directory.OrganizationSummary;
+import com.inpartnerhub.diligence.admin.Directory.OrganizationType;
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
 import com.inpartnerhub.diligence.dataroom.PdfWatermark;
 import com.inpartnerhub.diligence.finding.FindingDirectory;
@@ -70,18 +73,20 @@ class ReportServiceTest {
     private static final UUID LEGAL = UUID.randomUUID();
     private static final UUID TAX = UUID.randomUUID();
     private static final UUID ME = UUID.randomUUID();
+    private static final UUID TARGET_ORG = UUID.randomUUID();
 
     private final ReportRepository reports = mock(ReportRepository.class);
     private final ReportFindingRepository reportFindings = mock(ReportFindingRepository.class);
     private final ProjectDirectory projects = mock(ProjectDirectory.class);
+    private final Directory directory = mock(Directory.class);
     private final FindingDirectory findings = mock(FindingDirectory.class);
     private final DocumentStorage storage = mock(DocumentStorage.class);
     private final PreviewRenderer renderer = mock(PreviewRenderer.class);
     private final PdfWatermark watermark = mock(PdfWatermark.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final ReportService service = new ReportService(reports, reportFindings, projects, findings, storage,
-            renderer, watermark, currentUser, events, ZoneId.of("Asia/Jakarta"),
+    private final ReportService service = new ReportService(reports, reportFindings, projects, directory, findings,
+            storage, renderer, watermark, currentUser, events, ZoneId.of("Asia/Jakarta"),
             Clock.fixed(Instant.parse("2026-12-01T02:00:00Z"), ZoneOffset.UTC));
 
     private final Map<String, byte[]> stored = new HashMap<>();
@@ -90,7 +95,10 @@ class ReportServiceTest {
     void setUp() throws Exception {
         when(currentUser.requireCurrentUser()).thenReturn(new AuthenticatedUser(ME, "me", "me@x.test", "Me",
                 Set.of(Role.PARTNER)));
-        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "Alpha", false)));
+        when(projects.summary(PROJECT))
+                .thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "Alpha", TARGET_ORG, false)));
+        when(directory.findOrganization(TARGET_ORG)).thenReturn(Optional.of(
+                new OrganizationSummary(TARGET_ORG, "PT Target Sejahtera", OrganizationType.TARGET, true)));
         when(projects.workstreams(PROJECT)).thenReturn(List.of(new WorkstreamSummary(LEGAL, WorkstreamType.LEGAL),
                 new WorkstreamSummary(TAX, WorkstreamType.TAX)));
         when(findings.riskMatrix()).thenReturn(RiskMatrix.DEFAULT);
@@ -133,8 +141,9 @@ class ReportServiceTest {
         try (var docx = new XWPFDocument(new ByteArrayInputStream(stored.get(report.getDocxKey())));
                 var text = new XWPFWordExtractor(docx)) {
             var content = text.getText();
-            assertThat(content).contains("Draft DD report", "DD-1 · Alpha", "Versi 3", "Ringkasan eksekutif",
-                    "Laporan ini memuat 2 temuan", "Risiko utama", "F-LEG-001 Title F-LEG-001 (Kritis)", "Hukum",
+            assertThat(content).contains("Draft DD report", "DD-1 · Alpha", "Target: PT Target Sejahtera", "Versi 3",
+                    "Ringkasan eksekutif", "Laporan ini memuat 2 temuan", "Risiko utama",
+                    "F-LEG-001 Title F-LEG-001 (Kritis)", "Hukum",
                     "Perpajakan", "akta.pdf, p. 12", "IDR 2.500.000.000", "Kritis (5 × 4 = 20)", "Line two");
             assertThat(docx.getTables()).hasSize(2); // summary and heat map
         }

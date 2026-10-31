@@ -55,7 +55,8 @@ class ProjectDirectoryService implements ProjectDirectory {
     @Override
     public Optional<ProjectSummary> summary(UUID projectId) {
         return projects.findById(projectId)
-                .map(p -> new ProjectSummary(p.getId(), p.getCode(), p.getName(), p.isArchived()));
+                .map(p -> new ProjectSummary(p.getId(), p.getCode(), p.getName(), p.getTargetOrganizationId(),
+                        p.isArchived()));
     }
 
     @Override

@@ -72,7 +72,7 @@ class RequestTransferServiceTest {
         when(access.project(PROJECT)).thenReturn(context);
         when(access.editableProject(PROJECT)).thenReturn(context);
         when(access.workstreams(PROJECT)).thenReturn(Map.of(LEGAL, WorkstreamType.LEGAL, TAX, WorkstreamType.TAX));
-        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "Alpha", false)));
+        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "Alpha", null, false)));
         when(currentUser.requireCurrentUser()).thenReturn(new AuthenticatedUser(UUID.randomUUID(), "pm", "pm@x.test",
                 "PM", Set.of(Role.PROJECT_MANAGER)));
         when(items.save(any())).thenAnswer(inv -> {

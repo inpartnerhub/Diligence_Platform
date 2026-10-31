@@ -12,6 +12,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,6 +23,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.inpartnerhub.diligence.admin.Directory;
+import com.inpartnerhub.diligence.admin.Directory.OrganizationSummary;
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
 import com.inpartnerhub.diligence.dataroom.PdfWatermark;
 import com.inpartnerhub.diligence.finding.FindingDirectory;
@@ -63,6 +66,7 @@ class ReportService {
     private final ReportRepository reports;
     private final ReportFindingRepository reportFindings;
     private final ProjectDirectory projects;
+    private final Directory directory;
     private final FindingDirectory findings;
     private final DocumentStorage storage;
     private final PreviewRenderer renderer;
@@ -74,19 +78,21 @@ class ReportService {
 
     @Autowired
     ReportService(ReportRepository reports, ReportFindingRepository reportFindings, ProjectDirectory projects,
-            FindingDirectory findings, DocumentStorage storage, PreviewRenderer renderer, PdfWatermark watermark,
-            CurrentUserProvider currentUser, ApplicationEventPublisher events,
+            Directory directory, FindingDirectory findings, DocumentStorage storage, PreviewRenderer renderer,
+            PdfWatermark watermark, CurrentUserProvider currentUser, ApplicationEventPublisher events,
             @Value("${diligence.dataroom.watermark-zone:Asia/Jakarta}") ZoneId zone) {
-        this(reports, reportFindings, projects, findings, storage, renderer, watermark, currentUser, events, zone,
-                Clock.systemDefaultZone());
+        this(reports, reportFindings, projects, directory, findings, storage, renderer, watermark, currentUser, events,
+                zone, Clock.systemDefaultZone());
     }
 
     ReportService(ReportRepository reports, ReportFindingRepository reportFindings, ProjectDirectory projects,
-            FindingDirectory findings, DocumentStorage storage, PreviewRenderer renderer, PdfWatermark watermark,
-            CurrentUserProvider currentUser, ApplicationEventPublisher events, ZoneId zone, Clock clock) {
+            Directory directory, FindingDirectory findings, DocumentStorage storage, PreviewRenderer renderer,
+            PdfWatermark watermark, CurrentUserProvider currentUser, ApplicationEventPublisher events, ZoneId zone,
+            Clock clock) {
         this.reports = reports;
         this.reportFindings = reportFindings;
         this.projects = projects;
+        this.directory = directory;
         this.findings = findings;
         this.storage = storage;
         this.renderer = renderer;
@@ -127,7 +133,9 @@ class ReportService {
         var id = UUID.randomUUID();
         var versionNumber = reports.lastVersion(projectId) + 1;
         var now = Instant.now(clock);
-        var docx = ReportDocumentWriter.write(new ReportDocumentWriter.Content(summary.code(), summary.name(), null,
+        var target = Optional.ofNullable(summary.targetOrganizationId()).flatMap(directory::findOrganization)
+                .map(OrganizationSummary::name).orElse(null);
+        var docx = ReportDocumentWriter.write(new ReportDocumentWriter.Content(summary.code(), summary.name(), target,
                 name, versionNumber, lang, now, zone, workstreams, released, findings.riskMatrix()));
         var pdf = toPdf(docx, id + ".docx");
         var base = "projects/%s/reports/%s".formatted(projectId, id);

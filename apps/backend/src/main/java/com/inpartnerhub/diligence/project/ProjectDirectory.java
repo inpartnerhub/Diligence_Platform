@@ -26,7 +26,8 @@ public interface ProjectDirectory {
      */
     List<MemberSummary> members(UUID projectId);
 
-    record ProjectSummary(UUID id, String code, String name, boolean archived) {
+    /** {@code targetOrganizationId}: the target company (sell side), e.g. for the report cover. */
+    record ProjectSummary(UUID id, String code, String name, UUID targetOrganizationId, boolean archived) {
     }
 
     record WorkstreamSummary(UUID id, WorkstreamType type) {

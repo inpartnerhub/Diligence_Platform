@@ -239,7 +239,7 @@ Target: answer (+ documents uploaded or picked in the data room) ─▶ ANSWERED
 Team: close ─▶ CLOSED (a client asker is notified and can now read the answer) │ follow-up ─▶ SENT with feedback
 Export: GET /questions/export?format=xlsx|pdf — the log as the caller sees it (Apache POI, PDF via Gotenberg)
 
-PM/partner: generate ─▶ FindingDirectory.released() ─▶ ReportDocumentWriter (Apache POI XWPF: cover, executive
+PM/partner: generate ─▶ FindingDirectory.released() ─▶ ReportDocumentWriter (Apache POI XWPF: cover with the target company, executive
             summary, 5 × 5 heat map, findings per workstream by risk with sources) ─▶ Gotenberg PDF
             ─▶ object storage projects/{p}/reports/{id}.docx|.pdf ─▶ rpt.report (version n, DRAFT) + rpt.report_finding
 Partner: issue ─▶ ISSUED (immutable, RLS) ─▶ client notified

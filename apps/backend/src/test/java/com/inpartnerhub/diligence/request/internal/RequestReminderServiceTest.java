@@ -50,7 +50,7 @@ class RequestReminderServiceTest {
         var dueSoon = item(TAX, TODAY.plusDays(3));
         when(items.dueForReminder(anyCollection(), eq(TODAY.plusDays(3)), eq(TODAY)))
                 .thenReturn(List.of(overdue, dueSoon));
-        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "A", false)));
+        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "A", null, false)));
         when(projects.members(PROJECT)).thenReturn(List.of(
                 new MemberSummary(LEGAL_TARGET, ProjectRole.TARGET, LEGAL),
                 new MemberSummary(ALL_TARGET, ProjectRole.TARGET, null),
@@ -76,7 +76,7 @@ class RequestReminderServiceTest {
     @Test
     void archivedProjectsAreSkipped() {
         when(items.dueForReminder(anyCollection(), any(), any())).thenReturn(List.of(item(LEGAL, TODAY)));
-        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "A", true)));
+        when(projects.summary(PROJECT)).thenReturn(Optional.of(new ProjectSummary(PROJECT, "DD-1", "A", null, true)));
         assertThat(service.remind(TODAY)).isZero();
         verify(notifier, never()).notify(any());
     }
