@@ -40,7 +40,10 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 │   ├── prd/                PRD summary and requirement traceability
 │   ├── adr/                Architecture Decision Records
 │   ├── api/                API guidelines and OpenAPI workflow
-│   └── runbooks/           Operational runbooks
+│   ├── guides/             User guides per role and the training plan
+│   ├── runbooks/           Operational runbooks
+│   ├── security/           Penetration test scope and findings, client addresses
+│   └── uat/                User acceptance test plan and scenarios
 ├── .github/                CI/CD workflows, Dependabot, CODEOWNERS, templates
 ├── compose.yaml            Local development stack
 ├── Makefile                Developer entry points (`make help`)
