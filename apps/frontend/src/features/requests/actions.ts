@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { sanitizeOptionalText, validateRequiredText } from "@/lib/security/inputSanitizer";
 
 import type { ItemInput, RequestComment, RequestItem, RequestItemDetail, RequestStatus } from "./types";
 
@@ -36,7 +37,22 @@ export async function loadItem(projectId: string, itemId: string): Promise<Resul
 }
 
 export async function createItem(projectId: string, input: ItemInput): Promise<Result<RequestItem>> {
-  return run(projectId, () => apiFetch<RequestItem>(base(projectId), { method: "POST", body: input }));
+  try {
+    const description = validateRequiredText(input.description, "Description");
+    const category = sanitizeOptionalText(input.category, true);
+    const number = sanitizeOptionalText(input.number, true);
+    const sanitizedInput: ItemInput = {
+      ...input,
+      description,
+      ...(category !== undefined && { category }),
+      ...(number !== undefined && { number }),
+    };
+    return run(projectId, () =>
+      apiFetch<RequestItem>(base(projectId), { method: "POST", body: sanitizedInput }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function updateItem(
@@ -44,7 +60,22 @@ export async function updateItem(
   itemId: string,
   input: ItemInput,
 ): Promise<Result<RequestItem>> {
-  return run(projectId, () => apiFetch<RequestItem>(item(projectId, itemId), { method: "PUT", body: input }));
+  try {
+    const description = validateRequiredText(input.description, "Description");
+    const category = sanitizeOptionalText(input.category, true);
+    const number = sanitizeOptionalText(input.number, true);
+    const sanitizedInput: ItemInput = {
+      ...input,
+      description,
+      ...(category !== undefined && { category }),
+      ...(number !== undefined && { number }),
+    };
+    return run(projectId, () =>
+      apiFetch<RequestItem>(item(projectId, itemId), { method: "PUT", body: sanitizedInput }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function deleteItem(projectId: string, itemId: string): Promise<Result> {
@@ -70,8 +101,12 @@ export async function changeStatus(
   status: RequestStatus,
   reason?: string,
 ): Promise<Result<RequestItem>> {
+  const sanitizedReason = sanitizeOptionalText(reason);
   return run(projectId, () =>
-    apiFetch<RequestItem>(item(projectId, itemId, "/status"), { method: "POST", body: { status, reason } }),
+    apiFetch<RequestItem>(item(projectId, itemId, "/status"), {
+      method: "POST",
+      body: { status, ...(sanitizedReason !== undefined && { reason: sanitizedReason }) },
+    }),
   );
 }
 
@@ -81,10 +116,11 @@ export async function linkDocument(
   documentId: string,
   comment?: string,
 ): Promise<Result> {
+  const sanitizedComment = sanitizeOptionalText(comment);
   return run(projectId, () =>
     apiFetch<undefined>(item(projectId, itemId, "/documents"), {
       method: "POST",
-      body: { documentId, comment },
+      body: { documentId, ...(sanitizedComment !== undefined && { comment: sanitizedComment }) },
     }),
   );
 }
@@ -103,12 +139,17 @@ export async function addComment(
   body: string,
   internal: boolean,
 ): Promise<Result<RequestComment>> {
-  return run(projectId, () =>
-    apiFetch<RequestComment>(item(projectId, itemId, "/comments"), {
-      method: "POST",
-      body: { body, internal },
-    }),
-  );
+  try {
+    const sanitizedBody = validateRequiredText(body, "Comment");
+    return run(projectId, () =>
+      apiFetch<RequestComment>(item(projectId, itemId, "/comments"), {
+        method: "POST",
+        body: { body: sanitizedBody, internal },
+      }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function refreshRequests(projectId: string): Promise<void> {
