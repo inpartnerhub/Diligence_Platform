@@ -66,8 +66,10 @@ class DocumentAnnotationService {
             throw new InvalidRequestException("pageNumber must be positive");
         }
         var user = currentUser.requireCurrentUser();
+        var displayName = user.displayName() != null && !user.displayName().isBlank() ? user.displayName()
+                : (user.email() != null ? user.email() : user.username());
         var annotation = new DocumentAnnotation(UUID.randomUUID(), projectId, documentId, pageNumber, xPct, yPct,
-                widthPct, heightPct, color, comment, findingId, user.id(), user.name());
+                widthPct, heightPct, color, comment, findingId, user.id(), displayName);
         return annotations.save(annotation);
     }
 

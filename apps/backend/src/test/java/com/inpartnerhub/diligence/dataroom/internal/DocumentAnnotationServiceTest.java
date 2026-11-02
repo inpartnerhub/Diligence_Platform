@@ -90,14 +90,14 @@ class DocumentAnnotationServiceTest {
         assertThat(annotation.getComment()).isEqualTo("Indemnity cap mentioned here");
         assertThat(annotation.getFindingId()).isEqualTo(findingId);
         assertThat(annotation.getCreatedBy()).isEqualTo(analyst.id());
-        assertThat(annotation.getCreatedByName()).isEqualTo(analyst.name());
+        assertThat(annotation.getCreatedByName()).isEqualTo(analyst.displayName());
         verify(annotations).save(any(DocumentAnnotation.class));
     }
 
     @Test
     void listsAnnotationsForDocumentAndFinding() {
         var ann = new DocumentAnnotation(UUID.randomUUID(), PROJECT, docId, 1, 5.0, 5.0, 10.0, 10.0, "yellow", "test",
-                null, analyst.id(), analyst.name());
+                null, analyst.id(), analyst.displayName());
         when(annotations.findByProjectIdAndDocumentIdOrderByPageNumberAscCreatedAtAsc(PROJECT, docId))
                 .thenReturn(List.of(ann));
         when(annotations.findByProjectIdAndFindingIdOrderByCreatedAtAsc(PROJECT, ann.getId()))
@@ -114,7 +114,7 @@ class DocumentAnnotationServiceTest {
     void updatesAndDeletesAnnotation() {
         var annId = UUID.randomUUID();
         var ann = new DocumentAnnotation(annId, PROJECT, docId, 1, 5.0, 5.0, 10.0, 10.0, "yellow", "test",
-                null, analyst.id(), analyst.name());
+                null, analyst.id(), analyst.displayName());
         when(annotations.findById(annId)).thenReturn(Optional.of(ann));
 
         var updated = service.update(PROJECT, docId, annId, 10.0, 15.0, 20.0, 25.0, "green", "updated note", null);
