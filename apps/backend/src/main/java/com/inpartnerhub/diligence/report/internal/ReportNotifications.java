@@ -28,7 +28,7 @@ class ReportNotifications {
 
     @ApplicationModuleListener
     void on(ReportChanged event) {
-        if (!"issued".equals(event.change())) {
+        if (!"issued".equals(event.change()) && !"released".equals(event.change())) {
             return;
         }
         var clients = projects.members(event.projectId()).stream().filter(m -> m.role() == ProjectRole.CLIENT)

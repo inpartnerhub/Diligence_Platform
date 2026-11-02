@@ -251,7 +251,7 @@ class ReportService {
         statusHistories.save(new ReportStatusHistory(UUID.randomUUID(), reportId, projectId, fromStatus,
                 ReportStatus.RELEASED_BY_PARTNER.name(), userId, note));
         events.publishEvent(new ReportChanged(projectId, context.code(), reportId, report.getVersionNumber(),
-                report.getTitle(), "released", Map.of(), RequestMetadata.capture()));
+                report.getTitle(), "issued", Map.of(), RequestMetadata.capture()));
         return report;
     }
 

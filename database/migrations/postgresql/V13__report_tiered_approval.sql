@@ -49,6 +49,12 @@ CREATE POLICY report_status_history_insert ON rpt.report_status_history FOR INSE
             AND prj.has_project_role(project_id, ARRAY ['PARTNER','PROJECT_MANAGER','ANALYST'])));
 
 -- Update RLS policies on rpt.report
+DROP POLICY IF EXISTS report_read ON rpt.report;
+CREATE POLICY report_read ON rpt.report FOR SELECT USING (
+    prj.is_system()
+        OR prj.has_project_role(project_id, ARRAY ['PARTNER','PROJECT_MANAGER','ANALYST','OBSERVER'])
+        OR (approval_status IN ('RELEASED_BY_PARTNER', 'ISSUED') AND prj.has_project_role(project_id, ARRAY ['CLIENT'])));
+
 DROP POLICY IF EXISTS report_update ON rpt.report;
 CREATE POLICY report_update ON rpt.report FOR UPDATE
     USING (prj.is_system()
@@ -65,3 +71,4 @@ CREATE POLICY report_delete ON rpt.report FOR DELETE USING (
     prj.is_system()
         OR (approval_status = 'DRAFT'
             AND prj.has_project_role(project_id, ARRAY ['PARTNER','PROJECT_MANAGER','ANALYST'])));
+
