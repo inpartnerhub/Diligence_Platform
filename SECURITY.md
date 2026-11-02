@@ -42,7 +42,8 @@ Only the latest release deployed from `main` receives security fixes.
 - **Retention**: project data is deleted or anonymized after closure per client agreement (ADM-06, phase 2);
   the audit log is retained per policy and is not deletable by the application.
 - **NDA / terms of use**: external users must accept them on first login (Keycloak `TERMS_AND_CONDITIONS` required
-  action). The text in the realm file is a placeholder that must be replaced with the approved NDA before go-live.
+  action). The formal bilingual Non-Disclosure Agreement and Digital Workspace Terms of Use are configured in the
+  realm file (`infrastructure/docker/keycloak/diligence-realm.json`).
 - **Assessments**: independent penetration test before go-live and at least annually (scope and internal pre-test:
   [docs/security/penetration-test.md](docs/security/penetration-test.md)); ISO/IEC 27001 certification
   targeted within 12 months of go-live.
