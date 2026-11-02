@@ -194,9 +194,9 @@ class DocumentViewServiceTest {
         when(versions.findAllById(any())).thenReturn(List.of(version, ver2));
 
         when(storage.get(RenditionKeys.pdf(PROJECT, version.getId())))
-                .thenReturn(new ByteArrayInputStream(TestPdfs.onePage("Kontrak")));
+                .thenAnswer(inv -> new ByteArrayInputStream(TestPdfs.pages(1)));
         when(storage.get(ver2.getObjectKey()))
-                .thenReturn(new ByteArrayInputStream(TestPdfs.onePage("AGM Minutes")));
+                .thenAnswer(inv -> new ByteArrayInputStream(TestPdfs.pages(1)));
 
         var download = service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF);
         assertThat(download.fileName()).isEqualTo("Legal.zip");
