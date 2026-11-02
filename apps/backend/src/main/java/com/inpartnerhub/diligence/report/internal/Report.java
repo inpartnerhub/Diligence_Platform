@@ -11,7 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
-/** One generated version of a project's due diligence report (PRD RPT-01). */
+/** One generated version of a project's due diligence report (PRD RPT-01, RPT-03). */
 @Entity
 @Table(schema = "rpt", name = "report")
 class Report {
@@ -27,6 +27,15 @@ class Report {
 
     @Column(name = "version_number", nullable = false, updatable = false)
     private int versionNumber;
+
+    @Column(name = "major_version", nullable = false, updatable = false)
+    private int majorVersion;
+
+    @Column(name = "minor_version", nullable = false, updatable = false)
+    private int minorVersion;
+
+    @Column(name = "version_label", nullable = false, updatable = false)
+    private String versionLabel;
 
     @Column(nullable = false, updatable = false)
     private String title;
@@ -56,6 +65,18 @@ class Report {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "submitted_by")
+    private UUID submittedBy;
+
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
+    @Column(name = "manager_approved_by")
+    private UUID managerApprovedBy;
+
+    @Column(name = "manager_approved_at")
+    private Instant managerApprovedAt;
+
     @Column(name = "issued_by")
     private UUID issuedBy;
 
@@ -68,12 +89,16 @@ class Report {
     protected Report() {
     }
 
-    Report(UUID id, UUID projectId, UUID workstreamId, int versionNumber, String title, String language,
-            int findingCount, String docxKey, String pdfKey, long sizeBytes, UUID createdBy) {
+    Report(UUID id, UUID projectId, UUID workstreamId, int versionNumber, int majorVersion, int minorVersion,
+            String versionLabel, String title, String language, int findingCount, String docxKey, String pdfKey,
+            long sizeBytes, UUID createdBy) {
         this.id = id;
         this.projectId = projectId;
         this.workstreamId = workstreamId;
         this.versionNumber = versionNumber;
+        this.majorVersion = majorVersion;
+        this.minorVersion = minorVersion;
+        this.versionLabel = versionLabel;
         this.title = title;
         this.language = language;
         this.findingCount = findingCount;
@@ -85,10 +110,36 @@ class Report {
         this.status = ReportStatus.DRAFT;
     }
 
-    void issue(UUID userId, Instant at) {
-        status = ReportStatus.ISSUED;
+    Report(UUID id, UUID projectId, UUID workstreamId, int versionNumber, String title, String language,
+            int findingCount, String docxKey, String pdfKey, long sizeBytes, UUID createdBy) {
+        this(id, projectId, workstreamId, versionNumber, 1, 0, "v" + versionNumber + ".0", title, language,
+                findingCount, docxKey, pdfKey, sizeBytes, createdBy);
+    }
+
+    void submitForReview(UUID userId, Instant at) {
+        status = ReportStatus.SUBMITTED_FOR_REVIEW;
+        submittedBy = userId;
+        submittedAt = at;
+    }
+
+    void approveByManager(UUID userId, Instant at) {
+        status = ReportStatus.APPROVED_BY_MANAGER;
+        managerApprovedBy = userId;
+        managerApprovedAt = at;
+    }
+
+    void releaseByPartner(UUID userId, Instant at) {
+        status = ReportStatus.RELEASED_BY_PARTNER;
         issuedBy = userId;
         issuedAt = at;
+    }
+
+    void returnDraft(Instant at) {
+        status = ReportStatus.DRAFT;
+    }
+
+    void issue(UUID userId, Instant at) {
+        releaseByPartner(userId, at);
     }
 
     UUID getId() {
@@ -105,6 +156,18 @@ class Report {
 
     int getVersionNumber() {
         return versionNumber;
+    }
+
+    int getMajorVersion() {
+        return majorVersion;
+    }
+
+    int getMinorVersion() {
+        return minorVersion;
+    }
+
+    String getVersionLabel() {
+        return versionLabel != null ? versionLabel : "v" + versionNumber + ".0";
     }
 
     String getTitle() {
@@ -143,11 +206,31 @@ class Report {
         return createdAt;
     }
 
+    UUID getSubmittedBy() {
+        return submittedBy;
+    }
+
+    Instant getSubmittedAt() {
+        return submittedAt;
+    }
+
+    UUID getManagerApprovedBy() {
+        return managerApprovedBy;
+    }
+
+    Instant getManagerApprovedAt() {
+        return managerApprovedAt;
+    }
+
     UUID getIssuedBy() {
         return issuedBy;
     }
 
     Instant getIssuedAt() {
         return issuedAt;
+    }
+
+    long getVersion() {
+        return version;
     }
 }

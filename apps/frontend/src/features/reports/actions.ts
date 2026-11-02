@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 
-import type { Report } from "./types";
+import type { Report, ReportStatusHistoryItem } from "./types";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
 
@@ -31,6 +31,57 @@ export async function generateReport(projectId: string, title: string, language:
   );
 }
 
+export async function generateReportRevision(
+  projectId: string,
+  reportId: string,
+  major: boolean,
+  title?: string,
+  language?: "id" | "en",
+) {
+  return run(projectId, () =>
+    apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/revision`), {
+      method: "POST",
+      body: { major, title, language },
+    }),
+  );
+}
+
+export async function submitReport(projectId: string, reportId: string, note?: string) {
+  return run(projectId, () =>
+    apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/submit`), {
+      method: "POST",
+      body: { note },
+    }),
+  );
+}
+
+export async function approveReport(projectId: string, reportId: string, note?: string) {
+  return run(projectId, () =>
+    apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/approve`), {
+      method: "POST",
+      body: { note },
+    }),
+  );
+}
+
+export async function releaseReport(projectId: string, reportId: string, note?: string) {
+  return run(projectId, () =>
+    apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/release`), {
+      method: "POST",
+      body: { note },
+    }),
+  );
+}
+
+export async function returnReportDraft(projectId: string, reportId: string, reason: string) {
+  return run(projectId, () =>
+    apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/return`), {
+      method: "POST",
+      body: { reason },
+    }),
+  );
+}
+
 export async function issueReport(projectId: string, reportId: string) {
   return run(projectId, () =>
     apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/issue`), { method: "POST" }),
@@ -40,5 +91,11 @@ export async function issueReport(projectId: string, reportId: string) {
 export async function deleteReport(projectId: string, reportId: string) {
   return run(projectId, () =>
     apiFetch<undefined>(base(projectId, `/${encodeURIComponent(reportId)}`), { method: "DELETE" }),
+  );
+}
+
+export async function fetchReportHistory(projectId: string, reportId: string) {
+  return run(projectId, () =>
+    apiFetch<ReportStatusHistoryItem[]>(base(projectId, `/${encodeURIComponent(reportId)}/history`)),
   );
 }
