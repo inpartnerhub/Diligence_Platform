@@ -18,3 +18,4 @@ ALTER TABLE prj.project ADD CONSTRAINT project_status_check
 
 -- Index for scheduled retention expiry scans.
 CREATE INDEX project_retention_idx ON prj.project (status, archived_at, purged_at);
+

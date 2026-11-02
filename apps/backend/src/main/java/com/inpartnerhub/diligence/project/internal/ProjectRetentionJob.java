@@ -26,3 +26,4 @@ class ProjectRetentionJob {
         retentionService.purgeExpiredProjects(Instant.now());
     }
 }
+

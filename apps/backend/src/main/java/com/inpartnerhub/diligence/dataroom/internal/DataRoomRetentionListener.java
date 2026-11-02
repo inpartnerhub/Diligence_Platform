@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectDataPurgeRequested;
@@ -42,8 +41,7 @@ class DataRoomRetentionListener {
     }
 
     @ApplicationModuleListener
-    @Transactional
-    public void on(ProjectDataPurgeRequested event) {
+    void on(ProjectDataPurgeRequested event) {
         var projectId = event.projectId();
         log.info("Purging data room for project {} ({})", event.code(), projectId);
 
@@ -82,3 +80,4 @@ class DataRoomRetentionListener {
                 s3ObjectsPurged, event.requestMetadata()));
     }
 }
+
