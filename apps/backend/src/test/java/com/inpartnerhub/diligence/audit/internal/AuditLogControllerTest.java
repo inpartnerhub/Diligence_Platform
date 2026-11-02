@@ -54,11 +54,13 @@ class AuditLogControllerTest {
     ApplicationEventPublisher events;
 
     private static RequestPostProcessor superAdmin() {
-        return jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+        return jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
     }
 
     private static RequestPostProcessor analyst() {
-        return jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST"));
+        return jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_ANALYST"));
     }
 
     @Test

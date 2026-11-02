@@ -149,7 +149,7 @@ class TemplateAndDashboardTest {
         when(projects.findAll(any(Sort.class))).thenReturn(List.of(p1));
         when(workstreams.findByProjectIdOrderByType(p1.getId())).thenReturn(List.of(legal));
         when(requests.progressByWorkstream(p1.getId())).thenReturn(List.of(new RequestStatistics.WorkstreamProgress(
-                legal.getId(), Map.of("REQUESTED", 5L, "CLOSED", 4L))));
+                legal.getId(), Map.of("REQUESTED", 1L, "CLOSED", 4L))));
         when(requests.deadlines(p1.getId(), today, DashboardService.DUE_SOON_DAYS))
                 .thenReturn(new RequestStatistics.DeadlineSummary(1, 2));
         when(findings.countsByRiskLevel(p1.getId())).thenReturn(Map.of("CRITICAL", 1L, "HIGH", 2L));
