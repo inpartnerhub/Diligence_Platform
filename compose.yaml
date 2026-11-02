@@ -85,7 +85,7 @@ services:
     healthcheck: { <<: *healthcheck, test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"] }
 
   tika:
-    # The -full image bundles Tesseract OCR, used automatically for image-based documents.
+    # Bundles Tesseract OCR. For Indonesian OCR (PRD DOC-06), see infrastructure/docker/tika.
     image: apache/tika:4.2.0-1-full
     ports: ["127.0.0.1:9998:9998"]
 
@@ -192,6 +192,7 @@ services:
       APP_BASE_URL: http://localhost:3000
       SMTP_HOST: mailpit
       TIKA_URL: http://tika:9998
+      OCR_LANGUAGES: ${OCR_LANGUAGES:-eng+ind}
       GOTENBERG_URL: http://gotenberg:3000
       CLAMAV_HOST: clamav
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces

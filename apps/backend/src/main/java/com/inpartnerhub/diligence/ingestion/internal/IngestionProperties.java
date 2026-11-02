@@ -43,11 +43,26 @@ record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int
         allowedContentTypes = allowedContentTypes == null || allowedContentTypes.isEmpty() ? DEFAULT_ALLOWED
                 : List.copyOf(allowedContentTypes);
         retryBackoff = retryBackoff == null ? Duration.ofSeconds(5) : retryBackoff;
-        ocrLanguages = ocrLanguages == null || ocrLanguages.isBlank() ? "eng" : ocrLanguages;
+        ocrLanguages = normalizeOcrLanguages(ocrLanguages);
         maxTextChars = maxTextChars == null ? 500_000 : maxTextChars;
         previewMaxPages = previewMaxPages == null ? 300 : previewMaxPages;
         previewDpi = previewDpi == null ? 120 : previewDpi;
         serviceTimeout = serviceTimeout == null ? Duration.ofMinutes(5) : serviceTimeout;
+    }
+
+    static String normalizeOcrLanguages(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "eng+ind";
+        }
+        var parts = raw.split("[,;\\s+]+");
+        var list = new java.util.ArrayList<String>();
+        for (var part : parts) {
+            var trimmed = part.trim().toLowerCase(Locale.ROOT);
+            if (!trimmed.isEmpty() && !list.contains(trimmed)) {
+                list.add(trimmed);
+            }
+        }
+        return list.isEmpty() ? "eng+ind" : String.join("+", list);
     }
 
     /** Defaults for everything but the service endpoints (tests). */

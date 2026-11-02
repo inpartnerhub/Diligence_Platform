@@ -129,7 +129,7 @@ diligence:
     clamav-host: ${CLAMAV_HOST:localhost}
     clamav-port: ${CLAMAV_PORT:3310}
     # Tesseract languages for scanned documents and images (the image must have the trained data installed).
-    ocr-languages: ${OCR_LANGUAGES:eng}
+    ocr-languages: ${OCR_LANGUAGES:eng+ind}
 
 springdoc:
   api-docs:

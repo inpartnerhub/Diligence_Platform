@@ -24,7 +24,7 @@ data:
   GOTENBERG_URL: http://gotenberg.diligence-processing.svc:3000
   CLAMAV_HOST: clamav.diligence-processing.svc
   # Tesseract languages for scanned documents; "ind" needs a Tika image with that trained data (see ARCHITECTURE §6).
-  OCR_LANGUAGES: eng
+  OCR_LANGUAGES: eng+ind
   WATERMARK_ZONE: Asia/Jakarta
   # PRD REQ-04: request-list reminders on working days at 08:00 WIB for items due within 3 days or overdue.
   REQUEST_REMINDER_CRON: "0 0 8 * * MON-FRI"
