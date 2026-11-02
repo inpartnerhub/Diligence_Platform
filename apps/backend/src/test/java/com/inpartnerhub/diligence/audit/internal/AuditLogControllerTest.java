@@ -2,11 +2,9 @@ package com.inpartnerhub.diligence.audit.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -118,7 +117,7 @@ class AuditLogControllerTest {
                 "SUCCESS",
                 "=cmd|' /C calc'!A0"); // test CSV formula injection defense
 
-        when(repository.findAll(any(Specification.class), any(Sort.class)))
+        when(repository.findAll(ArgumentMatchers.<Specification<AuditLogEntry>>any(), any(Sort.class)))
                 .thenReturn(List.of(entry1, entry2));
 
         var result = mvc.perform(get("/api/v1/admin/audit-logs/export")

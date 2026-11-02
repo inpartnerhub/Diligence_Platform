@@ -41,7 +41,7 @@ class ProjectRetentionServiceTest {
         int purgedCount = retentionService.purgeExpiredProjects(now);
 
         assertThat(purgedCount).isEqualTo(1);
-        verify(projectService).purgeExpired(eq(expired), eq(now));
+        verify(projectService).purgeExpired(expired, now);
         verify(projectService, never()).purgeExpired(eq(active), any());
     }
 
@@ -57,7 +57,7 @@ class ProjectRetentionServiceTest {
 
         int purgedCount = retentionService.purgeExpiredProjects(now);
 
-        assertThat(purgedCount).isEqualTo(0);
+        assertThat(purgedCount).isZero();
         verify(projectService, never()).purgeExpired(any(), any());
     }
 }

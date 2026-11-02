@@ -2,7 +2,6 @@ package com.inpartnerhub.diligence.project.internal;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
