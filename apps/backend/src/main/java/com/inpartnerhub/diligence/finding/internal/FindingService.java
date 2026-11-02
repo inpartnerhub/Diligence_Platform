@@ -2,6 +2,7 @@ package com.inpartnerhub.diligence.finding.internal;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
@@ -21,9 +22,12 @@ import com.inpartnerhub.diligence.dataroom.DocumentDirectory;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory.DocumentSummary;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingChanged;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingEscalated;
+import com.inpartnerhub.diligence.finding.FindingEvents.FindingRef;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingStatusChanged;
+import com.inpartnerhub.diligence.finding.RemediationStatus;
 import com.inpartnerhub.diligence.finding.RiskLevel;
 import com.inpartnerhub.diligence.project.ProjectDirectory.ProjectContext;
+import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
@@ -265,6 +269,96 @@ class FindingService {
         finding.touch();
         events.publishEvent(new FindingChanged(projectId, finding.ref(), "document-unlinked",
                 RequestMetadata.capture()));
+    }
+
+    // ------------------------------------------------------------------ remediation & SPA tracking (FND-05)
+
+    Finding updateRemediation(UUID projectId, UUID findingId, Finding.Remediation remediation) {
+        var context = access.editableProject(projectId);
+        if (!context.canManage() && !context.hasAnyRole(ProjectRole.ANALYST)) {
+            throw new AccessDeniedException("Only project team members can update remediation details");
+        }
+        var finding = access.finding(context, findingId);
+        var validated = validRemediation(remediation);
+        finding.updateRemediation(validated, me(), Instant.now(clock));
+        events.publishEvent(new FindingChanged(projectId, finding.ref(), "remediation_updated",
+                RequestMetadata.capture()));
+        return finding;
+    }
+
+    @Transactional(readOnly = true)
+    byte[] exportRemediation(UUID projectId) {
+        var context = access.project(projectId);
+        var workstreams = access.workstreams(projectId);
+        var list = findings.findByProjectIdOrderByNumber(projectId).stream()
+                .filter(f -> !FindingAccess.isInternal(context) || context.coversWorkstream(f.getWorkstreamId()))
+                .filter(f -> FindingAccess.isInternal(context) || f.getStatus() == FindingStatus.RELEASED)
+                .toList();
+
+        var sb = new StringBuilder();
+        sb.append('\ufeff'); // UTF-8 BOM
+        sb.append(String.join(",",
+                csvCell("Finding Number"),
+                csvCell("Workstream"),
+                csvCell("Title"),
+                csvCell("Category"),
+                csvCell("Risk Level"),
+                csvCell("Monetary Impact"),
+                csvCell("Currency"),
+                csvCell("SPA Protection Type"),
+                csvCell("SPA Clause Reference"),
+                csvCell("Remediation Status"),
+                csvCell("Remediation Action"),
+                csvCell("Remediation Deadline"),
+                csvCell("Remediation Owner")
+        )).append("\r\n");
+
+        for (var f : list) {
+            var wsType = workstreams.get(f.getWorkstreamId());
+            sb.append(String.join(",",
+                    csvCell(f.getNumber()),
+                    csvCell(wsType != null ? wsType.name() : ""),
+                    csvCell(f.getTitle()),
+                    csvCell(f.getCategory()),
+                    csvCell(f.getRiskLevel() != null ? f.getRiskLevel().name() : ""),
+                    csvCell(f.getMonetaryImpact() != null ? f.getMonetaryImpact().toPlainString() : ""),
+                    csvCell(f.getCurrency() != null ? f.getCurrency() : ""),
+                    csvCell(f.getSpaProtectionType() != null ? f.getSpaProtectionType().name() : ""),
+                    csvCell(f.getSpaClauseReference() != null ? f.getSpaClauseReference() : ""),
+                    csvCell(f.getRemediationStatus().name()),
+                    csvCell(f.getRemediationAction() != null ? f.getRemediationAction() : ""),
+                    csvCell(f.getRemediationDeadline() != null ? f.getRemediationDeadline().toString() : ""),
+                    csvCell(f.getRemediationOwner() != null ? f.getRemediationOwner() : "")
+            )).append("\r\n");
+        }
+
+        events.publishEvent(new FindingChanged(projectId,
+                new FindingRef(projectId, context.code(), "remediation-schedule", null, me()),
+                "remediation_exported", RequestMetadata.capture()));
+
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static Finding.Remediation validRemediation(Finding.Remediation r) {
+        if (r == null) {
+            return new Finding.Remediation(null, null, RemediationStatus.OPEN, null, null, null);
+        }
+        var clause = limited(r.spaClauseReference(), 100, "SPA clause reference");
+        var action = limited(r.remediationAction(), Finding.MAX_TEXT, "remediation action");
+        var owner = limited(r.remediationOwner(), 200, "remediation owner");
+        var status = r.remediationStatus() != null ? r.remediationStatus() : RemediationStatus.OPEN;
+        return new Finding.Remediation(r.spaProtectionType(), clause, status, action, r.remediationDeadline(), owner);
+    }
+
+    private static String csvCell(String value) {
+        if (value == null || value.isEmpty()) {
+            return "\"\"";
+        }
+        char first = value.charAt(0);
+        String sanitized = (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r')
+                ? "'" + value
+                : value;
+        return "\"" + sanitized.replace("\"", "\"\"") + "\"";
     }
 
     /** Internal review note (any status except archived); never visible to the client. */

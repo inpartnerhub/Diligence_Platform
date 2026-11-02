@@ -633,7 +633,30 @@
       "axes": "Baris: dampak · kolom: kemungkinan",
       "error": "Ambang tidak dapat disimpan."
     },
-    "askQuestion": "Ajukan pertanyaan"
+    "askQuestion": "Ajukan pertanyaan",
+    "spaProtection": "Perlindungan SPA",
+    "spaClause": "Referensi Klausul SPA",
+    "remediation": "Remediasi",
+    "remediationStatus": "Status remediasi",
+    "remediationAction": "Tindakan remediasi",
+    "remediationDeadline": "Batas waktu capaian",
+    "remediationOwner": "Penanggung jawab remediasi",
+    "exportRemediation": "Ekspor jadwal",
+    "editRemediation": "Remediasi & SPA",
+    "remediationUpdated": "Detail remediasi berhasil diperbarui",
+    "spaTypes": {
+      "PRICE_CHIP": "Penyesuaian harga",
+      "SPECIAL_INDEMNITY": "Ganti rugi khusus",
+      "PRE_CLOSING_CONDITION": "Syarat sebelum penutupan",
+      "POST_CLOSING_COVENANT": "Kovenan pasca-penutupan",
+      "WARRANTY_REPRESENTATION": "Pernyataan & jaminan"
+    },
+    "remediationStatuses": {
+      "OPEN": "Belum selesai",
+      "IN_PROGRESS": "Sedang berjalan",
+      "MITIGATED": "Telah dimitigasi",
+      "WAIVED": "Dikesampingkan"
+    }
   },
   "qna": {
     "title": "Tanya-jawab",

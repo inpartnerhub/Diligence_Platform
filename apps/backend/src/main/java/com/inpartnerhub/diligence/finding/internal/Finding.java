@@ -2,11 +2,14 @@ package com.inpartnerhub.diligence.finding.internal;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingRef;
+import com.inpartnerhub.diligence.finding.RemediationStatus;
 import com.inpartnerhub.diligence.finding.RiskLevel;
 import com.inpartnerhub.diligence.finding.RiskRating;
+import com.inpartnerhub.diligence.finding.SpaProtectionType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,7 +19,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
-/** A due diligence finding (PRD FND-01) with its risk rating (FND-03) and workflow state (FND-04). */
+/** A due diligence finding (PRD FND-01) with its risk rating (FND-03), workflow state (FND-04), and remediation/SPA links (FND-05). */
 @Entity
 @Table(schema = "fnd", name = "finding")
 class Finding {
@@ -28,6 +31,16 @@ class Finding {
     /** Content of a finding, as entered by the team. */
     record Content(UUID workstreamId, String title, String category, String description, String impactDescription,
             BigDecimal monetaryImpact, String currency, String recommendation) {
+    }
+
+    /** Post-closing remediation tracking and SPA agreement clause mapping (PRD FND-05). */
+    record Remediation(
+            SpaProtectionType spaProtectionType,
+            String spaClauseReference,
+            RemediationStatus remediationStatus,
+            String remediationAction,
+            LocalDate remediationDeadline,
+            String remediationOwner) {
     }
 
     @Id
@@ -106,6 +119,32 @@ class Finding {
     @Column(name = "archive_reason")
     private String archiveReason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "spa_protection_type")
+    private SpaProtectionType spaProtectionType;
+
+    @Column(name = "spa_clause_reference")
+    private String spaClauseReference;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "remediation_status", nullable = false)
+    private RemediationStatus remediationStatus = RemediationStatus.OPEN;
+
+    @Column(name = "remediation_action")
+    private String remediationAction;
+
+    @Column(name = "remediation_deadline")
+    private LocalDate remediationDeadline;
+
+    @Column(name = "remediation_owner")
+    private String remediationOwner;
+
+    @Column(name = "remediation_updated_at")
+    private Instant remediationUpdatedAt;
+
+    @Column(name = "remediation_updated_by")
+    private UUID remediationUpdatedBy;
+
     @Version
     private long version;
 
@@ -146,6 +185,21 @@ class Finding {
             riskScore = (short) rating.score();
             riskLevel = rating.level();
         }
+        touch();
+    }
+
+    void updateRemediation(Remediation remediation, UUID userId, Instant at) {
+        if (remediation != null) {
+            this.spaProtectionType = remediation.spaProtectionType();
+            this.spaClauseReference = remediation.spaClauseReference();
+            this.remediationStatus = remediation.remediationStatus() != null ? remediation.remediationStatus()
+                    : RemediationStatus.OPEN;
+            this.remediationAction = remediation.remediationAction();
+            this.remediationDeadline = remediation.remediationDeadline();
+            this.remediationOwner = remediation.remediationOwner();
+        }
+        this.remediationUpdatedAt = at;
+        this.remediationUpdatedBy = userId;
         touch();
     }
 
@@ -287,5 +341,37 @@ class Finding {
 
     String getArchiveReason() {
         return archiveReason;
+    }
+
+    SpaProtectionType getSpaProtectionType() {
+        return spaProtectionType;
+    }
+
+    String getSpaClauseReference() {
+        return spaClauseReference;
+    }
+
+    RemediationStatus getRemediationStatus() {
+        return remediationStatus != null ? remediationStatus : RemediationStatus.OPEN;
+    }
+
+    String getRemediationAction() {
+        return remediationAction;
+    }
+
+    LocalDate getRemediationDeadline() {
+        return remediationDeadline;
+    }
+
+    String getRemediationOwner() {
+        return remediationOwner;
+    }
+
+    Instant getRemediationUpdatedAt() {
+        return remediationUpdatedAt;
+    }
+
+    UUID getRemediationUpdatedBy() {
+        return remediationUpdatedBy;
     }
 }

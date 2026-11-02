@@ -1,7 +1,9 @@
 package com.inpartnerhub.diligence.finding.internal;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -11,7 +13,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,8 +30,10 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.inpartnerhub.diligence.admin.Directory;
+import com.inpartnerhub.diligence.finding.RemediationStatus;
 import com.inpartnerhub.diligence.finding.RiskLevel;
 import com.inpartnerhub.diligence.finding.RiskMatrix;
+import com.inpartnerhub.diligence.finding.SpaProtectionType;
 import com.inpartnerhub.diligence.project.ProjectDirectory;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
@@ -49,7 +57,10 @@ class FindingController {
             String currency, String recommendation, Integer impact, Integer likelihood, Integer riskScore,
             RiskLevel riskLevel, FindingStatus status, UUID createdBy, String createdByName, Instant createdAt,
             Instant updatedAt, Instant submittedAt, Instant approvedAt, String approvedByName, Instant releasedAt,
-            String releasedByName, String archiveReason, long documentCount) {
+            String releasedByName, String archiveReason, long documentCount, SpaProtectionType spaProtectionType,
+            String spaClauseReference, RemediationStatus remediationStatus, String remediationAction,
+            LocalDate remediationDeadline, String remediationOwner, Instant remediationUpdatedAt,
+            String remediationUpdatedByName) {
     }
 
     record DocumentResponse(UUID id, UUID folderId, String name, String contentType, String scanStatus,
@@ -93,6 +104,20 @@ class FindingController {
     }
 
     record CommentRequest(@NotBlank @Size(max = FindingComment.MAX_LENGTH) String body) {
+    }
+
+    record RemediationRequest(
+            SpaProtectionType spaProtectionType,
+            @Size(max = 100) String spaClauseReference,
+            RemediationStatus remediationStatus,
+            @Size(max = Finding.MAX_TEXT) String remediationAction,
+            LocalDate remediationDeadline,
+            @Size(max = 200) String remediationOwner) {
+
+        Finding.Remediation remediation() {
+            return new Finding.Remediation(spaProtectionType, spaClauseReference, remediationStatus,
+                    remediationAction, remediationDeadline, remediationOwner);
+        }
     }
 
     record CategoryResponse(UUID workstreamId, WorkstreamType workstream, String name) {
@@ -193,6 +218,26 @@ class FindingController {
                 comment.getCreatedAt());
     }
 
+    @PutMapping("/{findingId}/remediation")
+    @Operation(summary = "Update SPA clause reference and remediation tracking details — FND-05")
+    FindingResponse updateRemediation(@PathVariable UUID projectId, @PathVariable UUID findingId,
+            @Valid @RequestBody RemediationRequest request) {
+        return single(projectId, findings.updateRemediation(projectId, findingId, request.remediation()));
+    }
+
+    @GetMapping("/remediation/export")
+    @Operation(summary = "Export post-closing remediation schedule as CSV — FND-05")
+    ResponseEntity<byte[]> exportRemediation(@PathVariable UUID projectId) {
+        var csv = findings.exportRemediation(projectId);
+        var filename = "remediation-schedule-" + projectId + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(filename, StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csv);
+    }
+
     private FindingResponse single(UUID projectId, Finding finding) {
         return response(finding, access.workstreams(projectId), names(people(finding)),
                 findings.documentCounts(projectId).getOrDefault(finding.getId(), 0L));
@@ -222,6 +267,7 @@ class FindingController {
         ids.add(f.getCreatedBy());
         ids.add(f.getApprovedBy());
         ids.add(f.getReleasedBy());
+        ids.add(f.getRemediationUpdatedBy());
         return ids;
     }
 
@@ -232,7 +278,10 @@ class FindingController {
                 f.getCurrency(), f.getRecommendation(), f.getImpact(), f.getLikelihood(), f.getRiskScore(),
                 f.getRiskLevel(), f.getStatus(), f.getCreatedBy(), names.get(f.getCreatedBy()), f.getCreatedAt(),
                 f.getUpdatedAt(), f.getSubmittedAt(), f.getApprovedAt(), name(names, f.getApprovedBy()),
-                f.getReleasedAt(), name(names, f.getReleasedBy()), f.getArchiveReason(), documentCount);
+                f.getReleasedAt(), name(names, f.getReleasedBy()), f.getArchiveReason(), documentCount,
+                f.getSpaProtectionType(), f.getSpaClauseReference(), f.getRemediationStatus(),
+                f.getRemediationAction(), f.getRemediationDeadline(), f.getRemediationOwner(),
+                f.getRemediationUpdatedAt(), name(names, f.getRemediationUpdatedBy()));
     }
 
     private static String name(Map<UUID, String> names, UUID id) {

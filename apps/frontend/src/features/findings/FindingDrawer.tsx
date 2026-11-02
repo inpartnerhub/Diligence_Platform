@@ -12,11 +12,13 @@ import {
   Alert,
   App,
   Button,
+  DatePicker,
   Descriptions,
   Divider,
   Drawer,
   Empty,
   Flex,
+  Form,
   Input,
   List,
   Modal,
@@ -29,6 +31,7 @@ import {
   TreeSelect,
   Typography,
 } from "antd";
+import dayjs from "dayjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -51,9 +54,13 @@ import {
   linkFindingDocument,
   loadFinding,
   unlinkFindingDocument,
+  updateRemediation,
 } from "./actions";
 import { RiskTag } from "./RiskTag";
 import {
+  REMEDIATION_STATUS_COLORS,
+  REMEDIATION_STATUSES,
+  SPA_PROTECTION_TYPES,
   STATUS_COLORS,
   needsReason,
   nextStatuses,
@@ -92,6 +99,7 @@ export function FindingDrawer({
   const [annotations, setAnnotations] = useState<DocumentAnnotation[]>([]);
   const [viewing, setViewing] = useState<ViewerTarget | null>(null);
   const [moving, setMoving] = useState<FindingStatus | null>(null);
+  const [editingRemediation, setEditingRemediation] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -249,6 +257,52 @@ export function FindingDrawer({
             <Section title={t("description")} text={finding.description} />
             <Section title={t("impactDescription")} text={finding.impactDescription} />
             <Section title={t("recommendation")} text={finding.recommendation} />
+
+            <Divider titlePlacement="start" style={{ margin: "8px 0" }}>
+              <Flex justify="space-between" align="center" style={{ width: "100%" }}>
+                <span>{t("remediation")}</span>
+                {permissions.edit && (
+                  <Button size="small" type="link" onClick={() => setEditingRemediation(true)}>
+                    {t("edit")}
+                  </Button>
+                )}
+              </Flex>
+            </Divider>
+            <Descriptions size="small" column={2} bordered>
+              <Descriptions.Item label={t("remediationStatus")}>
+                <Tag color={REMEDIATION_STATUS_COLORS[finding.remediationStatus]}>
+                  {t(`remediationStatuses.${finding.remediationStatus}`)}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t("spaProtection")}>
+                {finding.spaProtectionType ? (
+                  <Tag color="purple">{t(`spaTypes.${finding.spaProtectionType}`)}</Tag>
+                ) : (
+                  "—"
+                )}
+              </Descriptions.Item>
+              {finding.spaClauseReference && (
+                <Descriptions.Item label={t("spaClause")} span={2}>
+                  {finding.spaClauseReference}
+                </Descriptions.Item>
+              )}
+              {finding.remediationDeadline && (
+                <Descriptions.Item label={t("remediationDeadline")}>
+                  {finding.remediationDeadline}
+                </Descriptions.Item>
+              )}
+              {finding.remediationOwner && (
+                <Descriptions.Item label={t("remediationOwner")}>
+                  {finding.remediationOwner}
+                </Descriptions.Item>
+              )}
+              {finding.remediationAction && (
+                <Descriptions.Item label={t("remediationAction")} span={2}>
+                  {finding.remediationAction}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+
             {finding.archiveReason && (
               <Alert type="warning" showIcon title={t("archived", { reason: finding.archiveReason })} />
             )}
@@ -427,6 +481,14 @@ export function FindingDrawer({
             setMoving(null);
             move(moving, reason);
           }}
+        />
+      )}
+      {editingRemediation && finding && (
+        <RemediationModal
+          projectId={project.id}
+          finding={finding}
+          onClose={() => setEditingRemediation(false)}
+          onSaved={reload}
         />
       )}
     </Drawer>
@@ -624,5 +686,98 @@ function ReviewNotes({
         </>
       )}
     </Flex>
+  );
+}
+
+function RemediationModal({
+  projectId,
+  finding,
+  onClose,
+  onSaved,
+}: Readonly<{
+  projectId: string;
+  finding: Finding;
+  onClose: () => void;
+  onSaved: () => void;
+}>) {
+  const t = useTranslations("findings");
+  const { message } = App.useApp();
+  const [form] = Form.useForm();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Modal
+      open
+      title={t("editRemediation")}
+      okText={t("save")}
+      confirmLoading={pending}
+      onOk={() => form.submit()}
+      onCancel={onClose}
+      destroyOnHidden
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{
+          spaProtectionType: finding.spaProtectionType ?? undefined,
+          spaClauseReference: finding.spaClauseReference ?? undefined,
+          remediationStatus: finding.remediationStatus ?? "OPEN",
+          remediationAction: finding.remediationAction ?? undefined,
+          remediationDeadline: finding.remediationDeadline ? dayjs(finding.remediationDeadline) : undefined,
+          remediationOwner: finding.remediationOwner ?? undefined,
+        }}
+        onFinish={(values) =>
+          startTransition(async () => {
+            const res = await updateRemediation(projectId, finding.id, {
+              spaProtectionType: values.spaProtectionType ?? null,
+              spaClauseReference: values.spaClauseReference ?? null,
+              remediationStatus: values.remediationStatus ?? "OPEN",
+              remediationAction: values.remediationAction ?? null,
+              remediationDeadline: values.remediationDeadline
+                ? values.remediationDeadline.format("YYYY-MM-DD")
+                : null,
+              remediationOwner: values.remediationOwner ?? null,
+            });
+            if (!res.ok) {
+              message.error(res.message || t("error"));
+              return;
+            }
+            message.success(t("remediationUpdated"));
+            onSaved();
+            onClose();
+          })
+        }
+      >
+        <Form.Item name="spaProtectionType" label={t("spaProtection")}>
+          <Select
+            allowClear
+            options={SPA_PROTECTION_TYPES.map((type) => ({
+              value: type,
+              label: t(`spaTypes.${type}`),
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="spaClauseReference" label={t("spaClause")}>
+          <Input maxLength={100} placeholder="e.g. Section 8.2(b)" />
+        </Form.Item>
+        <Form.Item name="remediationStatus" label={t("remediationStatus")} rules={[{ required: true }]}>
+          <Select
+            options={REMEDIATION_STATUSES.map((status) => ({
+              value: status,
+              label: t(`remediationStatuses.${status}`),
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="remediationAction" label={t("remediationAction")}>
+          <Input.TextArea rows={3} maxLength={10000} showCount />
+        </Form.Item>
+        <Form.Item name="remediationDeadline" label={t("remediationDeadline")}>
+          <DatePicker style={{ width: "100%" }} />
+        </Form.Item>
+        <Form.Item name="remediationOwner" label={t("remediationOwner")}>
+          <Input maxLength={200} placeholder="e.g. Deal Lead / Tax Director" />
+        </Form.Item>
+      </Form>
+    </Modal>
   );
 }

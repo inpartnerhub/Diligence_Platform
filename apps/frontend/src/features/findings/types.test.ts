@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { findingPermissions, heatMap, levelFor, needsReason, nextStatuses, sourcedPercent } from "./types";
+import {
+  FINDING_STATUSES,
+  REMEDIATION_STATUSES,
+  SPA_PROTECTION_TYPES,
+  findingPermissions,
+  heatMap,
+  levelFor,
+  needsReason,
+  nextStatuses,
+  sourcedPercent,
+} from "./types";
 
 const analyst = findingPermissions(["ANALYST"], true);
 const pm = findingPermissions(["PROJECT_MANAGER"], true);
@@ -62,5 +72,16 @@ describe("risk helpers", () => {
     expect([...heatMap(findings).entries()]).toEqual([["4:4", 2]]);
     expect(sourcedPercent(findings)).toBe(67);
     expect(sourcedPercent([])).toBeNull();
+  });
+
+  it("exposes expected SPA and remediation constants", () => {
+    expect(SPA_PROTECTION_TYPES).toContain("PRICE_CHIP");
+    expect(SPA_PROTECTION_TYPES).toContain("SPECIAL_INDEMNITY");
+    expect(SPA_PROTECTION_TYPES).toContain("PRE_CLOSING_CONDITION");
+    expect(SPA_PROTECTION_TYPES).toContain("POST_CLOSING_COVENANT");
+    expect(SPA_PROTECTION_TYPES).toContain("WARRANTY_REPRESENTATION");
+
+    expect(FINDING_STATUSES).toContain("RELEASED");
+    expect(REMEDIATION_STATUSES).toEqual(["OPEN", "IN_PROGRESS", "MITIGATED", "WAIVED"]);
   });
 });

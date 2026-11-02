@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, DownloadOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Alert,
   App,
@@ -38,6 +38,7 @@ import { RiskTag } from "./RiskTag";
 import {
   FINDING_STATUSES,
   LEVELS,
+  REMEDIATION_STATUS_COLORS,
   STATUS_COLORS,
   heatMap,
   levelFor,
@@ -47,8 +48,10 @@ import {
   type FindingInput,
   type FindingPermissions,
   type FindingStatus,
+  type RemediationStatus,
   type RiskLevel,
   type RiskMatrix,
+  type SpaProtectionType,
 } from "./types";
 
 export interface FindingListViewProps {
@@ -110,6 +113,30 @@ export function FindingListView({
         <Tag color={STATUS_COLORS[status]}>{t(`statusValues.${status}`)}</Tag>
       ),
     },
+    {
+      title: t("spaProtection"),
+      dataIndex: "spaProtectionType",
+      width: 170,
+      render: (type: SpaProtectionType | null, f) =>
+        type ? (
+          <Space direction="vertical" size={0}>
+            <Tag color="purple">{t(`spaTypes.${type}`)}</Tag>
+            {f.spaClauseReference && (
+              <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                {f.spaClauseReference}
+              </Typography.Text>
+            )}
+          </Space>
+        ) : null,
+    },
+    {
+      title: t("remediation"),
+      dataIndex: "remediationStatus",
+      width: 140,
+      render: (status: RemediationStatus) => (
+        <Tag color={REMEDIATION_STATUS_COLORS[status]}>{t(`remediationStatuses.${status}`)}</Tag>
+      ),
+    },
     ...(internal
       ? [{ title: t("sources"), dataIndex: "documentCount", width: 90, align: "center" as const }]
       : []),
@@ -126,11 +153,19 @@ export function FindingListView({
             {t("pageTitle")} · {project.code}
           </Typography.Title>
         </Flex>
-        {permissions.edit && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing("new")}>
-            {t("newFinding")}
+        <Space>
+          <Button
+            icon={<DownloadOutlined />}
+            href={`/api/projects/${project.id}/findings/remediation/export`}
+          >
+            {t("exportRemediation")}
           </Button>
-        )}
+          {permissions.edit && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing("new")}>
+              {t("newFinding")}
+            </Button>
+          )}
+        </Space>
       </Flex>
       {!internal && <Alert type="info" showIcon style={{ marginBottom: 16 }} title={t("clientHint")} />}
 

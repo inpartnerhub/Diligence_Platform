@@ -8,12 +8,31 @@ export type FindingStatus = (typeof FINDING_STATUSES)[number];
 export const LEVELS = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
 export type RiskLevel = (typeof LEVELS)[number];
 
+export const SPA_PROTECTION_TYPES = [
+  "PRICE_CHIP",
+  "SPECIAL_INDEMNITY",
+  "PRE_CLOSING_CONDITION",
+  "POST_CLOSING_COVENANT",
+  "WARRANTY_REPRESENTATION",
+] as const;
+export type SpaProtectionType = (typeof SPA_PROTECTION_TYPES)[number];
+
+export const REMEDIATION_STATUSES = ["OPEN", "IN_PROGRESS", "MITIGATED", "WAIVED"] as const;
+export type RemediationStatus = (typeof REMEDIATION_STATUSES)[number];
+
 export const STATUS_COLORS: Record<FindingStatus, string> = {
   DRAFT: "default",
   IN_REVIEW: "processing",
   APPROVED: "cyan",
   RELEASED: "success",
   ARCHIVED: "default",
+};
+
+export const REMEDIATION_STATUS_COLORS: Record<RemediationStatus, string> = {
+  OPEN: "error",
+  IN_PROGRESS: "processing",
+  MITIGATED: "success",
+  WAIVED: "default",
 };
 
 export interface RiskMatrix {
@@ -50,6 +69,23 @@ export interface Finding {
   releasedByName: string | null;
   archiveReason: string | null;
   documentCount: number;
+  spaProtectionType: SpaProtectionType | null;
+  spaClauseReference: string | null;
+  remediationStatus: RemediationStatus;
+  remediationAction: string | null;
+  remediationDeadline: string | null;
+  remediationOwner: string | null;
+  remediationUpdatedAt: string | null;
+  remediationUpdatedByName: string | null;
+}
+
+export interface RemediationInput {
+  spaProtectionType?: SpaProtectionType | null;
+  spaClauseReference?: string | null;
+  remediationStatus?: RemediationStatus | null;
+  remediationAction?: string | null;
+  remediationDeadline?: string | null;
+  remediationOwner?: string | null;
 }
 
 export interface FindingDocument {
