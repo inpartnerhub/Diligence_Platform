@@ -11,7 +11,7 @@ const CONSULTANTS: readonly Role[] = ["PARTNER", "PROJECT_MANAGER", "ANALYST", "
 
 export const NAV_ACCESS: Record<NavKey, readonly Role[]> = {
   projects: ["SUPER_ADMIN", ...CONSULTANTS, "CLIENT", "TARGET"],
-  dashboard: [...CONSULTANTS, "CLIENT"],
+  dashboard: ["SUPER_ADMIN", ...CONSULTANTS, "CLIENT"],
   requests: [...CONSULTANTS, "TARGET"],
   dataRoom: [...CONSULTANTS, "TARGET"],
   findings: [...CONSULTANTS, "CLIENT"], // client: released findings only; target: never

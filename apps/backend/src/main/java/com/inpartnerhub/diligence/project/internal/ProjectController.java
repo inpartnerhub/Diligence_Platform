@@ -150,6 +150,13 @@ class ProjectController {
         return dashboards.dashboard(id);
     }
 
+    @GetMapping("/portfolio")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PARTNER', 'PROJECT_MANAGER', 'ANALYST', 'CLIENT')")
+    @Operation(summary = "Portfolio dashboard for cross-project monitoring — PRJ-05")
+    DashboardService.PortfolioDashboard portfolio() {
+        return dashboards.portfolio();
+    }
+
     private ProjectResponse response(Project p) {
         return new ProjectResponse(p.getId(), p.getCode(), p.getName(), p.getClientOrganizationId(),
                 organizationName(p.getClientOrganizationId()), p.getTargetOrganizationId(),

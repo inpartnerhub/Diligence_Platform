@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Sort;
 
+import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.project.FindingStatistics;
 import com.inpartnerhub.diligence.project.RequestStatistics;
 import com.inpartnerhub.diligence.project.WorkstreamType;
@@ -93,13 +94,15 @@ class TemplateAndDashboardTest {
 
     @Test
     void dashboardComputesCompletionFromRequestedItems() {
+        var projects = mock(ProjectRepository.class);
         var access = mock(ProjectAccess.class);
         var workstreams = mock(WorkstreamRepository.class);
         var members = mock(ProjectMemberRepository.class);
         var requests = mock(RequestStatistics.class);
         var findings = mock(FindingStatistics.class);
+        var directory = mock(Directory.class);
         var today = LocalDate.of(2026, 11, 2);
-        var service = new DashboardService(access, workstreams, members, requests, findings,
+        var service = new DashboardService(projects, access, workstreams, members, requests, findings, directory,
                 Clock.fixed(Instant.parse("2026-11-02T03:00:00Z"), ZoneOffset.UTC));
         var project = project(UUID.randomUUID());
         var legal = new Workstream(project.getId(), WorkstreamType.LEGAL);
@@ -126,5 +129,52 @@ class TemplateAndDashboardTest {
         assertThat(dashboard.overdue()).isEqualTo(1);
         assertThat(dashboard.findingsByRisk()).containsEntry("HIGH", 3L);
         assertThat(dashboard.memberCount()).isEqualTo(5);
+    }
+
+    @Test
+    void portfolioComputesCrossProjectMetrics() {
+        var projects = mock(ProjectRepository.class);
+        var access = mock(ProjectAccess.class);
+        var workstreams = mock(WorkstreamRepository.class);
+        var members = mock(ProjectMemberRepository.class);
+        var requests = mock(RequestStatistics.class);
+        var findings = mock(FindingStatistics.class);
+        var directory = mock(Directory.class);
+        var today = LocalDate.of(2026, 11, 2);
+        var service = new DashboardService(projects, access, workstreams, members, requests, findings, directory,
+                Clock.fixed(Instant.parse("2026-11-02T03:00:00Z"), ZoneOffset.UTC));
+
+        var p1 = project(UUID.randomUUID());
+        var legal = new Workstream(p1.getId(), WorkstreamType.LEGAL);
+        when(projects.findAll(any(Sort.class))).thenReturn(List.of(p1));
+        when(workstreams.findByProjectIdOrderByType(p1.getId())).thenReturn(List.of(legal));
+        when(requests.progressByWorkstream(p1.getId())).thenReturn(List.of(new RequestStatistics.WorkstreamProgress(
+                legal.getId(), Map.of("REQUESTED", 5L, "CLOSED", 4L))));
+        when(requests.deadlines(p1.getId(), today, DashboardService.DUE_SOON_DAYS))
+                .thenReturn(new RequestStatistics.DeadlineSummary(1, 2));
+        when(findings.countsByRiskLevel(p1.getId())).thenReturn(Map.of("CRITICAL", 1L, "HIGH", 2L));
+        when(members.countByProjectId(p1.getId())).thenReturn(3L);
+        when(directory.findOrganization(p1.getClientOrganizationId())).thenReturn(
+                Optional.of(new Directory.OrganizationSummary(p1.getClientOrganizationId(), "Acme Client", Directory.OrganizationType.CLIENT, true)));
+        when(directory.findOrganization(p1.getTargetOrganizationId())).thenReturn(
+                Optional.of(new Directory.OrganizationSummary(p1.getTargetOrganizationId(), "Beta Target", Directory.OrganizationType.TARGET, true)));
+
+        var portfolio = service.portfolio();
+
+        assertThat(portfolio.totalProjects()).isEqualTo(1);
+        assertThat(portfolio.activeProjects()).isEqualTo(1);
+        assertThat(portfolio.totalFindings()).isEqualTo(3);
+        assertThat(portfolio.criticalFindings()).isEqualTo(1);
+        assertThat(portfolio.highFindings()).isEqualTo(2);
+        assertThat(portfolio.totalOverdueRequests()).isEqualTo(2);
+        assertThat(portfolio.projects()).hasSize(1);
+        var summary = portfolio.projects().getFirst();
+        assertThat(summary.code()).isEqualTo(p1.getCode());
+        assertThat(summary.clientName()).isEqualTo("Acme Client");
+        assertThat(summary.targetName()).isEqualTo("Beta Target");
+        assertThat(summary.completionPercent()).isEqualTo(80);
+        assertThat(summary.criticalFindings()).isEqualTo(1);
+        assertThat(summary.highFindings()).isEqualTo(2);
+        assertThat(summary.overdueRequests()).isEqualTo(2);
     }
 }
