@@ -16,10 +16,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +27,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -39,10 +39,14 @@ import com.inpartnerhub.diligence.security.internal.SecurityConfiguration;
         properties = { "diligence.security.client-id=diligence-api",
                 "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:0/realms/test" })
 @Import(SecurityConfiguration.class)
+@RecordApplicationEvents
 class AuditLogControllerTest {
 
     @Autowired
     MockMvc mvc;
+
+    @Autowired
+    ApplicationEvents applicationEvents;
 
     @MockitoBean
     JwtDecoder jwtDecoder;
@@ -50,15 +54,14 @@ class AuditLogControllerTest {
     @MockitoBean
     AuditLogRepository repository;
 
-    @MockitoBean
-    ApplicationEventPublisher events;
-
     private static RequestPostProcessor superAdmin() {
-        return jwt().authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+        return jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
     }
 
     private static RequestPostProcessor analyst() {
-        return jwt().authorities(new SimpleGrantedAuthority("ROLE_ANALYST"));
+        return jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))
+                .authorities(new SimpleGrantedAuthority("ROLE_ANALYST"));
     }
 
     @Test
@@ -132,10 +135,9 @@ class AuditLogControllerTest {
         // Formula injection cell must be prepended with a single quote
         assertThat(content).contains("\"'=cmd|' /C calc'!A0\"");
 
-        var captor = ArgumentCaptor.forClass(AuditLogExported.class);
-        verify(events).publishEvent(captor.capture());
-        assertThat(captor.getValue().auditAction()).isEqualTo("audit.exported");
-        assertThat(captor.getValue().auditDetails()).containsEntry("action", "document.downloaded");
+        var exported = applicationEvents.stream(AuditLogExported.class).findFirst().orElseThrow();
+        assertThat(exported.auditAction()).isEqualTo("audit.exported");
+        assertThat(exported.auditDetails()).containsEntry("action", "document.downloaded");
     }
 
     @Test

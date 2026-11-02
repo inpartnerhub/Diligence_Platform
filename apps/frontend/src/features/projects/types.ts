@@ -115,6 +115,40 @@ export interface Dashboard {
   memberCount: number;
 }
 
+export interface PortfolioProjectSummary {
+  projectId: string;
+  code: string;
+  name: string;
+  clientOrganizationId: string;
+  clientName: string | null;
+  targetOrganizationId: string;
+  targetName: string | null;
+  stage: ProjectStage;
+  status: Project["status"];
+  startDate: string | null;
+  endDate: string | null;
+  completionPercent: number;
+  totalFindings: number;
+  criticalFindings: number;
+  highFindings: number;
+  overdueRequests: number;
+  dueSoonRequests: number;
+  memberCount: number;
+  workstreams: WorkstreamType[];
+  leadName: string | null;
+}
+
+export interface PortfolioDashboard {
+  totalProjects: number;
+  activeProjects: number;
+  totalFindings: number;
+  criticalFindings: number;
+  highFindings: number;
+  totalOverdueRequests: number;
+  projectsByStage: Record<string, number>;
+  projects: PortfolioProjectSummary[];
+}
+
 export interface TemplateDefinition {
   workstreams: WorkstreamType[];
   requestItems: { workstream: WorkstreamType; category: string; description: string }[];
