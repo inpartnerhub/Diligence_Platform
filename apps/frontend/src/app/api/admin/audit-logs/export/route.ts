@@ -9,4 +9,3 @@ export async function GET(request: NextRequest) {
   const search = request.nextUrl.search;
   return proxyGet("/api/v1/admin/audit-logs/export", search);
 }
-

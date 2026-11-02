@@ -18,9 +18,7 @@ export function AuditView({ logs }: Readonly<{ logs: Page<AuditLog> }>) {
   const from = params.get("from");
   const to = params.get("to");
   const dateRangeValue: [dayjs.Dayjs, dayjs.Dayjs] | null =
-    from && to && dayjs(from).isValid() && dayjs(to).isValid()
-      ? [dayjs(from), dayjs(to)]
-      : null;
+    from && to && dayjs(from).isValid() && dayjs(to).isValid() ? [dayjs(from), dayjs(to)] : null;
 
   const exportQuery = new URLSearchParams();
   if (params.get("action")) exportQuery.set("action", params.get("action")!);
@@ -54,7 +52,16 @@ export function AuditView({ logs }: Readonly<{ logs: Page<AuditLog> }>) {
           placeholder={t("audit.filterObject")}
           value={params.get("objectType") ?? undefined}
           style={{ width: 160 }}
-          options={["user", "organization", "project", "document", "finding", "qna", "report", "audit_log"].map((v) => ({
+          options={[
+            "user",
+            "organization",
+            "project",
+            "document",
+            "finding",
+            "qna",
+            "report",
+            "audit_log",
+          ].map((v) => ({
             value: v,
             label: v,
           }))}
