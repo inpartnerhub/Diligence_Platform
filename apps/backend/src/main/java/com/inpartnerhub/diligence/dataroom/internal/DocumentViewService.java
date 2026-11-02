@@ -3,12 +3,22 @@ package com.inpartnerhub.diligence.dataroom.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -16,6 +26,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.inpartnerhub.diligence.dataroom.DataRoomEvents.BulkDocumentDownloaded;
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentDownloaded;
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentViewed;
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
@@ -51,6 +62,9 @@ class DocumentViewService {
     }
 
     record Download(String fileName, String contentType, Format format, Writer writer) {
+    }
+
+    record BulkDownload(String fileName, Writer writer) {
     }
 
     @FunctionalInterface
@@ -141,6 +155,174 @@ class DocumentViewService {
         var printAllowed = viewable.printAllowed();
         return new Download(pdfName(version.getFileName()), "application/pdf", format,
                 out -> watermarkedPdf(key, stamp, printAllowed, out));
+    }
+
+    /**
+     * Bulk downloads all clean documents from a folder (and its subfolders), or the entire project,
+     * maintaining folder hierarchy inside a watermarked ZIP archive (PRD DOC-05).
+     */
+    BulkDownload bulkDownload(UUID projectId, UUID folderId, Format requested) {
+        var context = access.project(projectId);
+        var allFolders = access.visibleFolders(context);
+        var foldersById = allFolders.stream().collect(Collectors.toMap(Folder::getId, f -> f));
+
+        Folder targetRoot = null;
+        Set<UUID> scopeFolderIds = new HashSet<>();
+        if (folderId != null) {
+            targetRoot = access.folder(context, folderId);
+            scopeFolderIds.add(folderId);
+            boolean added = true;
+            while (added) {
+                added = false;
+                for (Folder f : allFolders) {
+                    if (f.getParentId() != null && scopeFolderIds.contains(f.getParentId()) && scopeFolderIds.add(f.getId())) {
+                        added = true;
+                    }
+                }
+            }
+        } else {
+            scopeFolderIds.addAll(foldersById.keySet());
+        }
+
+        boolean managers = context.canManage();
+        Set<UUID> allowedFolderIds = scopeFolderIds.stream()
+                .filter(id -> {
+                    Folder f = foldersById.get(id);
+                    return f != null && (managers || f.isDownloadAllowed());
+                })
+                .collect(Collectors.toSet());
+
+        if (allowedFolderIds.isEmpty()) {
+            throw new AccessDeniedException("Downloading is not allowed in the selected folder(s)");
+        }
+
+        var docs = documents.findByFolderIdIn(allowedFolderIds).stream()
+                .filter(d -> d.getCurrentVersionId() != null && d.getScanStatus() == ScanStatus.CLEAN)
+                .toList();
+
+        var versionIds = docs.stream().map(Document::getCurrentVersionId).toList();
+        var currentVersions = versions.findAllById(versionIds).stream()
+                .filter(v -> v.getScanStatus() == ScanStatus.CLEAN)
+                .collect(Collectors.toMap(DocumentVersion::getId, v -> v));
+
+        UUID baseParentId = targetRoot != null ? targetRoot.getParentId() : null;
+
+        var stamp = stamp();
+        boolean isInternal = internal(context);
+        Format format = requested != null ? requested : Format.PDF;
+
+        String zipFileName;
+        if (targetRoot != null) {
+            zipFileName = sanitizeZipName(targetRoot.getName()) + ".zip";
+        } else {
+            zipFileName = sanitizeZipName(context.code() + "-dataroom") + ".zip";
+        }
+
+        return new BulkDownload(zipFileName, out -> {
+            long totalBytes = 0;
+            int count = 0;
+            Set<String> usedPaths = new HashSet<>();
+
+            try (var zipOut = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
+                for (Document doc : docs) {
+                    DocumentVersion version = currentVersions.get(doc.getCurrentVersionId());
+                    if (version == null) continue;
+
+                    Folder docFolder = foldersById.get(doc.getFolderId());
+                    if (docFolder == null) continue;
+
+                    boolean pdfAvailable = version.getPreviewStatus() == PreviewState.READY
+                            || (version.isDetectedPdf() && version.getPreviewStatus() != PreviewState.FAILED);
+                    boolean originalAllowed = !pdfAvailable || isInternal;
+
+                    Format docFormat = format;
+                    if (docFormat == Format.PDF && !pdfAvailable) {
+                        if (!originalAllowed) continue;
+                        docFormat = Format.ORIGINAL;
+                    }
+
+                    String folderPath = computeRelativePath(docFolder, foldersById, baseParentId);
+                    String baseDocName = docFormat == Format.PDF ? pdfName(doc.getName()) : doc.getName();
+                    String entryPath = deduplicatePath(folderPath + baseDocName, usedPaths);
+
+                    var entry = new ZipEntry(entryPath);
+                    entry.setTime(version.getCreatedAt().toEpochMilli());
+                    zipOut.putNextEntry(entry);
+
+                    if (docFormat == Format.ORIGINAL) {
+                        try (var content = storage.get(version.getObjectKey())) {
+                            long written = content.transferTo(zipOut);
+                            totalBytes += written;
+                        }
+                    } else {
+                        var key = version.isDetectedPdf() ? version.getObjectKey() : RenditionKeys.pdf(projectId, version.getId());
+                        boolean printAllowed = managers || docFolder.isPrintAllowed();
+                        var tempPdf = Files.createTempFile("bulk-", ".pdf");
+                        try {
+                            try (InputStream content = storage.get(key)) {
+                                Files.copy(content, tempPdf, StandardCopyOption.REPLACE_EXISTING);
+                            }
+                            var baos = new java.io.ByteArrayOutputStream();
+                            Watermarker.stampPdf(tempPdf, stamp, printAllowed, baos);
+                            byte[] stampedBytes = baos.toByteArray();
+                            zipOut.write(stampedBytes);
+                            totalBytes += stampedBytes.length;
+                        } finally {
+                            Files.deleteIfExists(tempPdf);
+                        }
+                    }
+                    zipOut.closeEntry();
+                    count++;
+                }
+                zipOut.finish();
+            }
+
+            events.publishEvent(new BulkDocumentDownloaded(projectId, folderId, count, totalBytes,
+                    RequestMetadata.capture()));
+        });
+    }
+
+    static String computeRelativePath(Folder folder, Map<UUID, Folder> foldersById, UUID baseParentId) {
+        List<String> segments = new ArrayList<>();
+        Folder current = folder;
+        int depth = 0;
+        while (current != null && depth++ < 32) {
+            if (Objects.equals(current.getId(), baseParentId)) {
+                break;
+            }
+            segments.add(0, sanitizePathSegment(current.getName()));
+            if (Objects.equals(current.getParentId(), baseParentId)) {
+                break;
+            }
+            current = current.getParentId() == null ? null : foldersById.get(current.getParentId());
+        }
+        if (segments.isEmpty()) {
+            return "";
+        }
+        return String.join("/", segments) + "/";
+    }
+
+    static String sanitizePathSegment(String name) {
+        return name.replace('/', '_').replace('\\', '_').strip();
+    }
+
+    static String sanitizeZipName(String name) {
+        String clean = name.replaceAll("[^a-zA-Z0-9._-]", "_").strip();
+        return clean.isEmpty() ? "documents" : clean;
+    }
+
+    static String deduplicatePath(String path, Set<String> used) {
+        if (used.add(path)) {
+            return path;
+        }
+        int dot = path.lastIndexOf('.');
+        String prefix = dot > 0 ? path.substring(0, dot) : path;
+        String ext = dot > 0 ? path.substring(dot) : "";
+        int index = 1;
+        while (!used.add(prefix + " (" + index + ")" + ext)) {
+            index++;
+        }
+        return prefix + " (" + index + ")" + ext;
     }
 
     private Viewable viewable(UUID projectId, UUID documentId, UUID versionId) {

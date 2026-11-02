@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.dataroom.internal;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -10,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     List<Document> findByFolderIdOrderByName(UUID folderId);
+
+    List<Document> findByFolderIdIn(Collection<UUID> folderIds);
 
     @Query("select d from Document d where d.folderId = :folderId and lower(d.name) = lower(:name)")
     Optional<Document> findByFolderAndName(UUID folderId, String name);

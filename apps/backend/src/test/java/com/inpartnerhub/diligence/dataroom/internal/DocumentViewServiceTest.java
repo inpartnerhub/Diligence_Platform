@@ -18,9 +18,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.zip.ZipInputStream;
 
 import javax.imageio.ImageIO;
 
@@ -31,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
+import com.inpartnerhub.diligence.dataroom.DataRoomEvents.BulkDocumentDownloaded;
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentDownloaded;
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentViewed;
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
@@ -168,6 +171,68 @@ class DocumentViewServiceTest {
         assertThatThrownBy(() -> service.open(PROJECT, document.getId(), other))
                 .isInstanceOf(ResourceNotFoundException.class);
         assertThat(DocumentViewService.pdfName("README")).isEqualTo("README.pdf");
+    }
+
+    @Test
+    void bulkDownloadArchivesWatermarkedDocumentsInFolderHierarchy() throws Exception {
+        folder.changePolicy(true, true);
+        var subFolder = new Folder(PROJECT, folder.getId(), "Minutes", null);
+        subFolder.changePolicy(true, true);
+
+        var doc2 = new Document(PROJECT, subFolder.getId(), "AGM.pdf", UUID.randomUUID());
+        var ver2 = new DocumentVersion(UUID.randomUUID(), doc2.getId(), PROJECT, 1, "projects/agm.pdf", "AGM.pdf",
+                "application/pdf", 10, "h2", UUID.randomUUID());
+        ver2.recordScan(ScanStatus.CLEAN, "application/pdf", null, Instant.now());
+        ver2.recordRendition(new Rendition(PreviewStatus.READY, 1, false, false));
+        doc2.useVersion(ver2);
+
+        var context = context(ProjectRole.PARTNER);
+        when(access.project(PROJECT)).thenReturn(context);
+        when(access.folder(context, folder.getId())).thenReturn(folder);
+        when(access.visibleFolders(context)).thenReturn(List.of(folder, subFolder));
+        when(documents.findByFolderIdIn(any())).thenReturn(List.of(document, doc2));
+        when(versions.findAllById(any())).thenReturn(List.of(version, ver2));
+
+        when(storage.get(RenditionKeys.pdf(PROJECT, version.getId())))
+                .thenReturn(new ByteArrayInputStream(TestPdfs.onePage("Kontrak")));
+        when(storage.get(ver2.getObjectKey()))
+                .thenReturn(new ByteArrayInputStream(TestPdfs.onePage("AGM Minutes")));
+
+        var download = service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF);
+        assertThat(download.fileName()).isEqualTo("Legal.zip");
+
+        var out = new ByteArrayOutputStream();
+        download.writer().writeTo(out);
+
+        var entries = new java.util.ArrayList<String>();
+        try (var zis = new ZipInputStream(new ByteArrayInputStream(out.toByteArray()))) {
+            var entry = zis.getNextEntry();
+            while (entry != null) {
+                entries.add(entry.getName());
+                var bytes = zis.readAllBytes();
+                try (var doc = Loader.loadPDF(bytes)) {
+                    var text = new PDFTextStripper().getText(doc);
+                    assertThat(text).contains("Budi Santoso");
+                }
+                entry = zis.getNextEntry();
+            }
+        }
+
+        assertThat(entries).containsExactlyInAnyOrder("Legal/Kontrak.pdf", "Legal/Minutes/AGM.pdf");
+        verify(events).publishEvent(any(BulkDocumentDownloaded.class));
+    }
+
+    @Test
+    void bulkDownloadRejectsWhenNoFoldersPermitDownload() {
+        folder.changePolicy(false, false);
+        var context = context(ProjectRole.TARGET);
+        when(access.project(PROJECT)).thenReturn(context);
+        when(access.folder(context, folder.getId())).thenReturn(folder);
+        when(access.visibleFolders(context)).thenReturn(List.of(folder));
+
+        assertThatThrownBy(() -> service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Downloading is not allowed");
     }
 
     private void givenRole(ProjectRole role) {
