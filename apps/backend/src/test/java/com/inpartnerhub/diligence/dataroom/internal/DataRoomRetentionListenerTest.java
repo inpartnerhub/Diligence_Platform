@@ -45,7 +45,7 @@ class DataRoomRetentionListenerTest {
         when(versions.findByProjectId(projectId)).thenReturn(List.of(version));
         when(storage.deletePrefix("projects/" + projectId + "/")).thenReturn(5L);
 
-        listener.on(new ProjectDataPurgeRequested(projectId, "PRJ-TEST", RequestMetadata.system()));
+        listener.on(new ProjectDataPurgeRequested(projectId, "PRJ-TEST", RequestMetadata.SYSTEM));
 
         verify(searchIndex).remove(doc.getId());
         verify(storage).deletePrefix("projects/" + projectId + "/");

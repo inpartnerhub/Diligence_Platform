@@ -200,8 +200,8 @@ class ProjectService {
         project.markPurged(now);
         members.expireAccess(project.getId(), EnumSet.allOf(ProjectRole.class));
         events.publishEvent(new ProjectDataPurgeRequested(project.getId(), project.getCode(),
-                RequestMetadata.system()));
-        events.publishEvent(new ProjectUpdated(project.getId(), "purged", RequestMetadata.system()));
+                RequestMetadata.SYSTEM));
+        events.publishEvent(new ProjectUpdated(project.getId(), "purged", RequestMetadata.SYSTEM));
     }
 
     @Transactional(readOnly = true)
