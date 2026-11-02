@@ -298,19 +298,19 @@ class FindingService {
         var sb = new StringBuilder();
         sb.append('\ufeff'); // UTF-8 BOM
         sb.append(String.join(",",
-                "Finding Number",
-                "Workstream",
-                "Title",
-                "Category",
-                "Risk Level",
-                "Monetary Impact",
-                "Currency",
-                "SPA Protection Type",
-                "SPA Clause Reference",
-                "Remediation Status",
-                "Remediation Action",
-                "Remediation Deadline",
-                "Remediation Owner"
+                csvCell("Finding Number"),
+                csvCell("Workstream"),
+                csvCell("Title"),
+                csvCell("Category"),
+                csvCell("Risk Level"),
+                csvCell("Monetary Impact"),
+                csvCell("Currency"),
+                csvCell("SPA Protection Type"),
+                csvCell("SPA Clause Reference"),
+                csvCell("Remediation Status"),
+                csvCell("Remediation Action"),
+                csvCell("Remediation Deadline"),
+                csvCell("Remediation Owner")
         )).append("\r\n");
 
         for (var f : list) {
