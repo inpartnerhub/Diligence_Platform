@@ -6,16 +6,22 @@
 // Strips non-printable ASCII controls (0x00-0x1F and 0x7F) while preserving newline (\n), carriage return (\r), and tab (\t)
 const MULTILINE_CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
-// Strips all ASCII controls including newlines/carriage returns for single-line fields
+// Strips all remaining ASCII controls for single-line fields
 const SINGLE_LINE_CONTROL_CHARS = /[\x00-\x1F\x7F]/g;
 
 /**
  * Strips ASCII control characters and trims leading/trailing whitespace.
+ * For singleLine mode, replaces newlines/tabs with a space first before stripping controls.
  */
 export function sanitizeText(value: string | undefined | null, singleLine = false): string {
   if (value === undefined || value === null) return "";
-  const pattern = singleLine ? SINGLE_LINE_CONTROL_CHARS : MULTILINE_CONTROL_CHARS;
-  return value.replace(pattern, "").trim();
+  if (singleLine) {
+    return value
+      .replace(/[\r\n\t]+/g, " ")
+      .replace(SINGLE_LINE_CONTROL_CHARS, "")
+      .trim();
+  }
+  return value.replace(MULTILINE_CONTROL_CHARS, "").trim();
 }
 
 /**

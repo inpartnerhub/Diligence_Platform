@@ -19,9 +19,9 @@ describe("inputSanitizer", () => {
       expect(sanitizeText(input, false)).toBe("Hello World\nLine 2\tTabbed");
     });
 
-    it("strips all ASCII control characters including newlines in singleLine mode", () => {
+    it("strips all ASCII control characters and converts newlines to spaces in singleLine mode", () => {
       const input = "Project\nName\r\n\x00Code\t123\x7F";
-      expect(sanitizeText(input, true)).toBe("ProjectNameCode123");
+      expect(sanitizeText(input, true)).toBe("Project Name Code 123");
     });
 
     it("handles null, undefined, or empty strings gracefully", () => {
