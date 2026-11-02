@@ -2,7 +2,9 @@
 
 import {
   ArrowLeftOutlined,
+  CloudDownloadOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   EyeOutlined,
   FolderAddOutlined,
@@ -122,7 +124,20 @@ export function DataRoomView({
             {t("title")} · {project.code}
           </Typography.Title>
         </Flex>
-        <SearchBox projectId={project.id} onResults={setSearch} />
+        <Flex gap={8} align="center">
+          {(canManage || folders.some((f) => f.downloadAllowed)) && (
+            <Tooltip title={t("downloadAllZipHelp")}>
+              <Button
+                icon={<CloudDownloadOutlined />}
+                href={`/api/projects/${encodeURIComponent(project.id)}/folders/download`}
+                download
+              >
+                {t("downloadAllZip")}
+              </Button>
+            </Tooltip>
+          )}
+          <SearchBox projectId={project.id} onResults={setSearch} />
+        </Flex>
       </Flex>
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8} xl={7}>
@@ -145,7 +160,26 @@ export function DataRoomView({
               onOpen={setViewing}
             />
           ) : selected ? (
-            <Card title={selected.name} extra={selected.downloadAllowed ? null : <LockOutlined />}>
+            <Card
+              title={selected.name}
+              extra={
+                <Space>
+                  {(canManage || selected.downloadAllowed) && (
+                    <Tooltip title={t("downloadFolderZipHelp")}>
+                      <Button
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        href={`/api/projects/${encodeURIComponent(project.id)}/folders/${encodeURIComponent(selected.id)}/download`}
+                        download
+                      >
+                        {t("downloadFolderZip")}
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {selected.downloadAllowed ? null : <LockOutlined />}
+                </Space>
+              }
+            >
               {selected.canUpload && <UploadArea projectId={project.id} folder={selected} />}
               <DocumentTable
                 documents={documents}

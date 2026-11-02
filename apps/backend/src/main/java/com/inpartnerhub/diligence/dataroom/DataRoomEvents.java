@@ -112,6 +112,32 @@ public final class DataRoomEvents {
         }
     }
 
+    /** Bulk download of documents from a folder or workstream as a watermarked ZIP archive (PRD DOC-05). */
+    public record BulkDocumentDownloaded(UUID projectId, UUID folderId, int documentCount,
+            long totalBytes, RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "document.bulk_downloaded";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "folder";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return folderId != null ? folderId.toString() : "all";
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("projectId", projectId.toString(), "documentCount", String.valueOf(documentCount),
+                    "totalBytes", String.valueOf(totalBytes));
+        }
+    }
+
     public record FolderChanged(UUID projectId, UUID folderId, String change, RequestMetadata requestMetadata)
             implements AuditableEvent {
 
