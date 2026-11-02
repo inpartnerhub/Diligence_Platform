@@ -246,7 +246,7 @@ class DocumentViewService {
                     String entryPath = deduplicatePath(folderPath + baseDocName, usedPaths);
 
                     var entry = new ZipEntry(entryPath);
-                    entry.setTime(version.getCreatedAt().toEpochMilli());
+                    entry.setTime(version.getUploadedAt().toEpochMilli());
                     zipOut.putNextEntry(entry);
 
                     if (docFormat == Format.ORIGINAL) {

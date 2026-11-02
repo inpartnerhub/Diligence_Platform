@@ -17,3 +17,4 @@ export async function GET(request: NextRequest, { params }: Readonly<{ params: P
     query.size > 0 ? `?${query}` : "",
   );
 }
+
