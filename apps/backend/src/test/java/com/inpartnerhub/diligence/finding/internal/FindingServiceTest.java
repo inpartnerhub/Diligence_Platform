@@ -18,8 +18,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,8 +41,10 @@ import com.inpartnerhub.diligence.dataroom.DocumentDirectory.DocumentSummary;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingChanged;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingEscalated;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingStatusChanged;
+import com.inpartnerhub.diligence.finding.RemediationStatus;
 import com.inpartnerhub.diligence.finding.RiskLevel;
 import com.inpartnerhub.diligence.finding.RiskMatrix;
+import com.inpartnerhub.diligence.finding.SpaProtectionType;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.security.AuthenticatedUser;
@@ -304,5 +308,63 @@ class FindingServiceTest {
 
         when(links.countsByFinding(PROJECT)).thenReturn(List.<Object[]>of(new Object[] { legal.getId(), 2L }));
         assertThat(service.documentCounts(PROJECT)).isEqualTo(Map.of(legal.getId(), 2L));
+    }
+
+    @Test
+    void updatesRemediationAndSpaClauses() {
+        as(ProjectRole.PROJECT_MANAGER);
+        var finding = existing(ME, FindingStatus.DRAFT);
+
+        var deadline = LocalDate.of(2027, 3, 31);
+        var rem = new Finding.Remediation(
+                SpaProtectionType.SPECIAL_INDEMNITY,
+                "Clause 9.4(b)",
+                RemediationStatus.IN_PROGRESS,
+                "Seller to obtain land registration certificates before final installment",
+                deadline,
+                "Legal Counsel");
+
+        var updated = service.updateRemediation(PROJECT, finding.getId(), rem);
+
+        assertThat(updated.getSpaProtectionType()).isEqualTo(SpaProtectionType.SPECIAL_INDEMNITY);
+        assertThat(updated.getSpaClauseReference()).isEqualTo("Clause 9.4(b)");
+        assertThat(updated.getRemediationStatus()).isEqualTo(RemediationStatus.IN_PROGRESS);
+        assertThat(updated.getRemediationAction()).contains("land registration");
+        assertThat(updated.getRemediationDeadline()).isEqualTo(deadline);
+        assertThat(updated.getRemediationOwner()).isEqualTo("Legal Counsel");
+        assertThat(updated.getRemediationUpdatedBy()).isEqualTo(ME);
+
+        var event = ArgumentCaptor.forClass(FindingChanged.class);
+        verify(events).publishEvent(event.capture());
+        assertThat(event.getValue().change()).isEqualTo("remediation_updated");
+
+        // Role enforcement: client cannot update remediation
+        as(ProjectRole.CLIENT);
+        assertThatThrownBy(() -> service.updateRemediation(PROJECT, finding.getId(), rem))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void exportsRemediationScheduleAsCsv() {
+        as(ProjectRole.PARTNER);
+        var finding = finding(ME);
+        finding.rate(RiskMatrix.DEFAULT.rate(4, 5));
+        finding.updateRemediation(new Finding.Remediation(
+                SpaProtectionType.PRE_CLOSING_CONDITION,
+                "Section 4.1(c)",
+                RemediationStatus.OPEN,
+                "Execute clean tax clearance",
+                LocalDate.of(2027, 1, 15),
+                "Tax Lead"), ME, Instant.now());
+
+        when(findings.findByProjectIdOrderByNumber(PROJECT)).thenReturn(List.of(finding));
+        when(access.workstreams(PROJECT)).thenReturn(Map.of(LEGAL, WorkstreamType.LEGAL));
+
+        var csvBytes = service.exportRemediation(PROJECT);
+        var csv = new String(csvBytes, StandardCharsets.UTF_8);
+
+        assertThat(csv).startsWith("\ufeff\"Finding Number\",\"Workstream\",\"Title\"");
+        assertThat(csv).contains("PRE_CLOSING_CONDITION", "Section 4.1(c)", "OPEN", "Execute clean tax clearance",
+                "2027-01-15", "Tax Lead");
     }
 }

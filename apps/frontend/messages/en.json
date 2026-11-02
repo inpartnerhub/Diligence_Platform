@@ -633,7 +633,30 @@
       "axes": "Rows: impact · columns: likelihood",
       "error": "The thresholds could not be saved."
     },
-    "askQuestion": "Ask a question"
+    "askQuestion": "Ask a question",
+    "spaProtection": "SPA Protection",
+    "spaClause": "SPA Clause Reference",
+    "remediation": "Remediation",
+    "remediationStatus": "Remediation status",
+    "remediationAction": "Remediation action",
+    "remediationDeadline": "Milestone deadline",
+    "remediationOwner": "Remediation owner",
+    "exportRemediation": "Export schedule",
+    "editRemediation": "Remediation & SPA",
+    "remediationUpdated": "Remediation details updated",
+    "spaTypes": {
+      "PRICE_CHIP": "Price adjustment",
+      "SPECIAL_INDEMNITY": "Special indemnity",
+      "PRE_CLOSING_CONDITION": "Pre-closing condition",
+      "POST_CLOSING_COVENANT": "Post-closing covenant",
+      "WARRANTY_REPRESENTATION": "Warranty & representation"
+    },
+    "remediationStatuses": {
+      "OPEN": "Open",
+      "IN_PROGRESS": "In progress",
+      "MITIGATED": "Mitigated",
+      "WAIVED": "Waived"
+    }
   },
   "qna": {
     "title": "Q&A",

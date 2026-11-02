@@ -9,7 +9,14 @@ import {
   validateRequiredText,
 } from "@/lib/security/inputSanitizer";
 
-import type { Finding, FindingDetail, FindingInput, FindingStatus, RiskMatrix } from "./types";
+import type {
+  Finding,
+  FindingDetail,
+  FindingInput,
+  FindingStatus,
+  RemediationInput,
+  RiskMatrix,
+} from "./types";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
 
@@ -84,6 +91,32 @@ export async function updateFinding(
     };
     return run(projectId, () =>
       apiFetch<Finding>(one(projectId, findingId), { method: "PUT", body: sanitizedInput }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
+}
+
+export async function updateRemediation(
+  projectId: string,
+  findingId: string,
+  input: RemediationInput,
+): Promise<Result<Finding>> {
+  try {
+    const spaClauseReference = sanitizeOptionalTextOrNull(input.spaClauseReference);
+    const remediationAction = sanitizeOptionalTextOrNull(input.remediationAction);
+    const remediationOwner = sanitizeOptionalTextOrNull(input.remediationOwner);
+
+    const body: RemediationInput = {
+      spaProtectionType: input.spaProtectionType ?? null,
+      spaClauseReference,
+      remediationStatus: input.remediationStatus ?? "OPEN",
+      remediationAction,
+      remediationDeadline: input.remediationDeadline ?? null,
+      remediationOwner,
+    };
+    return run(projectId, () =>
+      apiFetch<Finding>(one(projectId, findingId, "/remediation"), { method: "PUT", body }),
     );
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
