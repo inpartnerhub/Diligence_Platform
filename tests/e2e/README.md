@@ -42,8 +42,8 @@ cd tests/e2e && set -a && source ../../.env && set +a && npx playwright test
 ```
 
 Before each run, `global-setup.ts` recreates project **E2E-001** with `fixtures/seed.sh`: all e2e users as members,
-a Legal folder the target may upload into, and one unreleased request item. Remove it with
-`fixtures/seed.sh cleanup`.
+a Legal folder the target may upload into, and one unreleased request item. Remove it, with its search
+entries, with `fixtures/seed.sh cleanup`.
 
 To use an installed Google Chrome instead of downloading Chromium, set `E2E_CHANNEL=chrome`.
 

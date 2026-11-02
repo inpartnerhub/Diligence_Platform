@@ -2,9 +2,9 @@ import { fileURLToPath } from "node:url";
 
 import { expect, type Page, test } from "@playwright/test";
 
-import { ROLES } from "../support/auth";
+import { credentials, ROLES } from "../support/auth";
 import { label } from "../support/i18n";
-import { as, hasSession, projectId } from "../support/session";
+import { as, projectId } from "../support/session";
 
 /**
  * One due diligence engagement end to end, each step by the role that does it in practice (PRD Bab 5 and 11):
@@ -12,7 +12,11 @@ import { as, hasSession, projectId } from "../support/session";
  * approval → report issued to the client. Runs in order on project E2E-001 (tests/e2e/fixtures/seed.sh).
  */
 test.describe.configure({ mode: "serial" });
-test.skip(!projectId() || !ROLES.every(hasSession), "needs the e2e fixture and every e2e user");
+// Skipped only without the fixture or the users; the sessions themselves come from auth.setup.ts, which runs first.
+test.skip(
+  !projectId() || !ROLES.every((role) => credentials(role)),
+  "needs the e2e fixture and every e2e user",
+);
 
 const DOCUMENT = fileURLToPath(new URL("../fixtures/deed-of-establishment.pdf", import.meta.url));
 const FINDING = "Shareholder approval for the 2025 capital increase is missing";

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { as, hasSession, projectId } from "../support/session";
+import { credentials } from "../support/auth";
+import { as, projectId } from "../support/session";
 import { label } from "../support/i18n";
 
 /**
@@ -9,7 +10,10 @@ import { label } from "../support/i18n";
  * These checks do not depend on the flow's progress; what each side sees before and after a release is checked in
  * mvp-flow.spec.ts, in order.
  */
-test.skip(!projectId() || !hasSession("target") || !hasSession("client"), "needs the e2e fixture and users");
+test.skip(
+  !projectId() || !credentials("target") || !credentials("client"),
+  "needs the e2e fixture and users",
+);
 
 const nav = (page: import("@playwright/test").Page) => page.getByRole("menu");
 

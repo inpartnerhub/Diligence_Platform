@@ -10,9 +10,20 @@ cd "$(dirname "$0")/../../.."
 set -a; source .env; set +a
 
 KC=${KEYCLOAK_URL:-http://localhost:8180}
+OPENSEARCH=${OPENSEARCH_URL:-http://localhost:9200}
+INDEX=${OPENSEARCH_INDEX_PREFIX:-diligence}-documents
 psql() { docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 "$@"; }
 
 cleanup() {
+  # Search entries first: they are keyed by the documents that the SQL below removes. Best effort: search re-checks
+  # hits against the database, so a leftover entry is untidy, not visible.
+  local project
+  project=$(psql -Atc "SELECT id FROM prj.project WHERE code = 'E2E-001'")
+  if [ -n "$project" ]; then
+    curl -fsS -X POST "$OPENSEARCH/$INDEX/_delete_by_query?refresh=true" -H 'Content-Type: application/json' \
+      -d "{\"query\":{\"term\":{\"projectId\":\"$project\"}}}" > /dev/null 2>&1 \
+      || echo "Warning: search entries of E2E-001 not removed (is OpenSearch up?)" >&2
+  fi
   psql -q <<'SQL'
 BEGIN;
 CREATE TEMP TABLE e2e_project ON COMMIT DROP AS SELECT id FROM prj.project WHERE code = 'E2E-001';
