@@ -314,8 +314,10 @@ class ReportService {
             throw new ResourceNotFoundException("Report", reportId);
         }
         var chosen = internal ? format : Format.PDF;
-        var versionLabel = report.getVersionLabel() != null ? report.getVersionLabel() : "v" + report.getVersionNumber();
-        var base = "%s-%s-%s".formatted(context.code(), "report", versionLabel).toLowerCase(Locale.ROOT);
+        var version = report.getMinorVersion() > 0 && report.getVersionLabel() != null
+                ? report.getVersionLabel()
+                : "v" + report.getVersionNumber();
+        var base = "%s-%s-%s".formatted(context.code(), "report", version).toLowerCase(Locale.ROOT);
         events.publishEvent(new ReportChanged(projectId, context.code(), reportId, report.getVersionNumber(),
                 report.getTitle(), "downloaded", Map.of("format", chosen.name(), "watermarked",
                         String.valueOf(!internal)), RequestMetadata.capture()));

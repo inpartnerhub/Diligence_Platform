@@ -287,6 +287,9 @@ class ReportServiceTest {
         assertThat(minor.getMinorVersion()).isEqualTo(1);
         assertThat(minor.getVersionLabel()).isEqualTo("v1.1");
         assertThat(minor.getStatus()).isEqualTo(ReportStatus.DRAFT);
+        when(reports.findById(minor.getId())).thenReturn(Optional.of(minor));
+        var minorDownload = service.download(PROJECT, minor.getId(), ReportService.Format.PDF);
+        assertThat(minorDownload.fileName()).isEqualTo("dd-1-report-v1.1.pdf");
 
         // Major revision
         var major = service.generateRevision(PROJECT, baseReport.getId(), "Rev 2.0", true, "id");
