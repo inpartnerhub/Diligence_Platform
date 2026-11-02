@@ -64,7 +64,7 @@ class FolderServiceTest {
     @Test
     void createsTemplateFoldersWhenAProjectIsCreated() {
         var root = new Folder(PROJECT, null, "01 Corporate", null);
-        when(folders.findRoot(PROJECT, "01 Corporate")).thenReturn(Optional.empty(), Optional.of(root));
+        when(folders.findRoot(PROJECT, "01 Corporate")).thenReturn(Optional.empty()).thenReturn(Optional.of(root));
 
         service.onProjectCreated(new ProjectCreated(PROJECT, "DD-1",
                 List.of("01 Corporate", "01 Corporate/Akta", "02 Finance"), RequestMetadata.SYSTEM));

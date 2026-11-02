@@ -216,7 +216,9 @@ class RequestTransferServiceTest {
             var sheet = workbook.createSheet();
             var all = new ArrayList<List<String>>();
             all.add(header);
-            all.addAll(List.of(rows));
+            for (var row : rows) {
+                all.add(row);
+            }
             for (var r = 0; r < all.size(); r++) {
                 var row = sheet.createRow(r);
                 for (var c = 0; c < all.get(r).size(); c++) {
