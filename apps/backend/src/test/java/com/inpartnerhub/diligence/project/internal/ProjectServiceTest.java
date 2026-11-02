@@ -180,6 +180,40 @@ class ProjectServiceTest {
         assertThatThrownBy(() -> realAccess.editable(project.getId())).isInstanceOf(ResourceConflictException.class);
     }
 
+    @Test
+    void updatesRetentionPeriodAndEmitsEvent() {
+        var project = project(UUID.randomUUID());
+        when(access.manageable(project.getId())).thenReturn(project);
+
+        service.updateRetention(project.getId(), 90);
+
+        assertThat(project.getRetentionPeriodDays()).isEqualTo(90);
+        verify(events).publishEvent(any(com.inpartnerhub.diligence.project.ProjectEvents.ProjectRetentionUpdated.class));
+    }
+
+    @Test
+    void purgesArchivedProjectAndPublishesEvents() {
+        var project = project(UUID.randomUUID());
+        project.archive(java.time.Instant.now());
+        when(access.manageable(project.getId())).thenReturn(project);
+
+        var purged = service.purge(project.getId());
+
+        assertThat(purged.isPurged()).isTrue();
+        assertThat(purged.getPurgedAt()).isNotNull();
+        verify(events).publishEvent(any(com.inpartnerhub.diligence.project.ProjectEvents.ProjectDataPurgeRequested.class));
+    }
+
+    @Test
+    void rejectsPurgingActiveProject() {
+        var project = project(UUID.randomUUID());
+        when(access.manageable(project.getId())).thenReturn(project);
+
+        assertThatThrownBy(() -> service.purge(project.getId()))
+                .isInstanceOf(ResourceConflictException.class)
+                .hasMessageContaining("Only archived projects can be purged");
+    }
+
     private ProjectService.CreateCommand command(String code, UUID templateId, Set<WorkstreamType> types) {
         return new ProjectService.CreateCommand(code, "Project Atlas", CLIENT_ORG, TARGET_ORG,
                 LocalDate.of(2026, 11, 1), LocalDate.of(2027, 2, 28), templateId, types);

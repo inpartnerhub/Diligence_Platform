@@ -50,6 +50,7 @@
     "error": "Terjadi kesalahan. Silakan coba lagi.",
     "yes": "Ya",
     "no": "Tidak",
+    "days": "hari",
     "forbidden": "Anda tidak memiliki akses ke halaman ini."
   },
   "comingSoon": {
@@ -139,6 +140,8 @@
     },
     "activate": "Aktifkan",
     "deactivate": "Nonaktifkan",
+    "retentionDays": "Retensi bawaan (hari)",
+    "retentionDaysHelp": "Masa retensi bawaan (hari) yang diterapkan ke proyek baru organisasi ini.",
     "createdAt": "Dibuat"
   },
   "groups": {
@@ -214,8 +217,12 @@
     "status": "Status",
     "statusValues": {
       "ACTIVE": "Aktif",
-      "ARCHIVED": "Diarsipkan"
+      "ARCHIVED": "Diarsipkan",
+      "PURGED": "Dibersihkan"
     },
+    "retentionPeriod": "Kebijakan retensi",
+    "retentionDays": "Masa retensi (hari)",
+    "retentionDaysHelp": "Data room dan identitas pribadi dibersihkan permanen setelah masa retensi pasca-penutupan transaksi (kepatuhan UU PDP).",
     "myRole": "Peran saya",
     "empty": "Belum ada proyek",
     "emptyHint": "Proyek tempat Anda menjadi anggota akan tampil di sini.",
@@ -250,6 +257,13 @@
     "archiveConfirm": "Arsipkan proyek? Pengguna eksternal (klien dan target) langsung kehilangan akses.",
     "reactivate": "Aktifkan kembali",
     "archivedNotice": "Proyek ini diarsipkan dan hanya dapat dibaca.",
+    "retentionSchedule": "Jadwal retensi data",
+    "retentionDaysValue": "{days} hari setelah penutupan",
+    "purgeScheduled": "Jadwal pembersihan data: {date}",
+    "purgedNotice": "Data room proyek ini telah dibersihkan secara permanen sesuai kebijakan retensi dan Undang-Undang Pelindungan Data Pribadi (UU No. 27/2022).",
+    "purgeNow": "Bersihkan data room sekarang",
+    "purgeConfirm": "Hapus permanen seluruh berkas data room, teks hasil ekstraksi OCR, dan anotasi proyek ini? Tindakan ini tidak dapat dibatalkan.",
+    "purged": "Dibersihkan",
     "readOnly": "Hanya partner dan project manager proyek yang dapat mengubah pengaturan ini.",
     "externalHint": "Pengguna klien dan target hanya dapat ditambahkan dari organisasi klien atau target proyek ini."
   },

@@ -10,4 +10,7 @@ public interface DocumentStorage {
     InputStream get(String objectKey);
 
     void delete(String objectKey);
+
+    /** Removes all objects under a given key prefix. Returns the count of deleted objects. */
+    long deletePrefix(String prefix);
 }

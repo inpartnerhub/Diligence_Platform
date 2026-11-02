@@ -19,4 +19,6 @@ interface FolderRepository extends JpaRepository<Folder, UUID> {
     Optional<Folder> findChild(UUID parentId, String name);
 
     boolean existsByParentId(UUID parentId);
+
+    void deleteByProjectId(UUID projectId);
 }

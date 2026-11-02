@@ -40,9 +40,28 @@ export async function setUserEnabled(userId: string, enabled: boolean): Promise<
   );
 }
 
-export async function createOrganization(name: string, type: OrganizationType): Promise<ActionResult> {
+export async function createOrganization(
+  name: string,
+  type: OrganizationType,
+  defaultRetentionDays?: number,
+): Promise<ActionResult> {
   return run("/admin/organizations", () =>
-    apiFetch("/api/v1/admin/organizations", { method: "POST", body: { name, type } }),
+    apiFetch("/api/v1/admin/organizations", {
+      method: "POST",
+      body: { name, type, defaultRetentionDays },
+    }),
+  );
+}
+
+export async function updateOrganization(
+  id: string,
+  input: { name?: string; status?: OrganizationStatus; defaultRetentionDays?: number },
+): Promise<ActionResult> {
+  return run("/admin/organizations", () =>
+    apiFetch(`/api/v1/admin/organizations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: input,
+    }),
   );
 }
 

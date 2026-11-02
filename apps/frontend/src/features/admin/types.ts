@@ -33,7 +33,20 @@ export interface Organization {
   name: string;
   type: OrganizationType;
   status: OrganizationStatus;
+  defaultRetentionDays: number;
   createdAt: string;
+}
+
+export interface CreateOrganizationInput {
+  name: string;
+  type: OrganizationType;
+  defaultRetentionDays?: number;
+}
+
+export interface UpdateOrganizationInput {
+  name?: string;
+  status?: OrganizationStatus;
+  defaultRetentionDays?: number;
 }
 
 export interface Group {

@@ -33,6 +33,9 @@ class Organization {
     @Column(nullable = false)
     private Status status;
 
+    @Column(name = "default_retention_days", nullable = false)
+    private int defaultRetentionDays = 365;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -43,10 +46,15 @@ class Organization {
     }
 
     Organization(String name, Type type) {
+        this(name, type, 365);
+    }
+
+    Organization(String name, Type type, int defaultRetentionDays) {
         this.id = UUID.randomUUID();
         this.name = name;
         this.type = type;
         this.status = Status.ACTIVE;
+        this.defaultRetentionDays = defaultRetentionDays > 0 ? defaultRetentionDays : 365;
         this.createdAt = Instant.now();
     }
 
@@ -76,5 +84,16 @@ class Organization {
 
     void changeStatus(Status status) {
         this.status = status;
+    }
+
+    int getDefaultRetentionDays() {
+        return defaultRetentionDays;
+    }
+
+    void updateRetentionDays(int days) {
+        if (days <= 0 || days > 3650) {
+            throw new IllegalArgumentException("Default retention days must be between 1 and 3650");
+        }
+        this.defaultRetentionDays = days;
     }
 }

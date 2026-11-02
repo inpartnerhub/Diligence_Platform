@@ -20,7 +20,7 @@ export function OrganizationsView({ organizations }: Readonly<{ organizations: P
   const { update } = useUrlQuery();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [form] = Form.useForm<{ name: string; type: OrganizationType }>();
+  const [form] = Form.useForm<{ name: string; type: OrganizationType; defaultRetentionDays?: number }>();
 
   const notify = (ok: boolean, error: string) =>
     ok ? message.success(t("common.saved")) : message.error(error || t("common.error"));
@@ -61,6 +61,11 @@ export function OrganizationsView({ organizations }: Readonly<{ organizations: P
                 {t(`organizations.status.${o.status}`)}
               </Tag>
             ),
+          },
+          {
+            title: t("organizations.retentionDays"),
+            key: "defaultRetentionDays",
+            render: (_, o) => `${o.defaultRetentionDays || 365} ${t("common.days")}`,
           },
           {
             title: t("organizations.createdAt"),
@@ -104,7 +109,7 @@ export function OrganizationsView({ organizations }: Readonly<{ organizations: P
           layout="vertical"
           onFinish={(values) =>
             startTransition(async () => {
-              const result = await createOrganization(values.name, values.type);
+              const result = await createOrganization(values.name, values.type, values.defaultRetentionDays);
               notify(result.ok, result.ok ? "" : result.message);
               if (result.ok) {
                 setOpen(false);
@@ -118,6 +123,22 @@ export function OrganizationsView({ organizations }: Readonly<{ organizations: P
           <Form.Item name="type" label={t("organizations.type")} rules={[{ required: true }]}>
             <Select
               options={TYPES.map((type) => ({ value: type, label: t(`organizations.types.${type}`) }))}
+            />
+          </Form.Item>
+          <Form.Item
+            name="defaultRetentionDays"
+            label={t("organizations.retentionDays")}
+            extra={t("organizations.retentionDaysHelp")}
+            initialValue={365}
+          >
+            <Select
+              options={[
+                { value: 30, label: "30 " + t("common.days") },
+                { value: 90, label: "90 " + t("common.days") },
+                { value: 180, label: "180 " + t("common.days") },
+                { value: 365, label: "365 " + t("common.days") },
+                { value: 730, label: "730 " + t("common.days") },
+              ]}
             />
           </Form.Item>
         </Form>

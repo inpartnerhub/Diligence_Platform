@@ -22,4 +22,8 @@ interface DocumentRepository extends JpaRepository<Document, UUID> {
     List<Document> findDuplicates(UUID projectId, String sha256, UUID excludeId);
 
     boolean existsByFolderId(UUID folderId);
+
+    List<Document> findByProjectId(UUID projectId);
+
+    void deleteByProjectId(UUID projectId);
 }

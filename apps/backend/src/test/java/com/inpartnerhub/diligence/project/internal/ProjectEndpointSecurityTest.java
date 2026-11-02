@@ -108,6 +108,28 @@ class ProjectEndpointSecurityTest {
         mvc.perform(get("/api/v1/projects")).andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void retentionEndpointsRequireManagerOrAdmin() throws Exception {
+        var id = UUID.randomUUID();
+        var project = ProjectTestData.project(id);
+        when(projects.updateRetention(any(), any(int.class))).thenReturn(project);
+        when(projects.purge(any())).thenReturn(project);
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/projects/" + id + "/retention")
+                        .with(as(Role.CLIENT)).contentType(MediaType.APPLICATION_JSON).content("{\"retentionPeriodDays\":90}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/projects/" + id + "/retention")
+                        .with(as(Role.PARTNER)).contentType(MediaType.APPLICATION_JSON).content("{\"retentionPeriodDays\":90}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/projects/" + id + "/purge").with(as(Role.CLIENT)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/projects/" + id + "/purge").with(as(Role.PARTNER)))
+                .andExpect(status().isOk());
+    }
+
     private static RequestPostProcessor as(Role role) {
         return jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))
                 .authorities(new SimpleGrantedAuthority(role.authority()));

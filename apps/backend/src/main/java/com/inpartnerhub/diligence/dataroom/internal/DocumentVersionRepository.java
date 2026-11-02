@@ -8,4 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface DocumentVersionRepository extends JpaRepository<DocumentVersion, UUID> {
 
     List<DocumentVersion> findByDocumentIdOrderByVersionNumberDesc(UUID documentId);
+
+    List<DocumentVersion> findByProjectId(UUID projectId);
+
+    void deleteByProjectId(UUID projectId);
 }

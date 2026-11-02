@@ -57,10 +57,11 @@ class OrganizationAndGroupServiceTest {
         when(organizationRepository.findById(organization.getId())).thenReturn(Optional.of(organization));
 
         organizations.update(organization.getId(), "New", Organization.Status.INACTIVE);
-        organizations.update(organization.getId(), " ", null);
+        organizations.update(organization.getId(), " ", null, 90);
 
         assertThat(organization.getName()).isEqualTo("New");
         assertThat(organization.getStatus()).isEqualTo(Organization.Status.INACTIVE);
+        assertThat(organization.getDefaultRetentionDays()).isEqualTo(90);
     }
 
     @Test

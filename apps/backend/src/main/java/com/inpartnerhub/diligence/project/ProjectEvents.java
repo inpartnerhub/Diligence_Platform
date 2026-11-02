@@ -121,4 +121,59 @@ public final class ProjectEvents {
             return Map.of("userId", userId.toString());
         }
     }
+
+    public record ProjectRetentionUpdated(UUID projectId, String code, int retentionPeriodDays,
+            RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.retention-updated";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "project";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return projectId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("code", code, "retentionPeriodDays", String.valueOf(retentionPeriodDays));
+        }
+    }
+
+    public record ProjectDataPurgeRequested(UUID projectId, String code, RequestMetadata requestMetadata) {
+    }
+
+    public record ProjectDataPurged(UUID projectId, String code, long documentsCount, long versionsCount,
+            long s3ObjectsPurged, RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.data-purged";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "project";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return projectId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of(
+                    "code", code,
+                    "documentsCount", String.valueOf(documentsCount),
+                    "versionsCount", String.valueOf(versionsCount),
+                    "s3ObjectsPurged", String.valueOf(s3ObjectsPurged));
+        }
+    }
 }

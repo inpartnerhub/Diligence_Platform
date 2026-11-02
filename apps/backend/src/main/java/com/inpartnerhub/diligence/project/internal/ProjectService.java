@@ -20,8 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.inpartnerhub.diligence.admin.Directory.OrganizationType;
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectCreated;
-import com.inpartnerhub.diligence.project.ProjectEvents.TemplateRequestItem;
+import com.inpartnerhub.diligence.project.ProjectEvents.ProjectDataPurgeRequested;
+import com.inpartnerhub.diligence.project.ProjectEvents.ProjectRetentionUpdated;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectUpdated;
+import com.inpartnerhub.diligence.project.ProjectEvents.TemplateRequestItem;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.ProjectStage;
 import com.inpartnerhub.diligence.project.WorkstreamType;
@@ -29,6 +31,7 @@ import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
+import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
 /** Project lifecycle (PRD PRJ-01): create from scratch or template, update, archive, active workstreams. */
@@ -40,7 +43,14 @@ class ProjectService {
             Arrays.stream(ProjectRole.values()).filter(ProjectRole::isExternal).toList());
 
     record CreateCommand(String code, String name, UUID clientOrganizationId, UUID targetOrganizationId,
-            LocalDate startDate, LocalDate endDate, UUID templateId, Set<WorkstreamType> workstreams) {
+            LocalDate startDate, LocalDate endDate, UUID templateId, Set<WorkstreamType> workstreams,
+            Integer retentionPeriodDays) {
+
+        public CreateCommand(String code, String name, UUID clientOrganizationId, UUID targetOrganizationId,
+                LocalDate startDate, LocalDate endDate, UUID templateId, Set<WorkstreamType> workstreams) {
+            this(code, name, clientOrganizationId, targetOrganizationId, startDate, endDate, templateId, workstreams,
+                    null);
+        }
     }
 
     record ProjectFilter(Project.Status status, String query) {
@@ -100,9 +110,14 @@ class ProjectService {
             throw new InvalidRequestException("Select at least one workstream or a template");
         }
 
+        var clientOrg = directory.findOrganization(command.clientOrganizationId());
+        int retention = command.retentionPeriodDays() != null && command.retentionPeriodDays() > 0
+                ? command.retentionPeriodDays()
+                : clientOrg.map(Directory.OrganizationSummary::defaultRetentionDays).orElse(365);
+
         var project = projects.saveAndFlush(new Project(command.code().strip().toUpperCase(Locale.ROOT),
                 command.name().strip(), command.clientOrganizationId(), command.targetOrganizationId(),
-                command.startDate(), command.endDate(), command.templateId(), user.id()));
+                command.startDate(), command.endDate(), command.templateId(), user.id(), retention));
         var creatorRole = user.hasRole(Role.PARTNER) ? ProjectRole.PARTNER : ProjectRole.PROJECT_MANAGER;
         members.save(new ProjectMember(project.getId(), user.id(), creatorRole, null, null));
         var created = selected.stream().map(type -> workstreams.save(new Workstream(project.getId(), type)))
@@ -150,6 +165,43 @@ class ProjectService {
             events.publishEvent(new ProjectUpdated(id, "reactivated", RequestMetadata.capture()));
         }
         return project;
+    }
+
+    Project updateRetention(UUID id, int retentionPeriodDays) {
+        var project = access.manageable(id);
+        project.updateRetentionPeriod(retentionPeriodDays);
+        events.publishEvent(new ProjectRetentionUpdated(project.getId(), project.getCode(), retentionPeriodDays,
+                RequestMetadata.capture()));
+        return project;
+    }
+
+    /** Permanently purges data room content for an archived project (PRD ADM-06, UU PDP). */
+    Project purge(UUID id) {
+        var project = access.manageable(id);
+        if (!project.isArchived()) {
+            throw new ResourceConflictException("Only archived projects can be purged");
+        }
+        if (project.isPurged()) {
+            return project;
+        }
+        var now = Instant.now();
+        project.markPurged(now);
+        members.expireAccess(id, EnumSet.allOf(ProjectRole.class));
+        events.publishEvent(new ProjectDataPurgeRequested(project.getId(), project.getCode(),
+                RequestMetadata.capture()));
+        events.publishEvent(new ProjectUpdated(id, "purged", RequestMetadata.capture()));
+        return project;
+    }
+
+    void purgeExpired(Project project, Instant now) {
+        if (!project.isArchived() || project.isPurged()) {
+            return;
+        }
+        project.markPurged(now);
+        members.expireAccess(project.getId(), EnumSet.allOf(ProjectRole.class));
+        events.publishEvent(new ProjectDataPurgeRequested(project.getId(), project.getCode(),
+                RequestMetadata.SYSTEM));
+        events.publishEvent(new ProjectUpdated(project.getId(), "purged", RequestMetadata.SYSTEM));
     }
 
     @Transactional(readOnly = true)

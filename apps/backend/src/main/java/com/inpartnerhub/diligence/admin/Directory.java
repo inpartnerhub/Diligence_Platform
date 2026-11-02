@@ -15,7 +15,12 @@ public interface Directory {
 
     List<UserSummary> findUsers(List<UUID> ids);
 
-    record OrganizationSummary(UUID id, String name, OrganizationType type, boolean active) {
+    record OrganizationSummary(UUID id, String name, OrganizationType type, boolean active,
+            int defaultRetentionDays) {
+
+        public OrganizationSummary(UUID id, String name, OrganizationType type, boolean active) {
+            this(id, name, type, active, 365);
+        }
     }
 
     record UserSummary(UUID id, String email, String displayName, UUID organizationId, Role role, boolean active) {
