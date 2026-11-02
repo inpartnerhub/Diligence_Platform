@@ -347,7 +347,25 @@
       "error": "The document could not be opened.",
       "pageReference": "Page {number}",
       "findingFromPage": "Finding from page {number}",
-      "askQuestion": "Ask a question"
+      "askQuestion": "Ask a question",
+      "annotate": "Annotate",
+      "annotateMode": "Highlight Mode",
+      "annotateHint": "Click and drag to highlight an area on any page",
+      "newAnnotation": "New annotation",
+      "commentPlaceholder": "Add an internal note or observation...",
+      "highlightColor": "Color",
+      "saveAnnotation": "Save annotation",
+      "cancel": "Cancel",
+      "createFindingFromAnnotation": "Create finding from highlight",
+      "linkedFinding": "Linked finding",
+      "deleteAnnotation": "Delete annotation",
+      "deleteAnnotationConfirm": "Delete this annotation?",
+      "annotationSaved": "Annotation saved",
+      "annotationDeleted": "Annotation deleted",
+      "colorYellow": "Yellow",
+      "colorRed": "Red",
+      "colorGreen": "Green",
+      "colorBlue": "Blue"
     }
   },
   "documentSource": {

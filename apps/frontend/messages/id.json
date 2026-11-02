@@ -347,7 +347,25 @@
       "error": "Dokumen tidak dapat dibuka.",
       "pageReference": "Hal. {number}",
       "findingFromPage": "Temuan dari halaman {number}",
-      "askQuestion": "Ajukan pertanyaan"
+      "askQuestion": "Ajukan pertanyaan",
+      "annotate": "Anotasi",
+      "annotateMode": "Mode Sorotan",
+      "annotateHint": "Klik dan seret untuk menyorot area pada halaman mana saja",
+      "newAnnotation": "Anotasi baru",
+      "commentPlaceholder": "Tambah catatan internal atau observasi...",
+      "highlightColor": "Warna",
+      "saveAnnotation": "Simpan anotasi",
+      "cancel": "Batal",
+      "createFindingFromAnnotation": "Buat temuan dari sorotan",
+      "linkedFinding": "Temuan terkait",
+      "deleteAnnotation": "Hapus anotasi",
+      "deleteAnnotationConfirm": "Hapus anotasi ini?",
+      "annotationSaved": "Anotasi tersimpan",
+      "annotationDeleted": "Anotasi dihapus",
+      "colorYellow": "Kuning",
+      "colorRed": "Merah",
+      "colorGreen": "Hijau",
+      "colorBlue": "Biru"
     }
   },
   "documentSource": {

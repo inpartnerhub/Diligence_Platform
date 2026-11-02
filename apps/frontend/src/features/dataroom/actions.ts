@@ -4,7 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 
-import type { DataRoomDocument, DocumentVersion, Folder, Grant, PreviewInfo, SearchResponse } from "./types";
+import type {
+  AnnotationCreateRequest,
+  AnnotationUpdateRequest,
+  DataRoomDocument,
+  DocumentAnnotation,
+  DocumentVersion,
+  Folder,
+  Grant,
+  PreviewInfo,
+  SearchResponse,
+} from "./types";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
 
@@ -107,6 +117,76 @@ async function attempt<T>(call: () => Promise<T>): Promise<Result<T>> {
     console.error("Data room request failed", error);
     return { ok: false, message: "" };
   }
+}
+
+export async function loadAnnotations(
+  projectId: string,
+  documentId: string,
+): Promise<Result<DocumentAnnotation[]>> {
+  return attempt(() =>
+    apiFetch<DocumentAnnotation[]>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/annotations`,
+    ),
+  );
+}
+
+export async function loadAnnotationsByFinding(
+  projectId: string,
+  findingId: string,
+): Promise<Result<DocumentAnnotation[]>> {
+  return attempt(() =>
+    apiFetch<DocumentAnnotation[]>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/annotations?findingId=${encodeURIComponent(findingId)}`,
+    ),
+  );
+}
+
+export async function createAnnotation(
+  projectId: string,
+  documentId: string,
+  request: AnnotationCreateRequest,
+): Promise<Result<DocumentAnnotation>> {
+  return attempt(() =>
+    apiFetch<DocumentAnnotation>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/annotations`,
+      {
+        method: "POST",
+        body: request,
+      },
+    ),
+  );
+}
+
+export async function updateAnnotation(
+  projectId: string,
+  documentId: string,
+  annotationId: string,
+  request: AnnotationUpdateRequest,
+): Promise<Result<DocumentAnnotation>> {
+  return attempt(() =>
+    apiFetch<DocumentAnnotation>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/annotations/${encodeURIComponent(annotationId)}`,
+      {
+        method: "PUT",
+        body: request,
+      },
+    ),
+  );
+}
+
+export async function deleteAnnotation(
+  projectId: string,
+  documentId: string,
+  annotationId: string,
+): Promise<Result> {
+  return attempt(() =>
+    apiFetch(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/annotations/${encodeURIComponent(annotationId)}`,
+      {
+        method: "DELETE",
+      },
+    ),
+  ).then(drop);
 }
 
 export async function refreshDataRoom(projectId: string): Promise<void> {
