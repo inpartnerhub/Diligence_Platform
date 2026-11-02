@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
+import {
+  sanitizeOptionalText,
+  sanitizeOptionalTextOrNull,
+  validateRequiredText,
+} from "@/lib/security/inputSanitizer";
 
 import type { Finding, FindingDetail, FindingInput, FindingStatus, RiskMatrix } from "./types";
 
@@ -36,7 +41,25 @@ export async function loadFinding(projectId: string, findingId: string): Promise
 }
 
 export async function createFinding(projectId: string, input: FindingInput): Promise<Result<Finding>> {
-  return run(projectId, () => apiFetch<Finding>(base(projectId), { method: "POST", body: input }));
+  try {
+    const title = validateRequiredText(input.title, "Title", true);
+    const category = validateRequiredText(input.category, "Category", true);
+    const description = validateRequiredText(input.description, "Description");
+    const impactDescription = sanitizeOptionalTextOrNull(input.impactDescription);
+    const recommendation = sanitizeOptionalTextOrNull(input.recommendation);
+
+    const sanitizedInput: FindingInput = {
+      ...input,
+      title,
+      category,
+      description,
+      impactDescription,
+      recommendation,
+    };
+    return run(projectId, () => apiFetch<Finding>(base(projectId), { method: "POST", body: sanitizedInput }));
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function updateFinding(
@@ -44,7 +67,27 @@ export async function updateFinding(
   findingId: string,
   input: FindingInput,
 ): Promise<Result<Finding>> {
-  return run(projectId, () => apiFetch<Finding>(one(projectId, findingId), { method: "PUT", body: input }));
+  try {
+    const title = validateRequiredText(input.title, "Title", true);
+    const category = validateRequiredText(input.category, "Category", true);
+    const description = validateRequiredText(input.description, "Description");
+    const impactDescription = sanitizeOptionalTextOrNull(input.impactDescription);
+    const recommendation = sanitizeOptionalTextOrNull(input.recommendation);
+
+    const sanitizedInput: FindingInput = {
+      ...input,
+      title,
+      category,
+      description,
+      impactDescription,
+      recommendation,
+    };
+    return run(projectId, () =>
+      apiFetch<Finding>(one(projectId, findingId), { method: "PUT", body: sanitizedInput }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function deleteFinding(projectId: string, findingId: string): Promise<Result> {
@@ -57,8 +100,12 @@ export async function changeFindingStatus(
   status: FindingStatus,
   reason?: string,
 ): Promise<Result<Finding>> {
+  const sanitizedReason = sanitizeOptionalText(reason);
   return run(projectId, () =>
-    apiFetch<Finding>(one(projectId, findingId, "/status"), { method: "POST", body: { status, reason } }),
+    apiFetch<Finding>(one(projectId, findingId, "/status"), {
+      method: "POST",
+      body: { status, ...(sanitizedReason !== undefined && { reason: sanitizedReason }) },
+    }),
   );
 }
 
@@ -69,10 +116,16 @@ export async function linkFindingDocument(
   pageReference?: string,
   note?: string,
 ): Promise<Result> {
+  const sanitizedPageReference = sanitizeOptionalText(pageReference, true);
+  const sanitizedNote = sanitizeOptionalText(note);
   return run(projectId, () =>
     apiFetch<undefined>(one(projectId, findingId, "/documents"), {
       method: "POST",
-      body: { documentId, pageReference, note },
+      body: {
+        documentId,
+        ...(sanitizedPageReference !== undefined && { pageReference: sanitizedPageReference }),
+        ...(sanitizedNote !== undefined && { note: sanitizedNote }),
+      },
     }),
   );
 }
@@ -90,9 +143,17 @@ export async function unlinkFindingDocument(
 }
 
 export async function addFindingNote(projectId: string, findingId: string, body: string): Promise<Result> {
-  return run(projectId, () =>
-    apiFetch<undefined>(one(projectId, findingId, "/comments"), { method: "POST", body: { body } }),
-  );
+  try {
+    const sanitizedBody = validateRequiredText(body, "Note");
+    return run(projectId, () =>
+      apiFetch<undefined>(one(projectId, findingId, "/comments"), {
+        method: "POST",
+        body: { body: sanitizedBody },
+      }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function saveRiskMatrix(

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { sanitizeOptionalText, validateRequiredText } from "@/lib/security/inputSanitizer";
 
 import type { Question, QuestionDetail, QuestionInput, QuestionStatus } from "./types";
 
@@ -36,7 +37,15 @@ export async function loadQuestion(projectId: string, questionId: string): Promi
 }
 
 export async function createQuestion(projectId: string, input: QuestionInput): Promise<Result<Question>> {
-  return run(projectId, () => apiFetch<Question>(base(projectId), { method: "POST", body: input }));
+  try {
+    const body = validateRequiredText(input.body, "Question");
+    const sanitizedInput: QuestionInput = { ...input, body };
+    return run(projectId, () =>
+      apiFetch<Question>(base(projectId), { method: "POST", body: sanitizedInput }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function updateQuestion(
@@ -44,7 +53,15 @@ export async function updateQuestion(
   questionId: string,
   input: QuestionInput,
 ): Promise<Result<Question>> {
-  return run(projectId, () => apiFetch<Question>(one(projectId, questionId), { method: "PUT", body: input }));
+  try {
+    const body = validateRequiredText(input.body, "Question");
+    const sanitizedInput: QuestionInput = { ...input, body };
+    return run(projectId, () =>
+      apiFetch<Question>(one(projectId, questionId), { method: "PUT", body: sanitizedInput }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function deleteQuestion(projectId: string, questionId: string): Promise<Result> {
@@ -57,15 +74,27 @@ export async function changeQuestionStatus(
   status: QuestionStatus,
   feedback?: string,
 ): Promise<Result<Question>> {
+  const sanitizedFeedback = sanitizeOptionalText(feedback);
   return run(projectId, () =>
-    apiFetch<Question>(one(projectId, questionId, "/status"), { method: "POST", body: { status, feedback } }),
+    apiFetch<Question>(one(projectId, questionId, "/status"), {
+      method: "POST",
+      body: { status, ...(sanitizedFeedback !== undefined && { feedback: sanitizedFeedback }) },
+    }),
   );
 }
 
 export async function answerQuestion(projectId: string, questionId: string, body: string): Promise<Result> {
-  return run(projectId, () =>
-    apiFetch<undefined>(one(projectId, questionId, "/answer"), { method: "PUT", body: { body } }),
-  );
+  try {
+    const sanitizedBody = validateRequiredText(body, "Answer");
+    return run(projectId, () =>
+      apiFetch<undefined>(one(projectId, questionId, "/answer"), {
+        method: "PUT",
+        body: { body: sanitizedBody },
+      }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
 }
 
 export async function linkAnswerDocument(
@@ -74,7 +103,10 @@ export async function linkAnswerDocument(
   documentId: string,
 ): Promise<Result> {
   return run(projectId, () =>
-    apiFetch<undefined>(one(projectId, questionId, "/documents"), { method: "POST", body: { documentId } }),
+    apiFetch<undefined>(one(projectId, questionId, "/documents"), {
+      method: "POST",
+      body: { documentId },
+    }),
   );
 }
 
