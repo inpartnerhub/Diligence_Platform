@@ -27,3 +27,4 @@ ALTER TABLE fnd.finding ADD CONSTRAINT finding_remediation_status_check
     CHECK (remediation_status IN ('OPEN', 'IN_PROGRESS', 'MITIGATED', 'WAIVED'));
 
 CREATE INDEX finding_remediation_status_idx ON fnd.finding (project_id, remediation_status);
+

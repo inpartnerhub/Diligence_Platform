@@ -15,3 +15,4 @@ public enum SpaProtectionType {
     /** Specific representations and warranties clause coverage with appropriate disclosure carve-outs. */
     WARRANTY_REPRESENTATION
 }
+

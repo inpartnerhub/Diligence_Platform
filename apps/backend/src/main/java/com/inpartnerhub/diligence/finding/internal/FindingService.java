@@ -22,6 +22,7 @@ import com.inpartnerhub.diligence.dataroom.DocumentDirectory;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory.DocumentSummary;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingChanged;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingEscalated;
+import com.inpartnerhub.diligence.finding.FindingEvents.FindingRef;
 import com.inpartnerhub.diligence.finding.FindingEvents.FindingStatusChanged;
 import com.inpartnerhub.diligence.finding.RemediationStatus;
 import com.inpartnerhub.diligence.finding.RiskLevel;
@@ -277,7 +278,7 @@ class FindingService {
         if (!context.canManage() && !context.hasAnyRole(ProjectRole.ANALYST)) {
             throw new AccessDeniedException("Only project team members can update remediation details");
         }
-        var finding = access.finding(projectId, findingId);
+        var finding = access.finding(context, findingId);
         var validated = validRemediation(remediation);
         finding.updateRemediation(validated, me(), Instant.now(clock));
         events.publishEvent(new FindingChanged(projectId, finding.ref(), "remediation_updated",
@@ -332,7 +333,7 @@ class FindingService {
         }
 
         events.publishEvent(new FindingChanged(projectId,
-                new FindingEvents.FindingRef(projectId, context.code(), "remediation-schedule", null, me()),
+                new FindingRef(projectId, context.code(), "remediation-schedule", null, me()),
                 "remediation_exported", RequestMetadata.capture()));
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);

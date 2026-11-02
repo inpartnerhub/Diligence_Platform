@@ -9,3 +9,4 @@ public enum RemediationStatus {
     MITIGATED,
     WAIVED
 }
+
