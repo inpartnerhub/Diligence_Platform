@@ -24,7 +24,8 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuth = pathname.startsWith("/auth/");
   const isServerAction =
-    request.headers.has("next-action") || (request.method === "POST" && !pathname.startsWith("/api/"));
+    request.headers.has("next-action") ||
+    (request.method === "POST" && !isAuth && !pathname.startsWith("/api/"));
 
   if (isAuth || isServerAction) {
     const trustedHops = Number(process.env.TRUSTED_PROXY_HOPS ?? "0");
@@ -50,9 +51,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Auth routes are route handlers with dedicated NON_DOCUMENT_POLICY from next.config.ts; do not inject page CSP.
+  if (isAuth) {
+    return NextResponse.next();
+  }
+
   const returnTo = pathname + request.nextUrl.search;
   const signedIn = request.cookies.has("diligence_sid");
-  if (!signedIn && !isAuth && !FILE_PATH.test(pathname)) {
+  if (!signedIn && !FILE_PATH.test(pathname)) {
     const login = new URL("/auth/login", request.url);
     login.searchParams.set("returnTo", returnTo);
     return NextResponse.redirect(login);
