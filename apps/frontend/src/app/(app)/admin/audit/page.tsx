@@ -13,8 +13,6 @@ type SearchParams = Promise<Record<string, string | undefined>>;
 export default async function AuditPage({ searchParams }: Readonly<{ searchParams: SearchParams }>) {
   const { page, action, objectType, from, to, userId } = await searchParams;
   return (
-    <AuditView
-      logs={await adminApi.auditLogs({ page, action, objectType, from, to, userId, size: 50 })}
-    />
+    <AuditView logs={await adminApi.auditLogs({ page, action, objectType, from, to, userId, size: 50 })} />
   );
 }
