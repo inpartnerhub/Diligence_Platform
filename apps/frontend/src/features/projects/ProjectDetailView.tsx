@@ -41,6 +41,7 @@ import { riskColors } from "@/theme/themeConfig";
 
 import {
   addMember,
+  purgeProjectData,
   removeMember,
   replaceWorkstreams,
   searchUsers,
@@ -78,6 +79,7 @@ export function ProjectDetailView({
   dashboard,
 }: Readonly<ProjectDetailViewProps>) {
   const t = useTranslations();
+  const format = useFormatter();
   const canManage = project.myRoles.some((role) => MANAGER_ROLES.includes(role));
   const editable = canManage && project.status === "ACTIVE";
 
@@ -125,7 +127,22 @@ export function ProjectDetailView({
         </Typography.Text>
       </Flex>
       {project.status === "ARCHIVED" && (
-        <Alert type="info" showIcon title={t("project.archivedNotice")} style={{ marginBottom: 16 }} />
+        <Alert
+          type="info"
+          showIcon
+          title={t("project.archivedNotice")}
+          description={
+            project.retentionDeadline
+              ? t("project.purgeScheduled", {
+                  date: format.dateTime(new Date(project.retentionDeadline), { dateStyle: "medium" }),
+                })
+              : undefined
+          }
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {project.status === "PURGED" && (
+        <Alert type="warning" showIcon title={t("project.purgedNotice")} style={{ marginBottom: 16 }} />
       )}
       <Tabs
         items={[
@@ -429,6 +446,7 @@ interface SettingsForm {
   stage: ProjectStage;
   period?: [Dayjs, Dayjs];
   workstreams: WorkstreamType[];
+  retentionPeriodDays: number;
 }
 
 function SettingsTab({
@@ -438,6 +456,7 @@ function SettingsTab({
   editable,
 }: Readonly<{ project: Project; workstreams: Workstream[]; canManage: boolean; editable: boolean }>) {
   const t = useTranslations();
+  const format = useFormatter();
   const feedback = useActionFeedback();
   const [pending, startTransition] = useTransition();
   const [form] = Form.useForm<SettingsForm>();
@@ -453,6 +472,18 @@ function SettingsTab({
               ))}
             </Space>
           </Descriptions.Item>
+          <Descriptions.Item label={t("project.retentionSchedule")}>
+            {project.retentionPeriodDays} {t("common.days")}
+            {project.retentionDeadline && (
+              <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+                (
+                {t("project.purgeScheduled", {
+                  date: format.dateTime(new Date(project.retentionDeadline), { dateStyle: "medium" }),
+                })}
+                )
+              </Typography.Text>
+            )}
+          </Descriptions.Item>
         </Descriptions>
         <Typography.Text type="secondary">{t("project.readOnly")}</Typography.Text>
       </Card>
@@ -465,6 +496,7 @@ function SettingsTab({
     period:
       project.startDate && project.endDate ? [dayjs(project.startDate), dayjs(project.endDate)] : undefined,
     workstreams: workstreams.map((w) => w.type),
+    retentionPeriodDays: project.retentionPeriodDays || 365,
   };
 
   const save = (values: SettingsForm) =>
@@ -474,6 +506,7 @@ function SettingsTab({
         stage: values.stage,
         startDate: values.period?.[0].format("YYYY-MM-DD"),
         endDate: values.period?.[1].format("YYYY-MM-DD"),
+        retentionPeriodDays: values.retentionPeriodDays,
       });
       const changed = [...values.workstreams].sort().join() !== [...initial.workstreams].sort().join();
       const result =
@@ -511,13 +544,42 @@ function SettingsTab({
             options={WORKSTREAMS.map((w) => ({ value: w, label: t(`workstreams.${w}`) }))}
           />
         </Form.Item>
+        <Form.Item
+          name="retentionPeriodDays"
+          label={t("projects.retentionDays")}
+          extra={t("projects.retentionDaysHelp")}
+        >
+          <Select
+            options={[
+              { value: 30, label: "30 " + t("common.days") },
+              { value: 90, label: "90 " + t("common.days") },
+              { value: 180, label: "180 " + t("common.days") },
+              { value: 365, label: "365 " + t("common.days") },
+              { value: 730, label: "730 " + t("common.days") },
+            ]}
+          />
+        </Form.Item>
         <Flex justify="space-between" wrap gap={12}>
           <Button type="primary" htmlType="submit" loading={pending}>
             {t("project.save")}
           </Button>
         </Flex>
       </Form>
-      <Flex justify="end" style={{ marginTop: 16 }}>
+      <Flex justify="end" gap={12} style={{ marginTop: 16 }}>
+        {project.status === "ARCHIVED" && !project.purgedAt && (
+          <Popconfirm
+            title={t("project.purgeConfirm")}
+            okText={t("common.yes")}
+            cancelText={t("common.no")}
+            onConfirm={() =>
+              startTransition(async () => {
+                feedback(await purgeProjectData(project.id));
+              })
+            }
+          >
+            <Button danger>{t("project.purgeNow")}</Button>
+          </Popconfirm>
+        )}
         {project.status === "ACTIVE" ? (
           <Popconfirm
             title={t("project.archiveConfirm")}
@@ -531,7 +593,7 @@ function SettingsTab({
           >
             <Button danger>{t("project.archive")}</Button>
           </Popconfirm>
-        ) : (
+        ) : project.status === "ARCHIVED" ? (
           <Button
             onClick={() =>
               startTransition(async () => {
@@ -541,6 +603,8 @@ function SettingsTab({
           >
             {t("project.reactivate")}
           </Button>
+        ) : (
+          <Tag color="default">{t("projects.statusValues.PURGED")}</Tag>
         )}
       </Flex>
     </Card>

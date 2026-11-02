@@ -50,6 +50,7 @@
     "error": "Something went wrong. Please try again.",
     "yes": "Yes",
     "no": "No",
+    "days": "days",
     "forbidden": "You do not have access to this page."
   },
   "comingSoon": {
@@ -139,6 +140,8 @@
     },
     "activate": "Activate",
     "deactivate": "Deactivate",
+    "retentionDays": "Default retention (days)",
+    "retentionDaysHelp": "Default retention days applied to newly created projects for this organization.",
     "createdAt": "Created"
   },
   "groups": {
@@ -214,8 +217,12 @@
     "status": "Status",
     "statusValues": {
       "ACTIVE": "Active",
-      "ARCHIVED": "Archived"
+      "ARCHIVED": "Archived",
+      "PURGED": "Purged"
     },
+    "retentionPeriod": "Retention policy",
+    "retentionDays": "Retention period (days)",
+    "retentionDaysHelp": "Data room and personal identifiers are permanently purged after this retention period post-closing (UU PDP compliance).",
     "myRole": "My role",
     "empty": "No projects yet",
     "emptyHint": "Projects you are a member of appear here.",
@@ -250,6 +257,13 @@
     "archiveConfirm": "Archive the project? External users (client and target) lose access immediately.",
     "reactivate": "Reactivate",
     "archivedNotice": "This project is archived and read-only.",
+    "retentionSchedule": "Data retention schedule",
+    "retentionDaysValue": "{days} days post-closing",
+    "purgeScheduled": "Scheduled data purge: {date}",
+    "purgedNotice": "This project's data room has been permanently purged in accordance with retention policy and Indonesian Personal Data Protection law (UU No. 27/2022).",
+    "purgeNow": "Purge data room now",
+    "purgeConfirm": "Permanently purge all data room files, extracted OCR text, and annotations for this project? This action cannot be undone.",
+    "purged": "Purged",
     "readOnly": "Only the project's partners and project managers can change these settings.",
     "externalHint": "Client and target users can only be added from the project's own client or target organization."
   },

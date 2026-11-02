@@ -63,7 +63,7 @@ class DirectoryService implements Directory {
 
     static OrganizationSummary summary(Organization o) {
         return new OrganizationSummary(o.getId(), o.getName(), OrganizationType.valueOf(o.getType().name()),
-                o.getStatus() == Organization.Status.ACTIVE);
+                o.getStatus() == Organization.Status.ACTIVE, o.getDefaultRetentionDays());
     }
 
     static UserSummary summary(UserAccount u) {

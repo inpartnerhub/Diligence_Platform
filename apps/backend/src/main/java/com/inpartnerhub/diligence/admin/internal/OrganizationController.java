@@ -32,17 +32,20 @@ import jakarta.validation.constraints.Size;
 class OrganizationController {
 
     record OrganizationResponse(UUID id, String name, Organization.Type type, Organization.Status status,
-            Instant createdAt) {
+            int defaultRetentionDays, Instant createdAt) {
 
         static OrganizationResponse of(Organization o) {
-            return new OrganizationResponse(o.getId(), o.getName(), o.getType(), o.getStatus(), o.getCreatedAt());
+            return new OrganizationResponse(o.getId(), o.getName(), o.getType(), o.getStatus(),
+                    o.getDefaultRetentionDays(), o.getCreatedAt());
         }
     }
 
-    record CreateOrganizationRequest(@NotBlank @Size(max = 200) String name, @NotNull Organization.Type type) {
+    record CreateOrganizationRequest(@NotBlank @Size(max = 200) String name, @NotNull Organization.Type type,
+            Integer defaultRetentionDays) {
     }
 
-    record UpdateOrganizationRequest(@Size(max = 200) String name, Organization.Status status) {
+    record UpdateOrganizationRequest(@Size(max = 200) String name, Organization.Status status,
+            Integer defaultRetentionDays) {
     }
 
     private final OrganizationService service;
@@ -61,12 +64,12 @@ class OrganizationController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create an organization — ADM-01")
     OrganizationResponse create(@Valid @RequestBody CreateOrganizationRequest request) {
-        return OrganizationResponse.of(service.create(request.name(), request.type()));
+        return OrganizationResponse.of(service.create(request.name(), request.type(), request.defaultRetentionDays()));
     }
 
     @PatchMapping("/{id}")
     @Operation(summary = "Rename or (de)activate an organization — ADM-01")
     OrganizationResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateOrganizationRequest request) {
-        return OrganizationResponse.of(service.update(id, request.name(), request.status()));
+        return OrganizationResponse.of(service.update(id, request.name(), request.status(), request.defaultRetentionDays()));
     }
 }

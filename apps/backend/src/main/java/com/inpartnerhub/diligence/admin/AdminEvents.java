@@ -37,6 +37,30 @@ public final class AdminEvents {
         }
     }
 
+    public record OrganizationUpdated(UUID organizationId, String name, RequestMetadata requestMetadata)
+            implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "organization.updated";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "organization";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return organizationId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("name", name);
+        }
+    }
+
     public record UserInvited(UUID userId, UUID organizationId, Role role, RequestMetadata requestMetadata)
             implements AuditableEvent {
 

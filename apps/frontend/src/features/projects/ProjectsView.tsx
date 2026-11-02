@@ -42,6 +42,7 @@ interface CreateForm {
   period?: [Dayjs, Dayjs];
   templateId?: string;
   workstreams?: WorkstreamType[];
+  retentionPeriodDays?: number;
 }
 
 export interface ProjectsViewProps {
@@ -83,6 +84,7 @@ export function ProjectsView({
         endDate: values.period?.[1].format("YYYY-MM-DD"),
         templateId: values.templateId,
         workstreams: values.workstreams,
+        retentionPeriodDays: values.retentionPeriodDays,
       });
       if (result.ok && result.data) {
         message.success(t("projects.created"));
@@ -167,7 +169,7 @@ export function ProjectsView({
             title: t("projects.status"),
             key: "status",
             render: (_, p) => (
-              <Tag color={p.status === "ACTIVE" ? "green" : "default"}>
+              <Tag color={p.status === "ACTIVE" ? "green" : p.status === "PURGED" ? "volcano" : "default"}>
                 {t(`projects.statusValues.${p.status}`)}
               </Tag>
             ),
@@ -221,6 +223,22 @@ export function ProjectsView({
             <Select
               showSearch={{ optionFilterProp: "label" }}
               options={clients.map((o) => ({ value: o.id, label: o.name }))}
+            />
+          </Form.Item>
+          <Form.Item
+            name="retentionPeriodDays"
+            label={t("projects.retentionDays")}
+            extra={t("projects.retentionDaysHelp")}
+            initialValue={365}
+          >
+            <Select
+              options={[
+                { value: 30, label: "30 " + t("common.days") },
+                { value: 90, label: "90 " + t("common.days") },
+                { value: 180, label: "180 " + t("common.days") },
+                { value: 365, label: "365 " + t("common.days") },
+                { value: 730, label: "730 " + t("common.days") },
+              ]}
             />
           </Form.Item>
           <Form.Item name="period" label={t("projects.period")}>

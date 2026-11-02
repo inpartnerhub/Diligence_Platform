@@ -53,7 +53,13 @@ export async function createProject(input: CreateProjectInput): Promise<ActionRe
 
 export async function updateProject(
   id: string,
-  input: { name?: string; startDate?: string; endDate?: string; stage?: ProjectStage },
+  input: {
+    name?: string;
+    startDate?: string;
+    endDate?: string;
+    stage?: ProjectStage;
+    retentionPeriodDays?: number;
+  },
 ): Promise<ActionResult> {
   try {
     let name = input.name;
@@ -75,6 +81,19 @@ export async function updateProject(
 export async function setProjectArchived(id: string, archived: boolean): Promise<ActionResult> {
   const action = archived ? "/archive" : "/reactivate";
   return run([projectPath(id), "/"], () => apiFetch(projectApi(id, action), { method: "POST" })).then(drop);
+}
+
+export async function updateProjectRetention(id: string, retentionPeriodDays: number): Promise<ActionResult> {
+  if (!Number.isInteger(retentionPeriodDays) || retentionPeriodDays < 1 || retentionPeriodDays > 3650) {
+    return { ok: false, message: "Retention period must be between 1 and 3650 days" };
+  }
+  return run([projectPath(id), "/"], () =>
+    apiFetch(projectApi(id, "/retention"), { method: "PUT", body: { retentionPeriodDays } }),
+  ).then(drop);
+}
+
+export async function purgeProjectData(id: string): Promise<ActionResult> {
+  return run([projectPath(id), "/"], () => apiFetch(projectApi(id, "/purge"), { method: "POST" })).then(drop);
 }
 
 export async function replaceWorkstreams(id: string, workstreams: WorkstreamType[]): Promise<ActionResult> {

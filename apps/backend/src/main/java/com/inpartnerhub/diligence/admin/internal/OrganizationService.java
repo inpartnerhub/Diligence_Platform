@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationCreated;
+import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationUpdated;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
@@ -31,17 +32,26 @@ class OrganizationService {
     }
 
     Organization create(String name, Organization.Type type) {
+        return create(name, type, 365);
+    }
+
+    Organization create(String name, Organization.Type type, Integer defaultRetentionDays) {
         var trimmed = name.strip();
         if (organizations.existsByNameIgnoreCase(trimmed)) {
             throw new ResourceConflictException("An organization named '" + trimmed + "' already exists");
         }
-        var organization = organizations.save(new Organization(trimmed, type));
+        int retention = defaultRetentionDays != null && defaultRetentionDays > 0 ? defaultRetentionDays : 365;
+        var organization = organizations.save(new Organization(trimmed, type, retention));
         events.publishEvent(new OrganizationCreated(organization.getId(), organization.getName(), type.name(),
                 RequestMetadata.capture()));
         return organization;
     }
 
     Organization update(UUID id, String name, Organization.Status status) {
+        return update(id, name, status, null);
+    }
+
+    Organization update(UUID id, String name, Organization.Status status, Integer defaultRetentionDays) {
         var organization = get(id);
         if (name != null && !name.isBlank()) {
             organization.rename(name.strip());
@@ -49,6 +59,10 @@ class OrganizationService {
         if (status != null) {
             organization.changeStatus(status);
         }
+        if (defaultRetentionDays != null && defaultRetentionDays > 0) {
+            organization.updateRetentionDays(defaultRetentionDays);
+        }
+        events.publishEvent(new OrganizationUpdated(organization.getId(), organization.getName(), RequestMetadata.capture()));
         return organization;
     }
 

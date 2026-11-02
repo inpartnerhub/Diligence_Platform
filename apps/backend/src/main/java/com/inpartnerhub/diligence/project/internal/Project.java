@@ -19,7 +19,7 @@ import jakarta.persistence.Version;
 @Table(schema = "prj", name = "project")
 class Project {
 
-    enum Status { ACTIVE, ARCHIVED }
+    enum Status { ACTIVE, ARCHIVED, PURGED }
 
     @Id
     private UUID id;
@@ -56,6 +56,9 @@ class Project {
     @Column(name = "template_id")
     private UUID templateId;
 
+    @Column(name = "retention_period_days", nullable = false)
+    private int retentionPeriodDays = 365;
+
     @Column(name = "created_by", nullable = false, updatable = false)
     private UUID createdBy;
 
@@ -65,6 +68,9 @@ class Project {
     @Column(name = "archived_at")
     private Instant archivedAt;
 
+    @Column(name = "purged_at")
+    private Instant purgedAt;
+
     @Version
     private long version;
 
@@ -73,6 +79,11 @@ class Project {
 
     Project(String code, String name, UUID clientOrganizationId, UUID targetOrganizationId, LocalDate startDate,
             LocalDate endDate, UUID templateId, UUID createdBy) {
+        this(code, name, clientOrganizationId, targetOrganizationId, startDate, endDate, templateId, createdBy, 365);
+    }
+
+    Project(String code, String name, UUID clientOrganizationId, UUID targetOrganizationId, LocalDate startDate,
+            LocalDate endDate, UUID templateId, UUID createdBy, int retentionPeriodDays) {
         this.id = UUID.randomUUID();
         this.code = code;
         this.name = name;
@@ -82,6 +93,7 @@ class Project {
         this.endDate = endDate;
         this.templateId = templateId;
         this.createdBy = createdBy;
+        this.retentionPeriodDays = retentionPeriodDays > 0 ? retentionPeriodDays : 365;
         this.stage = ProjectStage.INITIATION;
         this.status = Status.ACTIVE;
         this.createdAt = Instant.now();
@@ -114,8 +126,24 @@ class Project {
         archivedAt = null;
     }
 
+    void markPurged(Instant at) {
+        status = Status.PURGED;
+        purgedAt = at;
+    }
+
     boolean isArchived() {
         return status == Status.ARCHIVED;
+    }
+
+    boolean isPurged() {
+        return status == Status.PURGED;
+    }
+
+    void updateRetentionPeriod(int days) {
+        if (days <= 0 || days > 3650) {
+            throw new InvalidRequestException("Retention period must be between 1 and 3650 days");
+        }
+        this.retentionPeriodDays = days;
     }
 
     static void validateDates(LocalDate start, LocalDate end) {
@@ -174,5 +202,17 @@ class Project {
 
     Instant getArchivedAt() {
         return archivedAt;
+    }
+
+    int getRetentionPeriodDays() {
+        return retentionPeriodDays;
+    }
+
+    Instant getPurgedAt() {
+        return purgedAt;
+    }
+
+    Instant getRetentionDeadline() {
+        return archivedAt != null ? archivedAt.plus(java.time.Duration.ofDays(retentionPeriodDays)) : null;
     }
 }

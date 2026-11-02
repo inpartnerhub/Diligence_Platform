@@ -43,6 +43,26 @@ class S3DocumentStorage implements DocumentStorage {
         s3.deleteObject(r -> r.bucket(bucket).key(objectKey));
     }
 
+    @Override
+    public long deletePrefix(String prefix) {
+        long count = 0;
+        String nextMarker = null;
+        do {
+            final String cursor = nextMarker;
+            var listResp = s3.listObjectsV2(r -> r.bucket(bucket).prefix(prefix).continuationToken(cursor));
+            var contents = listResp.contents();
+            if (contents != null && !contents.isEmpty()) {
+                var ids = contents.stream()
+                        .map(o -> software.amazon.awssdk.services.s3.model.ObjectIdentifier.builder().key(o.key()).build())
+                        .toList();
+                s3.deleteObjects(r -> r.bucket(bucket).delete(d -> d.objects(ids)));
+                count += ids.size();
+            }
+            nextMarker = Boolean.TRUE.equals(listResp.isTruncated()) ? listResp.nextContinuationToken() : null;
+        } while (nextMarker != null);
+        return count;
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class S3ClientConfiguration {
 

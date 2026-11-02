@@ -67,10 +67,13 @@ export interface Project {
   targetOrganizationId: string;
   targetName: string | null;
   stage: ProjectStage;
-  status: "ACTIVE" | "ARCHIVED";
+  status: "ACTIVE" | "ARCHIVED" | "PURGED";
   startDate: string | null;
   endDate: string | null;
   templateId: string | null;
+  retentionPeriodDays: number;
+  retentionDeadline?: string | null;
+  purgedAt?: string | null;
   createdAt: string;
   archivedAt: string | null;
   myRoles: ProjectRole[];
@@ -189,6 +192,15 @@ export interface CreateProjectInput {
   endDate?: string;
   templateId?: string;
   workstreams?: WorkstreamType[];
+  retentionPeriodDays?: number;
+}
+
+export interface UpdateProjectInput {
+  name?: string;
+  startDate?: string;
+  endDate?: string;
+  stage?: ProjectStage;
+  retentionPeriodDays?: number;
 }
 
 export interface TemplateInput {

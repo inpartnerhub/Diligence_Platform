@@ -46,7 +46,8 @@ class ProjectController {
 
     record ProjectResponse(UUID id, String code, String name, UUID clientOrganizationId, String clientName,
             UUID targetOrganizationId, String targetName, ProjectStage stage, Project.Status status,
-            LocalDate startDate, LocalDate endDate, UUID templateId, Instant createdAt, Instant archivedAt,
+            LocalDate startDate, LocalDate endDate, UUID templateId, int retentionPeriodDays,
+            Instant retentionDeadline, Instant purgedAt, Instant createdAt, Instant archivedAt,
             Set<ProjectRole> myRoles) {
     }
 
@@ -65,11 +66,16 @@ class ProjectController {
             LocalDate startDate,
             LocalDate endDate,
             UUID templateId,
-            Set<WorkstreamType> workstreams) {
+            Set<WorkstreamType> workstreams,
+            Integer retentionPeriodDays) {
     }
 
     record UpdateProjectRequest(@Size(max = 200) String name, LocalDate startDate, LocalDate endDate,
-            ProjectStage stage) {
+            ProjectStage stage, Integer retentionPeriodDays) {
+    }
+
+    record UpdateRetentionRequest(
+            @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(3650) int retentionPeriodDays) {
     }
 
     record ReplaceWorkstreamsRequest(@NotEmpty Set<WorkstreamType> workstreams) {
@@ -104,7 +110,7 @@ class ProjectController {
     ProjectResponse create(@Valid @RequestBody CreateProjectRequest request) {
         return response(projects.create(new ProjectService.CreateCommand(request.code(), request.name(),
                 request.clientOrganizationId(), request.targetOrganizationId(), request.startDate(),
-                request.endDate(), request.templateId(), request.workstreams())));
+                request.endDate(), request.templateId(), request.workstreams(), request.retentionPeriodDays())));
     }
 
     @GetMapping("/{id}")
@@ -116,7 +122,25 @@ class ProjectController {
     @PatchMapping("/{id}")
     @Operation(summary = "Update name, dates or stage (project managers and partners) — PRJ-01")
     ProjectResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateProjectRequest request) {
-        return response(projects.update(id, request.name(), request.startDate(), request.endDate(), request.stage()));
+        var updated = projects.update(id, request.name(), request.startDate(), request.endDate(), request.stage());
+        if (request.retentionPeriodDays() != null) {
+            updated = projects.updateRetention(id, request.retentionPeriodDays());
+        }
+        return response(updated);
+    }
+
+    @PutMapping("/{id}/retention")
+    @PreAuthorize("hasAnyRole('PARTNER', 'PROJECT_MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Update data retention schedule (days) — PRD ADM-06")
+    ProjectResponse updateRetention(@PathVariable UUID id, @Valid @RequestBody UpdateRetentionRequest request) {
+        return response(projects.updateRetention(id, request.retentionPeriodDays()));
+    }
+
+    @PostMapping("/{id}/purge")
+    @PreAuthorize("hasAnyRole('PARTNER', 'PROJECT_MANAGER', 'SUPER_ADMIN')")
+    @Operation(summary = "Permanently purge project data room content (archived projects only) — PRD ADM-06")
+    ProjectResponse purge(@PathVariable UUID id) {
+        return response(projects.purge(id));
     }
 
     @PostMapping("/{id}/archive")
@@ -161,7 +185,8 @@ class ProjectController {
         return new ProjectResponse(p.getId(), p.getCode(), p.getName(), p.getClientOrganizationId(),
                 organizationName(p.getClientOrganizationId()), p.getTargetOrganizationId(),
                 organizationName(p.getTargetOrganizationId()), p.getStage(), p.getStatus(), p.getStartDate(),
-                p.getEndDate(), p.getTemplateId(), p.getCreatedAt(), p.getArchivedAt(), access.rolesOf(p));
+                p.getEndDate(), p.getTemplateId(), p.getRetentionPeriodDays(), p.getRetentionDeadline(),
+                p.getPurgedAt(), p.getCreatedAt(), p.getArchivedAt(), access.rolesOf(p));
     }
 
     private String organizationName(UUID id) {
