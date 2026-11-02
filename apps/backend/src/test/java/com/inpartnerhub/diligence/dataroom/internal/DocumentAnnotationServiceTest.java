@@ -34,8 +34,7 @@ class DocumentAnnotationServiceTest {
             currentUser);
 
     private final UUID docId = UUID.randomUUID();
-    private final Document doc = new Document(PROJECT, UUID.randomUUID(), "contract.pdf", "application/pdf", 1024,
-            "hash");
+    private final Document doc = new Document(PROJECT, UUID.randomUUID(), "contract.pdf", UUID.randomUUID());
     private final AuthenticatedUser analyst = new AuthenticatedUser(UUID.randomUUID(), "analyst", "analyst@test.com",
             "Analyst User", Set.of(Role.ANALYST));
 
