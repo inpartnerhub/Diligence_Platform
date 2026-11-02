@@ -1,6 +1,8 @@
 "use client";
 
-import { Flex, Input, Select, Table, Tag, Typography } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
+import { Button, DatePicker, Flex, Input, Select, Table, Tag, Typography } from "antd";
+import dayjs from "dayjs";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -13,27 +15,61 @@ export function AuditView({ logs }: Readonly<{ logs: Page<AuditLog> }>) {
   const format = useFormatter();
   const { params, update } = useUrlQuery();
 
+  const from = params.get("from");
+  const to = params.get("to");
+  const dateRangeValue: [dayjs.Dayjs, dayjs.Dayjs] | null =
+    from && to && dayjs(from).isValid() && dayjs(to).isValid()
+      ? [dayjs(from), dayjs(to)]
+      : null;
+
+  const exportQuery = new URLSearchParams();
+  if (params.get("action")) exportQuery.set("action", params.get("action")!);
+  if (params.get("objectType")) exportQuery.set("objectType", params.get("objectType")!);
+  if (params.get("from")) exportQuery.set("from", params.get("from")!);
+  if (params.get("to")) exportQuery.set("to", params.get("to")!);
+  if (params.get("userId")) exportQuery.set("userId", params.get("userId")!);
+  const qs = exportQuery.toString();
+  const exportUrl = `/api/admin/audit-logs/export${qs ? `?${qs}` : ""}`;
+
   return (
     <>
-      <PageHeader title={t("audit.title")} />
+      <PageHeader
+        title={t("audit.title")}
+        extra={
+          <Button icon={<DownloadOutlined />} href={exportUrl}>
+            {t("audit.export")}
+          </Button>
+        }
+      />
       <Flex gap={12} wrap style={{ marginBottom: 16 }}>
         <Input.Search
           allowClear
           defaultValue={params.get("action") ?? ""}
           placeholder={t("audit.filterAction")}
-          style={{ width: 240 }}
+          style={{ width: 220 }}
           onSearch={(action) => update({ action })}
         />
         <Select
           allowClear
           placeholder={t("audit.filterObject")}
           value={params.get("objectType") ?? undefined}
-          style={{ width: 180 }}
-          options={["user", "organization", "project", "document", "finding"].map((v) => ({
+          style={{ width: 160 }}
+          options={["user", "organization", "project", "document", "finding", "qna", "report", "audit_log"].map((v) => ({
             value: v,
             label: v,
           }))}
           onChange={(objectType) => update({ objectType })}
+        />
+        <DatePicker.RangePicker
+          showTime
+          value={dateRangeValue}
+          onChange={(dates) => {
+            if (dates && dates[0] && dates[1]) {
+              update({ from: dates[0].toISOString(), to: dates[1].toISOString() });
+            } else {
+              update({ from: undefined, to: undefined });
+            }
+          }}
         />
       </Flex>
       <Table<AuditLog>

@@ -129,7 +129,9 @@
     "ip": "IP address",
     "outcome": "Outcome",
     "filterAction": "Filter by action",
-    "filterObject": "Object type"
+    "filterObject": "Object type",
+    "export": "Export CSV",
+    "filterDate": "Date range"
   },
   "workstreams": {
     "FINANCIAL": "Financial",

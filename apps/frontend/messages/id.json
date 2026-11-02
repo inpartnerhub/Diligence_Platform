@@ -129,7 +129,9 @@
     "ip": "Alamat IP",
     "outcome": "Hasil",
     "filterAction": "Filter aksi",
-    "filterObject": "Tipe objek"
+    "filterObject": "Tipe objek",
+    "export": "Ekspor CSV",
+    "filterDate": "Rentang tanggal"
   },
   "workstreams": {
     "FINANCIAL": "Keuangan",
