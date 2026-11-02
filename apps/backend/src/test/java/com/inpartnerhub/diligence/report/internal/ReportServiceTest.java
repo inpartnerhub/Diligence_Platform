@@ -77,6 +77,7 @@ class ReportServiceTest {
 
     private final ReportRepository reports = mock(ReportRepository.class);
     private final ReportFindingRepository reportFindings = mock(ReportFindingRepository.class);
+    private final ReportStatusHistoryRepository statusHistories = mock(ReportStatusHistoryRepository.class);
     private final ProjectDirectory projects = mock(ProjectDirectory.class);
     private final Directory directory = mock(Directory.class);
     private final FindingDirectory findings = mock(FindingDirectory.class);
@@ -85,7 +86,7 @@ class ReportServiceTest {
     private final PdfWatermark watermark = mock(PdfWatermark.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final ReportService service = new ReportService(reports, reportFindings, projects, directory, findings,
+    private final ReportService service = new ReportService(reports, reportFindings, statusHistories, projects, directory, findings,
             storage, renderer, watermark, currentUser, events, ZoneId.of("Asia/Jakarta"),
             Clock.fixed(Instant.parse("2026-12-01T02:00:00Z"), ZoneOffset.UTC));
 
@@ -198,7 +199,7 @@ class ReportServiceTest {
 
         as(ProjectRole.PARTNER);
         service.issue(PROJECT, report.getId());
-        assertThat(report.getStatus()).isEqualTo(ReportStatus.ISSUED);
+        assertThat(report.getStatus().isReleased()).isTrue();
         assertThat(report.getIssuedBy()).isEqualTo(ME);
         assertThatThrownBy(() -> service.issue(PROJECT, report.getId())).isInstanceOf(ResourceConflictException.class);
         assertThatThrownBy(() -> service.delete(PROJECT, report.getId()))
@@ -210,6 +211,107 @@ class ReportServiceTest {
         verify(reports).delete(draft);
         verify(storage).delete("d.docx");
         verify(storage).delete("d.pdf");
+    }
+
+    @Test
+    void tieredApprovalWorkflowAndFourEyesPrinciple() {
+        var author = UUID.randomUUID();
+        var report = new Report(UUID.randomUUID(), PROJECT, null, 1, 1, 0, "v1.0", "Draft", "id", 1, "k.docx",
+                "k.pdf", 10, author);
+        when(reports.findById(report.getId())).thenReturn(Optional.of(report));
+
+        // 1. Analyst submits draft for review
+        as(ProjectRole.ANALYST);
+        service.submitForReview(PROJECT, report.getId(), "Ready for review");
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.SUBMITTED_FOR_REVIEW);
+        assertThat(report.getSubmittedBy()).isEqualTo(ME);
+        verify(statusHistories).save(any());
+
+        // 2. Author cannot approve own submission (four-eyes principle)
+        var authorReport = new Report(UUID.randomUUID(), PROJECT, null, 1, 1, 0, "v1.0", "Draft", "id", 1, "k.docx",
+                "k.pdf", 10, ME);
+        authorReport.submitForReview(ME, Instant.now());
+        when(reports.findById(authorReport.getId())).thenReturn(Optional.of(authorReport));
+        as(ProjectRole.PROJECT_MANAGER);
+        assertThatThrownBy(() -> service.approveByManager(PROJECT, authorReport.getId(), "Approved"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("four-eyes principle");
+
+        // 3. Manager approves report
+        when(reports.findById(report.getId())).thenReturn(Optional.of(report));
+        service.approveByManager(PROJECT, report.getId(), "Looks good to me");
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.APPROVED_BY_MANAGER);
+        assertThat(report.getManagerApprovedBy()).isEqualTo(ME);
+
+        // 4. Non-partner cannot release report
+        as(ProjectRole.PROJECT_MANAGER);
+        assertThatThrownBy(() -> service.releaseByPartner(PROJECT, report.getId(), "Sign off"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        // 5. Lead partner releases report
+        as(ProjectRole.PARTNER);
+        service.releaseByPartner(PROJECT, report.getId(), "Approved for client distribution");
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.RELEASED_BY_PARTNER);
+        assertThat(report.getIssuedBy()).isEqualTo(ME);
+        assertThat(report.getStatus().isReleased()).isTrue();
+    }
+
+    @Test
+    void returnToDraftWithReason() {
+        var author = UUID.randomUUID();
+        var report = new Report(UUID.randomUUID(), PROJECT, null, 1, 1, 0, "v1.0", "Draft", "id", 1, "k.docx",
+                "k.pdf", 10, author);
+        report.submitForReview(author, Instant.now());
+        when(reports.findById(report.getId())).thenReturn(Optional.of(report));
+
+        as(ProjectRole.PROJECT_MANAGER);
+        assertThatThrownBy(() -> service.returnDraft(PROJECT, report.getId(), "  "))
+                .isInstanceOf(InvalidRequestException.class);
+
+        service.returnDraft(PROJECT, report.getId(), "Need more details in tax finding");
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.DRAFT);
+    }
+
+    @Test
+    void majorAndMinorRevisionGeneration() {
+        as(ProjectRole.PROJECT_MANAGER);
+        when(reports.lastVersion(PROJECT)).thenReturn(1);
+        when(findings.released(PROJECT, null)).thenReturn(List.of(finding(LEGAL, "F-LEG-001", 3, 3)));
+        var baseReport = new Report(UUID.randomUUID(), PROJECT, null, 1, 1, 0, "v1.0", "Initial", "id", 1, "k.docx",
+                "k.pdf", 10, UUID.randomUUID());
+        when(reports.findById(baseReport.getId())).thenReturn(Optional.of(baseReport));
+
+        // Minor revision
+        var minor = service.generateRevision(PROJECT, baseReport.getId(), "Rev 1.1", false, "id");
+        assertThat(minor.getMajorVersion()).isEqualTo(1);
+        assertThat(minor.getMinorVersion()).isEqualTo(1);
+        assertThat(minor.getVersionLabel()).isEqualTo("v1.1");
+        assertThat(minor.getStatus()).isEqualTo(ReportStatus.DRAFT);
+        when(reports.findById(minor.getId())).thenReturn(Optional.of(minor));
+        var minorDownload = service.download(PROJECT, minor.getId(), ReportService.Format.PDF);
+        assertThat(minorDownload.fileName()).isEqualTo("dd-1-report-v1.1.pdf");
+
+        // Major revision
+        var major = service.generateRevision(PROJECT, baseReport.getId(), "Rev 2.0", true, "id");
+        assertThat(major.getMajorVersion()).isEqualTo(2);
+        assertThat(major.getMinorVersion()).isEqualTo(0);
+        assertThat(major.getVersionLabel()).isEqualTo("v2.0");
+    }
+
+    @Test
+    void statusHistoryAuditTrail() {
+        as(ProjectRole.ANALYST);
+        var reportId = UUID.randomUUID();
+        when(reports.findById(reportId)).thenReturn(Optional.of(new Report(reportId, PROJECT, null, 1, "R", "id", 1,
+                "k.docx", "k.pdf", 10, ME)));
+        var history = new ReportStatusHistory(UUID.randomUUID(), reportId, PROJECT, "DRAFT", "SUBMITTED_FOR_REVIEW",
+                ME, "Ready");
+        when(statusHistories.findByProjectIdAndReportIdOrderByChangedAtAsc(PROJECT, reportId))
+                .thenReturn(List.of(history));
+
+        var list = service.history(PROJECT, reportId);
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).getToStatus()).isEqualTo("SUBMITTED_FOR_REVIEW");
     }
 
     @Test

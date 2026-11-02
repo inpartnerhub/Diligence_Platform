@@ -34,6 +34,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -42,13 +43,53 @@ import jakarta.validation.constraints.Size;
 @Tag(name = "Reports")
 class ReportController {
 
-    record ReportResponse(UUID id, int versionNumber, String title, ReportStatus status, String language,
-            int findingCount, Long sizeBytes, String createdByName, Instant createdAt, String issuedByName,
+    record ReportResponse(
+            UUID id,
+            int versionNumber,
+            int majorVersion,
+            int minorVersion,
+            String versionLabel,
+            String title,
+            ReportStatus status,
+            String language,
+            int findingCount,
+            Long sizeBytes,
+            String createdByName,
+            Instant createdAt,
+            String submittedByName,
+            Instant submittedAt,
+            String managerApprovedByName,
+            Instant managerApprovedAt,
+            String issuedByName,
             Instant issuedAt) {
     }
 
-    record GenerateRequest(@NotBlank @Size(max = ReportService.MAX_TITLE) String title,
+    record GenerateRequest(
+            @NotBlank @Size(max = ReportService.MAX_TITLE) String title,
             @Pattern(regexp = "id|en") String language) {
+    }
+
+    record RevisionRequest(
+            @NotNull Boolean major,
+            @Size(max = ReportService.MAX_TITLE) String title,
+            @Pattern(regexp = "id|en") String language) {
+    }
+
+    record ReviewActionRequest(
+            @Size(max = 1000) String note) {
+    }
+
+    record ReturnRequest(
+            @NotBlank @Size(max = 1000) String reason) {
+    }
+
+    record StatusHistoryResponse(
+            UUID id,
+            String fromStatus,
+            String toStatus,
+            String changedByName,
+            Instant changedAt,
+            String note) {
     }
 
     private final ReportService reports;
@@ -60,10 +101,11 @@ class ReportController {
     }
 
     @GetMapping
-    @Operation(summary = "Report versions (client: issued only), newest first — RPT-01")
+    @Operation(summary = "Report versions (client: released only), newest first — RPT-01, RPT-03")
     List<ReportResponse> list(@PathVariable UUID projectId) {
         var list = reports.list(projectId);
-        var names = names(list.stream().flatMap(r -> Stream.of(r.getCreatedBy(), r.getIssuedBy()))
+        var names = names(list.stream().flatMap(r -> Stream.of(
+                r.getCreatedBy(), r.getSubmittedBy(), r.getManagerApprovedBy(), r.getIssuedBy()))
                 .toList());
         return list.stream().map(r -> response(r, names)).toList();
     }
@@ -76,11 +118,81 @@ class ReportController {
         return response(report, names(List.of(report.getCreatedBy())));
     }
 
+    @PostMapping("/{reportId}/revision")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Generate a new major or minor revision from released findings — RPT-03")
+    ReportResponse generateRevision(
+            @PathVariable UUID projectId,
+            @PathVariable UUID reportId,
+            @Valid @RequestBody RevisionRequest request) {
+        var report = reports.generateRevision(projectId, reportId, request.title(), Boolean.TRUE.equals(request.major()),
+                request.language());
+        return response(report, names(List.of(report.getCreatedBy())));
+    }
+
+    @PostMapping("/{reportId}/submit")
+    @Operation(summary = "Submit a draft report for manager review — RPT-03")
+    ReportResponse submit(
+            @PathVariable UUID projectId,
+            @PathVariable UUID reportId,
+            @RequestBody(required = false) ReviewActionRequest request) {
+        var note = request != null ? request.note() : null;
+        var report = reports.submitForReview(projectId, reportId, note);
+        return response(report, names(List.of(report.getCreatedBy(), report.getSubmittedBy())));
+    }
+
+    @PostMapping("/{reportId}/approve")
+    @Operation(summary = "Manager approves report under four-eyes principle — RPT-03")
+    ReportResponse approve(
+            @PathVariable UUID projectId,
+            @PathVariable UUID reportId,
+            @RequestBody(required = false) ReviewActionRequest request) {
+        var note = request != null ? request.note() : null;
+        var report = reports.approveByManager(projectId, reportId, note);
+        return response(report,
+                names(List.of(report.getCreatedBy(), report.getSubmittedBy(), report.getManagerApprovedBy())));
+    }
+
+    @PostMapping("/{reportId}/release")
+    @Operation(summary = "Lead partner releases approved report to client — RPT-03")
+    ReportResponse release(
+            @PathVariable UUID projectId,
+            @PathVariable UUID reportId,
+            @RequestBody(required = false) ReviewActionRequest request) {
+        var note = request != null ? request.note() : null;
+        var report = reports.releaseByPartner(projectId, reportId, note);
+        return response(report, names(List.of(report.getCreatedBy(), report.getSubmittedBy(),
+                report.getManagerApprovedBy(), report.getIssuedBy())));
+    }
+
+    @PostMapping("/{reportId}/return")
+    @Operation(summary = "Return report to draft with review feedback note — RPT-03")
+    ReportResponse returnDraft(
+            @PathVariable UUID projectId,
+            @PathVariable UUID reportId,
+            @Valid @RequestBody ReturnRequest request) {
+        var report = reports.returnDraft(projectId, reportId, request.reason());
+        return response(report, names(List.of(report.getCreatedBy())));
+    }
+
     @PostMapping("/{reportId}/issue")
-    @Operation(summary = "Issue a draft to the client (partners) — RPT-01")
+    @Operation(summary = "Issue a report to the client (partners) — legacy alias for release — RPT-01")
     ReportResponse issue(@PathVariable UUID projectId, @PathVariable UUID reportId) {
         var report = reports.issue(projectId, reportId);
         return response(report, names(List.of(report.getCreatedBy(), report.getIssuedBy())));
+    }
+
+    @GetMapping("/{reportId}/history")
+    @Operation(summary = "Report approval and revision audit history — RPT-03")
+    List<StatusHistoryResponse> history(
+            @PathVariable UUID projectId,
+            @PathVariable UUID reportId) {
+        var list = reports.history(projectId, reportId);
+        var names = names(list.stream().map(ReportStatusHistory::getChangedBy).toList());
+        return list.stream()
+                .map(h -> new StatusHistoryResponse(h.getId(), h.getFromStatus(), h.getToStatus(),
+                        names.get(h.getChangedBy()), h.getChangedAt(), h.getNote()))
+                .toList();
     }
 
     @DeleteMapping("/{reportId}")
@@ -109,9 +221,25 @@ class ReportController {
     }
 
     private static ReportResponse response(Report r, Map<UUID, String> names) {
-        return new ReportResponse(r.getId(), r.getVersionNumber(), r.getTitle(), r.getStatus(), r.getLanguage(),
-                r.getFindingCount(), r.getSizeBytes(), names.get(r.getCreatedBy()), r.getCreatedAt(),
-                r.getIssuedBy() == null ? null : names.get(r.getIssuedBy()), r.getIssuedAt());
+        return new ReportResponse(
+                r.getId(),
+                r.getVersionNumber(),
+                r.getMajorVersion(),
+                r.getMinorVersion(),
+                r.getVersionLabel(),
+                r.getTitle(),
+                r.getStatus(),
+                r.getLanguage(),
+                r.getFindingCount(),
+                r.getSizeBytes(),
+                names.get(r.getCreatedBy()),
+                r.getCreatedAt(),
+                r.getSubmittedBy() == null ? null : names.get(r.getSubmittedBy()),
+                r.getSubmittedAt(),
+                r.getManagerApprovedBy() == null ? null : names.get(r.getManagerApprovedBy()),
+                r.getManagerApprovedAt(),
+                r.getIssuedBy() == null ? null : names.get(r.getIssuedBy()),
+                r.getIssuedAt());
     }
 
     private Map<UUID, String> names(List<UUID> ids) {
