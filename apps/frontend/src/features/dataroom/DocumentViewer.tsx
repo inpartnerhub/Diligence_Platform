@@ -2,23 +2,43 @@
 
 import {
   AlertOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   FilePdfOutlined,
+  HighlightOutlined,
   LockOutlined,
   PrinterOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Flex, Modal, Result, Space, Spin, Tag, Typography } from "antd";
+import {
+  Alert,
+  App,
+  Button,
+  Flex,
+  Input,
+  Modal,
+  Popconfirm,
+  Popover,
+  Radio,
+  Result,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+} from "antd";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
-import { openPreview } from "./actions";
-import type { PreviewInfo } from "./types";
+import { createAnnotation, deleteAnnotation, loadAnnotations, openPreview } from "./actions";
+import type { DocumentAnnotation, PreviewInfo } from "./types";
 
 export interface ViewerTarget {
   documentId: string;
   versionId?: string;
+  initialPage?: number;
+  highlightAnnotationId?: string;
 }
 
 /*
@@ -42,7 +62,7 @@ const PRINT_CSS = `
 `;
 
 /**
- * @param findingFromPage  when set (internal team), each page offers "create finding from this page" (PRD FND-02)
+ * @param findingFromPage  when set (internal team), each page offers annotations and "create finding from this page" (PRD FND-02, DOC-08)
  */
 export function DocumentViewer({
   projectId,
@@ -56,6 +76,9 @@ export function DocumentViewer({
   findingFromPage?: boolean;
 }>) {
   const t = useTranslations("dataRoom.viewer");
+  const router = useRouter();
+  const { message } = App.useApp();
+
   // The result is kept with the target it belongs to, so a new target shows the spinner until its own result.
   const [loaded, setLoaded] = useState<{
     target: ViewerTarget;
@@ -64,6 +87,29 @@ export function DocumentViewer({
   } | null>(null);
   const [printing, setPrinting] = useState(false);
   const pagesRef = useRef<HTMLDivElement>(null);
+
+  // Annotations state (DOC-08)
+  const [annotations, setAnnotations] = useState<DocumentAnnotation[]>([]);
+  const [annotating, setAnnotating] = useState(false);
+  const [userFocusedAnnotationId, setUserFocusedAnnotationId] = useState<string | null>(null);
+  const focusedAnnotationId = userFocusedAnnotationId ?? target?.highlightAnnotationId ?? null;
+  const [drawing, setDrawing] = useState<{
+    pageNumber: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const [draftAnnotation, setDraftAnnotation] = useState<{
+    pageNumber: number;
+    xPct: number;
+    yPct: number;
+    widthPct: number;
+    heightPct: number;
+  } | null>(null);
+  const [draftComment, setDraftComment] = useState("");
+  const [draftColor, setDraftColor] = useState("#faad14");
+  const [savingAnnotation, setSavingAnnotation] = useState(false);
 
   useEffect(() => {
     if (!target) return;
@@ -80,6 +126,31 @@ export function DocumentViewer({
       active = false;
     };
   }, [projectId, target]);
+
+  // Load annotations for internal users (DOC-08)
+  useEffect(() => {
+    if (!target || !findingFromPage) return;
+    let active = true;
+    void loadAnnotations(projectId, target.documentId).then((result) => {
+      if (active && result.ok && result.data) {
+        setAnnotations(result.data);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [projectId, target, findingFromPage]);
+
+  // Initial page scrolling
+  useEffect(() => {
+    if (!target?.initialPage) return;
+    const initialPage = target.initialPage;
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`dr-page-${initialPage}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [target?.initialPage, loaded]);
 
   const current = loaded && loaded.target === target ? loaded : null;
   const info = current?.info ?? null;
@@ -106,6 +177,80 @@ export function DocumentViewer({
       setPrinting(false);
     });
   }, [printing]);
+
+  const handlePageMouseDown = (page: number, e: React.MouseEvent<HTMLDivElement>) => {
+    if (!annotating) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setDrawing({ pageNumber: page, startX: x, startY: y, currentX: x, currentY: y });
+  };
+
+  const handlePageMouseMove = (page: number, e: React.MouseEvent<HTMLDivElement>) => {
+    if (!drawing || drawing.pageNumber !== page) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setDrawing((prev) => (prev ? { ...prev, currentX: x, currentY: y } : null));
+  };
+
+  const handlePageMouseUp = (page: number) => {
+    if (!drawing || drawing.pageNumber !== page) return;
+    const minX = Math.min(drawing.startX, drawing.currentX);
+    const minY = Math.min(drawing.startY, drawing.currentY);
+    const width = Math.abs(drawing.currentX - drawing.startX);
+    const height = Math.abs(drawing.currentY - drawing.startY);
+    setDrawing(null);
+    if (width >= 1 && height >= 1) {
+      setDraftAnnotation({ pageNumber: page, xPct: minX, yPct: minY, widthPct: width, heightPct: height });
+      setDraftComment("");
+      setDraftColor("#faad14");
+    }
+  };
+
+  const handleSaveAnnotation = async (redirectToFinding = false) => {
+    if (!draftAnnotation || !target) return;
+    setSavingAnnotation(true);
+    try {
+      const res = await createAnnotation(projectId, target.documentId, {
+        pageNumber: draftAnnotation.pageNumber,
+        xPct: Number(draftAnnotation.xPct.toFixed(2)),
+        yPct: Number(draftAnnotation.yPct.toFixed(2)),
+        widthPct: Number(draftAnnotation.widthPct.toFixed(2)),
+        heightPct: Number(draftAnnotation.heightPct.toFixed(2)),
+        color: draftColor,
+        comment: draftComment.trim() || undefined,
+      });
+      if (res.ok && res.data) {
+        message.success(t("annotationSaved"));
+        setAnnotations((prev) => [...prev, res.data!]);
+        const createdId = res.data.id;
+        const pageNum = draftAnnotation.pageNumber;
+        setDraftAnnotation(null);
+        if (redirectToFinding) {
+          router.push(
+            `/projects/${encodeURIComponent(projectId)}/findings?new=1&document=${encodeURIComponent(target.documentId)}&page=${encodeURIComponent(t("pageReference", { number: pageNum }))}&annotationId=${encodeURIComponent(createdId)}`,
+          );
+        }
+      } else {
+        message.error(!res.ok && res.message ? res.message : t("error"));
+      }
+    } finally {
+      setSavingAnnotation(false);
+    }
+  };
+
+  const handleDeleteAnnotation = async (annotationId: string) => {
+    if (!target) return;
+    const res = await deleteAnnotation(projectId, target.documentId, annotationId);
+    if (res.ok) {
+      message.success(t("annotationDeleted"));
+      setAnnotations((prev) => prev.filter((a) => a.id !== annotationId));
+      if (focusedAnnotationId === annotationId) setUserFocusedAnnotationId(null);
+    } else {
+      message.error(res.message || t("error"));
+    }
+  };
 
   const ready = info?.previewStatus === "READY";
   const base = info
@@ -150,6 +295,15 @@ export function DocumentViewer({
           <Flex gap={8} wrap justify="space-between" align="center">
             <Typography.Text type="secondary">{t("watermarkNotice")}</Typography.Text>
             <Space wrap>
+              {findingFromPage && ready && (
+                <Button
+                  icon={<HighlightOutlined />}
+                  type={annotating ? "primary" : "default"}
+                  onClick={() => setAnnotating((prev) => !prev)}
+                >
+                  {t("annotate")} {annotations.length > 0 && `(${annotations.length})`}
+                </Button>
+              )}
               {info.downloadAllowed && info.pdfAvailable && (
                 <Button icon={<FilePdfOutlined />} href={download("PDF")}>
                   {t("downloadPdf")}
@@ -179,6 +333,15 @@ export function DocumentViewer({
               )}
             </Space>
           </Flex>
+          {annotating && (
+            <Alert
+              type="info"
+              showIcon
+              message={t("annotateMode")}
+              description={t("annotateHint")}
+              style={{ marginBottom: 4 }}
+            />
+          )}
           {info.previewStatus === "PENDING" && (
             <Result status="info" title={t("preparing")} subTitle={t("preparingSub")} />
           )}
@@ -192,7 +355,7 @@ export function DocumentViewer({
               onContextMenu={protect ? (event) => event.preventDefault() : undefined}
             >
               {Array.from({ length: info.pageCount }, (_, index) => index + 1).map((page) => (
-                <div key={page}>
+                <div key={page} id={`dr-page-${page}`} style={{ marginBottom: 16 }}>
                   {findingFromPage && (
                     <Flex justify="end" className="dr-viewer-action" style={{ marginBottom: 4 }}>
                       <Link
@@ -202,27 +365,203 @@ export function DocumentViewer({
                       </Link>
                     </Flex>
                   )}
-                  {/* eslint-disable-next-line @next/next/no-img-element -- watermarked per request, never optimised or cached */}
-                  <img
-                    src={`${base}/versions/${encodeURIComponent(info.versionId)}/pages/${page}`}
-                    alt={t("page", { number: page })}
-                    loading={printing ? "eager" : "lazy"}
-                    draggable={false}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      minHeight: 200,
-                      margin: "0 auto 16px",
-                      background: "#fff",
-                      boxShadow: "0 1px 4px rgba(0,0,0,.15)",
-                    }}
-                  />
+                  <div
+                    style={{ position: "relative", display: "inline-block", width: "100%" }}
+                    onMouseDown={(e) => handlePageMouseDown(page, e)}
+                    onMouseMove={(e) => handlePageMouseMove(page, e)}
+                    onMouseUp={() => handlePageMouseUp(page)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- watermarked per request, never optimised or cached */}
+                    <img
+                      src={`${base}/versions/${encodeURIComponent(info.versionId)}/pages/${page}`}
+                      alt={t("page", { number: page })}
+                      loading={printing ? "eager" : "lazy"}
+                      draggable={false}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        minHeight: 200,
+                        margin: 0,
+                        background: "#fff",
+                        boxShadow: "0 1px 4px rgba(0,0,0,.15)",
+                        cursor: annotating ? "crosshair" : "default",
+                      }}
+                    />
+
+                    {/* Annotations overlay markers (DOC-08) */}
+                    {findingFromPage &&
+                      annotations
+                        .filter((a) => a.pageNumber === page)
+                        .map((ann) => {
+                          const isFocused = focusedAnnotationId === ann.id;
+                          return (
+                            <Popover
+                              key={ann.id}
+                              title={
+                                <Flex justify="space-between" align="center" gap={8}>
+                                  <Typography.Text strong>
+                                    {ann.createdByName || t("annotate")} · {t("page", { number: page })}
+                                  </Typography.Text>
+                                  {ann.findingId && (
+                                    <Tag color="purple">
+                                      <AlertOutlined /> {t("linkedFinding")}
+                                    </Tag>
+                                  )}
+                                </Flex>
+                              }
+                              content={
+                                <Flex vertical gap={8} style={{ maxWidth: 280 }}>
+                                  {ann.comment && (
+                                    <Typography.Paragraph style={{ margin: 0 }}>
+                                      {ann.comment}
+                                    </Typography.Paragraph>
+                                  )}
+                                  <Flex
+                                    justify="space-between"
+                                    align="center"
+                                    gap={8}
+                                    style={{ marginTop: 4 }}
+                                  >
+                                    <Link
+                                      href={`/projects/${encodeURIComponent(projectId)}/findings?new=1&document=${encodeURIComponent(info.documentId)}&page=${encodeURIComponent(t("pageReference", { number: page }))}&annotationId=${encodeURIComponent(ann.id)}`}
+                                    >
+                                      <Button
+                                        size="small"
+                                        type="link"
+                                        icon={<AlertOutlined />}
+                                        style={{ padding: 0 }}
+                                      >
+                                        {t("createFindingFromAnnotation")}
+                                      </Button>
+                                    </Link>
+                                    <Popconfirm
+                                      title={t("deleteAnnotationConfirm")}
+                                      onConfirm={() => handleDeleteAnnotation(ann.id)}
+                                    >
+                                      <Button size="small" danger type="text" icon={<DeleteOutlined />} />
+                                    </Popconfirm>
+                                  </Flex>
+                                </Flex>
+                              }
+                            >
+                              <div
+                                onClick={() => setUserFocusedAnnotationId(ann.id)}
+                                style={{
+                                  position: "absolute",
+                                  left: `${ann.xPct}%`,
+                                  top: `${ann.yPct}%`,
+                                  width: `${ann.widthPct}%`,
+                                  height: `${ann.heightPct}%`,
+                                  backgroundColor: ann.color ? `${ann.color}44` : "rgba(250, 219, 20, 0.35)",
+                                  border: isFocused
+                                    ? "2px solid #1890ff"
+                                    : `1.5px solid ${ann.color || "#d4b106"}`,
+                                  boxShadow: isFocused ? "0 0 0 4px rgba(24, 144, 255, 0.5)" : undefined,
+                                  borderRadius: 3,
+                                  cursor: "pointer",
+                                  zIndex: isFocused ? 5 : 2,
+                                  transition: "all 0.2s ease",
+                                }}
+                              />
+                            </Popover>
+                          );
+                        })}
+
+                    {/* Rubberband dragging preview */}
+                    {drawing && drawing.pageNumber === page && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: `${Math.min(drawing.startX, drawing.currentX)}%`,
+                          top: `${Math.min(drawing.startY, drawing.currentY)}%`,
+                          width: `${Math.abs(drawing.currentX - drawing.startX)}%`,
+                          height: `${Math.abs(drawing.currentY - drawing.startY)}%`,
+                          border: "2px dashed #1890ff",
+                          backgroundColor: "rgba(24, 144, 255, 0.2)",
+                          borderRadius: 3,
+                          pointerEvents: "none",
+                          zIndex: 10,
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </Flex>
       )}
+
+      {/* Draft annotation creation modal (DOC-08) */}
+      <Modal
+        open={draftAnnotation !== null}
+        title={`${t("newAnnotation")} · ${t("page", { number: draftAnnotation?.pageNumber ?? 1 })}`}
+        onCancel={() => setDraftAnnotation(null)}
+        footer={[
+          <Button key="cancel" onClick={() => setDraftAnnotation(null)}>
+            {t("cancel")}
+          </Button>,
+          <Button
+            key="finding"
+            icon={<AlertOutlined />}
+            loading={savingAnnotation}
+            onClick={() => handleSaveAnnotation(true)}
+          >
+            {t("createFindingFromAnnotation")}
+          </Button>,
+          <Button
+            key="save"
+            type="primary"
+            loading={savingAnnotation}
+            onClick={() => handleSaveAnnotation(false)}
+          >
+            {t("saveAnnotation")}
+          </Button>,
+        ]}
+      >
+        <Flex vertical gap={12} style={{ paddingTop: 8 }}>
+          <div>
+            <Typography.Text type="secondary">{t("highlightColor")}</Typography.Text>
+            <Radio.Group
+              value={draftColor}
+              onChange={(e) => setDraftColor(e.target.value)}
+              style={{ marginTop: 6, display: "flex", gap: 8 }}
+            >
+              {[
+                { label: t("colorYellow"), value: "#faad14" },
+                { label: t("colorRed"), value: "#ff4d4f" },
+                { label: t("colorGreen"), value: "#52c41a" },
+                { label: t("colorBlue"), value: "#1890ff" },
+              ].map((c) => (
+                <Radio.Button key={c.value} value={c.value}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      background: c.value,
+                      marginRight: 6,
+                      verticalAlign: "middle",
+                    }}
+                  />
+                  {c.label}
+                </Radio.Button>
+              ))}
+            </Radio.Group>
+          </div>
+          <div>
+            <Typography.Text type="secondary">{t("annotationComment")}</Typography.Text>
+            <Input.TextArea
+              rows={3}
+              placeholder={t("commentPlaceholder")}
+              value={draftComment}
+              onChange={(e) => setDraftComment(e.target.value)}
+              style={{ marginTop: 6 }}
+            />
+          </div>
+        </Flex>
+      </Modal>
     </Modal>
   );
 }

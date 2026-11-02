@@ -98,6 +98,45 @@ export interface UploadResponse {
   duplicateOf: string[];
 }
 
+export interface DocumentAnnotation {
+  id: string;
+  projectId: string;
+  documentId: string;
+  pageNumber: number;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  heightPct: number;
+  color?: string;
+  comment?: string;
+  findingId?: string;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnnotationCreateRequest {
+  pageNumber: number;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  heightPct: number;
+  color?: string;
+  comment?: string;
+  findingId?: string;
+}
+
+export interface AnnotationUpdateRequest {
+  xPct?: number;
+  yPct?: number;
+  widthPct?: number;
+  heightPct?: number;
+  color?: string;
+  comment?: string;
+  findingId?: string;
+}
+
 export type PrincipalType = "ROLE" | "USER" | "GROUP";
 export type Permission = "VIEW" | "UPLOAD";
 

@@ -4,6 +4,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
+  HighlightOutlined,
   LinkOutlined,
   QuestionCircleOutlined,
 } from "@ant-design/icons";
@@ -34,9 +35,14 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
-import { buildTree, type DataRoomDocument, type Folder } from "@/features/dataroom/types";
+import {
+  buildTree,
+  type DataRoomDocument,
+  type DocumentAnnotation,
+  type Folder,
+} from "@/features/dataroom/types";
 import type { Project } from "@/features/projects/types";
-import { loadFolderDocuments, loadFolders } from "@/features/dataroom/actions";
+import { loadAnnotationsByFinding, loadFolderDocuments, loadFolders } from "@/features/dataroom/actions";
 
 import {
   addFindingNote,
@@ -83,9 +89,23 @@ export function FindingDrawer({
     null,
   );
   const [version, setVersion] = useState(0);
+  const [annotations, setAnnotations] = useState<DocumentAnnotation[]>([]);
   const [viewing, setViewing] = useState<ViewerTarget | null>(null);
   const [moving, setMoving] = useState<FindingStatus | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!findingId || !internal) return undefined;
+    let active = true;
+    void loadAnnotationsByFinding(project.id, findingId).then((result) => {
+      if (active && result.ok && result.data) {
+        setAnnotations(result.data);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [project.id, findingId, internal, version]);
 
   useEffect(() => {
     if (!findingId) return undefined;
@@ -272,48 +292,80 @@ export function FindingDrawer({
                   <List
                     size="small"
                     dataSource={detail.documents}
-                    renderItem={(doc) => (
-                      <List.Item
-                        actions={[
-                          <Button
-                            key="view"
-                            size="small"
-                            icon={<EyeOutlined />}
-                            disabled={doc.scanStatus !== "CLEAN"}
-                            onClick={() => setViewing({ documentId: doc.id })}
-                            aria-label={t("view")}
-                          />,
-                          draft && (
-                            <Popconfirm
-                              key="unlink"
-                              title={t("unlinkConfirm")}
-                              onConfirm={() =>
-                                act(() => unlinkFindingDocument(project.id, finding.id, doc.id))
+                    renderItem={(doc) => {
+                      const docAnns = annotations.filter((a) => a.documentId === doc.id);
+                      const pageMatch = doc.pageReference?.match(/\d+/);
+                      const parsedPage = pageMatch ? parseInt(pageMatch[0], 10) : undefined;
+                      return (
+                        <List.Item
+                          actions={[
+                            <Button
+                              key="view"
+                              size="small"
+                              icon={<EyeOutlined />}
+                              disabled={doc.scanStatus !== "CLEAN"}
+                              onClick={() =>
+                                setViewing({
+                                  documentId: doc.id,
+                                  initialPage: docAnns[0]?.pageNumber ?? parsedPage,
+                                  highlightAnnotationId: docAnns[0]?.id,
+                                })
                               }
-                            >
-                              <Button size="small" icon={<DeleteOutlined />} aria-label={t("unlink")} />
-                            </Popconfirm>
-                          ),
-                        ]}
-                      >
-                        <List.Item.Meta
-                          title={
-                            <Space>
-                              {doc.name}
-                              {doc.pageReference && <Tag>{doc.pageReference}</Tag>}
-                            </Space>
-                          }
-                          description={
-                            <>
-                              {doc.note && <div>{doc.note}</div>}
-                              <Typography.Text type="secondary">
-                                {doc.linkedByName ?? "—"} · {date(doc.linkedAt)}
-                              </Typography.Text>
-                            </>
-                          }
-                        />
-                      </List.Item>
-                    )}
+                              aria-label={t("view")}
+                            />,
+                            draft && (
+                              <Popconfirm
+                                key="unlink"
+                                title={t("unlinkConfirm")}
+                                onConfirm={() =>
+                                  act(() => unlinkFindingDocument(project.id, finding.id, doc.id))
+                                }
+                              >
+                                <Button size="small" icon={<DeleteOutlined />} aria-label={t("unlink")} />
+                              </Popconfirm>
+                            ),
+                          ]}
+                        >
+                          <List.Item.Meta
+                            title={
+                              <Space>
+                                {doc.name}
+                                {doc.pageReference && <Tag>{doc.pageReference}</Tag>}
+                              </Space>
+                            }
+                            description={
+                              <>
+                                {doc.note && <div>{doc.note}</div>}
+                                {docAnns.length > 0 && (
+                                  <Flex gap={4} wrap style={{ marginTop: 4, marginBottom: 4 }}>
+                                    {docAnns.map((ann) => (
+                                      <Tag
+                                        key={ann.id}
+                                        color="gold"
+                                        style={{ cursor: "pointer" }}
+                                        onClick={() =>
+                                          setViewing({
+                                            documentId: doc.id,
+                                            initialPage: ann.pageNumber,
+                                            highlightAnnotationId: ann.id,
+                                          })
+                                        }
+                                      >
+                                        <HighlightOutlined /> {t("pageReference", { number: ann.pageNumber })}
+                                        {ann.comment ? `: ${ann.comment}` : ""}
+                                      </Tag>
+                                    ))}
+                                  </Flex>
+                                )}
+                                <Typography.Text type="secondary">
+                                  {doc.linkedByName ?? "—"} · {date(doc.linkedAt)}
+                                </Typography.Text>
+                              </>
+                            }
+                          />
+                        </List.Item>
+                      );
+                    }}
                   />
                 )}
                 {detail.hiddenDocuments > 0 && (
@@ -360,7 +412,12 @@ export function FindingDrawer({
         )
       )}
       {internal && (
-        <DocumentViewer projectId={project.id} target={viewing} onClose={() => setViewing(null)} />
+        <DocumentViewer
+          projectId={project.id}
+          target={viewing}
+          onClose={() => setViewing(null)}
+          findingFromPage
+        />
       )}
       {moving && finding && (
         <ReasonModal

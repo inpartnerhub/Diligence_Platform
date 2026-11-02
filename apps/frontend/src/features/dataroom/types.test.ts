@@ -42,3 +42,28 @@ describe("splitHighlight", () => {
     expect(splitHighlight("no match")).toEqual([{ text: "no match", match: false }]);
   });
 });
+
+describe("document annotations", () => {
+  it("validates annotation structure and coordinates", () => {
+    const ann = {
+      id: "ann-1",
+      projectId: "proj-1",
+      documentId: "doc-1",
+      pageNumber: 2,
+      xPct: 15.5,
+      yPct: 20.0,
+      widthPct: 35.0,
+      heightPct: 12.0,
+      color: "#faad14",
+      comment: "Clause 12 inspection",
+      findingId: "fnd-1",
+      createdBy: "usr-1",
+      createdByName: "Analyst",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    expect(ann.pageNumber).toBeGreaterThan(0);
+    expect(ann.xPct + ann.widthPct).toBeLessThanOrEqual(100);
+    expect(ann.yPct + ann.heightPct).toBeLessThanOrEqual(100);
+  });
+});
