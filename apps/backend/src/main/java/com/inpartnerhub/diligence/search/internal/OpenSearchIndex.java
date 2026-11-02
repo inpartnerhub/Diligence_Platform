@@ -117,12 +117,12 @@ class OpenSearchIndex implements SearchIndex {
                     }
                 }
             }
+            var score = hit.score();
             hits.add(new SearchHit(UUID.fromString(source.documentId()), UUID.fromString(source.versionId()),
-                    UUID.fromString(source.folderId()), source.name(),
-                    hit.score() == null ? 0 : hit.score(), highlights));
+                    UUID.fromString(source.folderId()), source.name(), score == null ? 0 : score, highlights));
         }
-        var total = response.hits().total() == null ? hits.size() : response.hits().total().value();
-        return new SearchPage(hits, total);
+        var total = response.hits().total();
+        return new SearchPage(hits, total == null ? hits.size() : total.value());
     }
 
     private void ensureIndex() {

@@ -23,7 +23,6 @@ import com.inpartnerhub.diligence.project.ProjectDirectory;
 import com.inpartnerhub.diligence.project.ProjectDirectory.ProjectContext;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectCreated;
 import com.inpartnerhub.diligence.project.ProjectRole;
-import com.inpartnerhub.diligence.request.RequestEvents.ItemRef;
 import com.inpartnerhub.diligence.request.RequestEvents.RequestCommentAdded;
 import com.inpartnerhub.diligence.request.RequestEvents.RequestDocumentLinked;
 import com.inpartnerhub.diligence.request.RequestEvents.RequestItemChanged;

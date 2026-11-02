@@ -84,7 +84,8 @@ class IngestionPipeline {
                 }
             }
         }
-        results.record(event.versionId(), Outcome.FAILED, null, last.getMessage());
+        // Every attempt that did not return set `last`; the null check only makes that visible to analysers.
+        results.record(event.versionId(), Outcome.FAILED, null, last == null ? null : last.getMessage());
     }
 
     /**
