@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftOutlined, DownloadOutlined, PlusOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, BookOutlined, DownloadOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Alert,
   App,
@@ -34,6 +34,7 @@ import { riskColors } from "@/theme/themeConfig";
 
 import { createFinding, linkFindingDocument, updateFinding } from "./actions";
 import { FindingDrawer } from "./FindingDrawer";
+import { FindingLibraryDrawer } from "./FindingLibraryDrawer";
 import { RiskTag } from "./RiskTag";
 import {
   FINDING_STATUSES,
@@ -85,6 +86,7 @@ export function FindingListView({
   const tw = useTranslations("workstreams");
   const { update } = useUrlQuery();
   const [editing, setEditing] = useState<Finding | "new" | null>(source && permissions.edit ? "new" : null);
+  const [showLibrary, setShowLibrary] = useState(false);
   const internal = permissions.edit || project.myRoles.includes("OBSERVER");
   const sourced = sourcedPercent(findings);
 
@@ -161,9 +163,14 @@ export function FindingListView({
             {t("exportRemediation")}
           </Button>
           {permissions.edit && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing("new")}>
-              {t("newFinding")}
-            </Button>
+            <>
+              <Button icon={<BookOutlined />} onClick={() => setShowLibrary(true)}>
+                {t("importFromLibrary")}
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing("new")}>
+                {t("newFinding")}
+              </Button>
+            </>
           )}
         </Space>
       </Flex>
@@ -251,6 +258,14 @@ export function FindingListView({
         userId={userId}
         onEdit={setEditing}
         onClose={() => update({ finding: undefined }, false)}
+      />
+      <FindingLibraryDrawer
+        open={showLibrary}
+        onClose={() => setShowLibrary(false)}
+        projectId={project.id}
+        workstreams={workstreams}
+        matrix={matrix}
+        onImported={(imported) => update({ finding: imported.id }, false)}
       />
       {editing && (
         <FindingFormModal

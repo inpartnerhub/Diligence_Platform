@@ -199,6 +199,29 @@ export function heatMap(
   return cells;
 }
 
+export interface FindingLibraryTemplate {
+  id: string;
+  workstreamType: WorkstreamType;
+  category: string;
+  title: string;
+  standardDescription: string;
+  defaultRecommendation?: string | null;
+  defaultImpact: number;
+  defaultLikelihood: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FindingLibraryTemplateInput {
+  workstreamType: WorkstreamType;
+  category: string;
+  title: string;
+  standardDescription: string;
+  defaultRecommendation?: string | null;
+  defaultImpact: number;
+  defaultLikelihood: number;
+}
+
 /** Share of findings (excluding archived) citing at least one source document — PRD KPI target ≥ 95%. */
 export function sourcedPercent(
   findings: readonly Pick<Finding, "documentCount" | "status">[],

@@ -705,7 +705,17 @@
       "IN_PROGRESS": "Sedang berjalan",
       "MITIGATED": "Telah dimitigasi",
       "WAIVED": "Dikesampingkan"
-    }
+    },
+    "importFromLibrary": "Impor dari Perpustakaan",
+    "templateLibrary": "Perpustakaan Templat Temuan",
+    "templateLibraryHelp": "Pilih temuan berulang standar dari perpustakaan firma untuk diimpor ke proyek ini.",
+    "useTemplate": "Gunakan Templat",
+    "templateImported": "Temuan berhasil dibuat dari templat standar",
+    "filterTemplates": "Saring berdasarkan bidang kerja...",
+    "searchTemplates": "Cari templat standar...",
+    "targetWorkstream": "Bidang kerja tujuan",
+    "defaultRating": "Peringkat standar: dampak {impact} × kemungkinan {likelihood}",
+    "noTemplatesFound": "Tidak ada templat temuan yang cocok."
   },
   "qna": {
     "title": "Tanya-jawab",

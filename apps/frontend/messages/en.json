@@ -705,7 +705,17 @@
       "IN_PROGRESS": "In progress",
       "MITIGATED": "Mitigated",
       "WAIVED": "Waived"
-    }
+    },
+    "importFromLibrary": "Import from Library",
+    "templateLibrary": "Finding Template Library",
+    "templateLibraryHelp": "Select standard recurring findings from the firm library to import into this deal.",
+    "useTemplate": "Use Template",
+    "templateImported": "Finding created from standard template",
+    "filterTemplates": "Filter by workstream...",
+    "searchTemplates": "Search standard templates...",
+    "targetWorkstream": "Target workstream",
+    "defaultRating": "Default rating: impact {impact} × likelihood {likelihood}",
+    "noTemplatesFound": "No finding templates found matching filters."
   },
   "qna": {
     "title": "Q&A",
