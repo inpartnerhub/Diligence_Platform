@@ -29,7 +29,7 @@ import com.inpartnerhub.diligence.security.internal.SecurityConfiguration;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 
 /** Only partners and project managers create projects; only super admins write templates (PRD Bab 3, PRJ-03). */
-@WebMvcTest(controllers = { ProjectController.class, ProjectTemplateController.class },
+@WebMvcTest(controllers = { ProjectController.class, ProjectTemplateController.class, TimeEntryController.class },
         properties = { "diligence.security.client-id=diligence-api",
                 "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:0/realms/test" })
 @Import(SecurityConfiguration.class)
@@ -59,6 +59,9 @@ class ProjectEndpointSecurityTest {
 
     @MockitoBean
     com.inpartnerhub.diligence.admin.Directory directory;
+
+    @MockitoBean
+    TimeEntryService timeEntriesService;
 
     @Test
     void onlyPartnersAndProjectManagersCreateProjects() throws Exception {
@@ -127,6 +130,40 @@ class ProjectEndpointSecurityTest {
                 .andExpect(status().isForbidden());
 
         mvc.perform(post("/api/v1/projects/" + id + "/purge").with(as(Role.PARTNER)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void timeEntryEndpointsEnforceRolePermissions() throws Exception {
+        var projectId = UUID.randomUUID();
+        var body = """
+                {"workstreamType":"FINANCIAL","entryDate":"2026-11-01","hours":4.5,"description":"Testing"}""";
+
+        var entry = new TimeEntry(projectId, UUID.randomUUID(), com.inpartnerhub.diligence.project.WorkstreamType.FINANCIAL,
+                java.time.LocalDate.of(2026, 11, 1), java.math.BigDecimal.valueOf(4.5), "Testing");
+        when(timeEntriesService.recordTime(any(), any(), any(), any(), any())).thenReturn(entry);
+
+        // Client cannot create time entries
+        mvc.perform(post("/api/v1/projects/" + projectId + "/time-entries")
+                        .with(as(Role.CLIENT))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+
+        // Analyst can create time entries
+        mvc.perform(post("/api/v1/projects/" + projectId + "/time-entries")
+                        .with(as(Role.ANALYST))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated());
+
+        // Target cannot view time entries
+        mvc.perform(get("/api/v1/projects/" + projectId + "/time-entries").with(as(Role.TARGET)))
+                .andExpect(status().isForbidden());
+
+        // Analyst can view time entries
+        when(timeEntriesService.list(any(), any(), any(), any())).thenReturn(List.of(entry));
+        mvc.perform(get("/api/v1/projects/" + projectId + "/time-entries").with(as(Role.ANALYST)))
                 .andExpect(status().isOk());
     }
 

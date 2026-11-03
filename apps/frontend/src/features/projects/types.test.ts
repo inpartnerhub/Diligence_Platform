@@ -37,4 +37,38 @@ describe("project types and role permissions", () => {
     expect(project.retentionPeriodDays).toBe(90);
     expect(project.purgedAt).toBeDefined();
   });
+
+  it("supports TimeEntry and TimeEntrySummary structures", () => {
+    const entry: import("./types").TimeEntry = {
+      id: "te-1",
+      projectId: "p-1",
+      workstreamType: "FINANCIAL",
+      userId: "u-1",
+      userName: "Alice Consultant",
+      entryDate: "2026-11-01",
+      hours: 4.5,
+      description: "Financial review",
+      createdAt: "2026-11-01T10:00:00Z",
+      updatedAt: "2026-11-01T10:00:00Z",
+    };
+    expect(entry.hours).toBe(4.5);
+    expect(entry.workstreamType).toBe("FINANCIAL");
+
+    const summary: import("./types").TimeEntrySummary = {
+      totalHours: 4.5,
+      byWorkstream: {
+        FINANCIAL: 4.5,
+        TAX: 0,
+        LEGAL: 0,
+        COMMERCIAL: 0,
+        OPERATIONAL: 0,
+        HR: 0,
+        IT_CYBER: 0,
+        ESG_COMPLIANCE: 0,
+      },
+      byConsultant: [{ userId: "u-1", userName: "Alice Consultant", totalHours: 4.5, entryCount: 1 }],
+    };
+    expect(summary.totalHours).toBe(4.5);
+    expect(summary.byConsultant[0]?.entryCount).toBe(1);
+  });
 });

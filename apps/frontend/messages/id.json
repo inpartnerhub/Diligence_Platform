@@ -265,7 +265,19 @@
     "purgeConfirm": "Hapus permanen seluruh berkas data room, teks hasil ekstraksi OCR, dan anotasi proyek ini? Tindakan ini tidak dapat dibatalkan.",
     "purged": "Dibersihkan",
     "readOnly": "Hanya partner dan project manager proyek yang dapat mengubah pengaturan ini.",
-    "externalHint": "Pengguna klien dan target hanya dapat ditambahkan dari organisasi klien atau target proyek ini."
+    "externalHint": "Pengguna klien dan target hanya dapat ditambahkan dari organisasi klien atau target proyek ini.",
+    "timesheet": "Lembar Waktu",
+    "timesheetTitle": "Pelacakan Waktu & Beban Kerja",
+    "logTime": "Catat Waktu",
+    "editTimeEntry": "Ubah Catatan Waktu",
+    "exportTimesheet": "Ekspor Lembar Waktu",
+    "totalLoggedHours": "Total Jam Tercatat",
+    "hoursByWorkstream": "Jam per Bidang Kerja",
+    "timeEntriesList": "Daftar Catatan Waktu",
+    "entryDate": "Tanggal",
+    "consultant": "Konsultan",
+    "hours": "Jam",
+    "description": "Deskripsi"
   },
   "templates": {
     "title": "Template proyek",

@@ -1,5 +1,7 @@
 package com.inpartnerhub.diligence.project;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -174,6 +176,82 @@ public final class ProjectEvents {
                     "documentsCount", String.valueOf(documentsCount),
                     "versionsCount", String.valueOf(versionsCount),
                     "s3ObjectsPurged", String.valueOf(s3ObjectsPurged));
+        }
+    }
+
+    public record TimeEntryCreated(UUID projectId, UUID entryId, UUID userId, WorkstreamType workstreamType,
+            BigDecimal hours, LocalDate entryDate, RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.time_entry_created";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "time_entry";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return entryId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of(
+                    "projectId", projectId.toString(),
+                    "workstream", workstreamType.name(),
+                    "hours", hours.toPlainString(),
+                    "date", entryDate.toString());
+        }
+    }
+
+    public record TimeEntryUpdated(UUID projectId, UUID entryId, UUID userId, BigDecimal hours,
+            RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.time_entry_updated";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "time_entry";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return entryId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("projectId", projectId.toString(), "hours", hours.toPlainString());
+        }
+    }
+
+    public record TimeEntryDeleted(UUID projectId, UUID entryId, UUID userId,
+            RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.time_entry_deleted";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "time_entry";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return entryId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("projectId", projectId.toString());
         }
     }
 }

@@ -11,6 +11,8 @@ import type {
   PortfolioDashboard,
   Project,
   ProjectTemplate,
+  TimeEntry,
+  TimeEntrySummary,
   Workstream,
 } from "./types";
 
@@ -22,6 +24,12 @@ export const projectsApi = {
   members: (id: string) => apiFetch<Member[]>(`/api/v1/projects/${encodeURIComponent(id)}/members`),
   dashboard: (id: string) => apiFetch<Dashboard>(`/api/v1/projects/${encodeURIComponent(id)}/dashboard`),
   portfolio: () => apiFetch<PortfolioDashboard>("/api/v1/projects/portfolio"),
+  timeEntries: (id: string, query?: Query) =>
+    apiFetch<TimeEntry[]>(withQuery(`/api/v1/projects/${encodeURIComponent(id)}/time-entries`, query ?? {})),
+  timeEntrySummary: (id: string, query?: Query) =>
+    apiFetch<TimeEntrySummary>(
+      withQuery(`/api/v1/projects/${encodeURIComponent(id)}/time-entries/summary`, query ?? {}),
+    ),
   templates: () => apiFetch<ProjectTemplate[]>("/api/v1/project-templates"),
   organizations: (type: OrganizationSummary["type"]) =>
     apiFetch<OrganizationSummary[]>(withQuery("/api/v1/directory/organizations", { type })),

@@ -209,4 +209,44 @@ export interface TemplateInput {
   definition: TemplateDefinition;
 }
 
+export interface TimeEntry {
+  id: string;
+  projectId: string;
+  workstreamType: WorkstreamType;
+  userId: string;
+  userName: string;
+  entryDate: string;
+  hours: number;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConsultantWorkload {
+  userId: string;
+  userName: string;
+  totalHours: number;
+  entryCount: number;
+}
+
+export interface TimeEntrySummary {
+  totalHours: number;
+  byWorkstream: Record<WorkstreamType, number>;
+  byConsultant: ConsultantWorkload[];
+}
+
+export interface CreateTimeEntryInput {
+  workstreamType: WorkstreamType;
+  entryDate: string;
+  hours: number;
+  description?: string;
+}
+
+export interface UpdateTimeEntryInput {
+  workstreamType: WorkstreamType;
+  entryDate: string;
+  hours: number;
+  description?: string;
+}
+
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
