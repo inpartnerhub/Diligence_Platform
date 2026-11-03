@@ -1,6 +1,5 @@
 package com.inpartnerhub.diligence.admin.internal;
 
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -23,7 +22,6 @@ import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.audit.AuditableEvent;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
-import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
 import tools.jackson.databind.json.JsonMapper;
 

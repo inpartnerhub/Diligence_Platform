@@ -21,12 +21,8 @@ import java.util.UUID;
 import org.apache.poi.sl.usermodel.TextParagraph.TextAlign;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
-import org.apache.poi.xslf.usermodel.XSLFTable;
-import org.apache.poi.xslf.usermodel.XSLFTableCell;
 import org.apache.poi.xslf.usermodel.XSLFTableRow;
 import org.apache.poi.xslf.usermodel.XSLFTextBox;
-import org.apache.poi.xslf.usermodel.XSLFTextParagraph;
-import org.apache.poi.xslf.usermodel.XSLFTextRun;
 
 import com.inpartnerhub.diligence.finding.FindingDirectory.ReleasedFinding;
 import com.inpartnerhub.diligence.finding.RiskLevel;
@@ -58,6 +54,8 @@ final class ReportPresentationWriter {
             RiskLevel.HIGH, new Color(212, 107, 8),
             RiskLevel.MEDIUM, new Color(212, 177, 6),
             RiskLevel.LOW, new Color(56, 158, 13));
+
+    private static final String SCORE_GTE_PREFIX = " (Score ≥ ";
 
     record Content(
             String projectCode,
@@ -260,11 +258,11 @@ final class ReportPresentationWriter {
         rLeg.setFontSize(14.0);
         rLeg.setFontColor(COLOR_PRIMARY);
 
-        addLegendItem(legendTb, text.levels().get(RiskLevel.CRITICAL) + " (Score ≥ " + content.matrix().criticalFrom() + ")",
+        addLegendItem(legendTb, text.levels().get(RiskLevel.CRITICAL) + SCORE_GTE_PREFIX + content.matrix().criticalFrom() + ")",
                 RISK_COLORS.get(RiskLevel.CRITICAL));
-        addLegendItem(legendTb, text.levels().get(RiskLevel.HIGH) + " (Score ≥ " + content.matrix().highFrom() + ")",
+        addLegendItem(legendTb, text.levels().get(RiskLevel.HIGH) + SCORE_GTE_PREFIX + content.matrix().highFrom() + ")",
                 RISK_COLORS.get(RiskLevel.HIGH));
-        addLegendItem(legendTb, text.levels().get(RiskLevel.MEDIUM) + " (Score ≥ " + content.matrix().mediumFrom() + ")",
+        addLegendItem(legendTb, text.levels().get(RiskLevel.MEDIUM) + SCORE_GTE_PREFIX + content.matrix().mediumFrom() + ")",
                 RISK_COLORS.get(RiskLevel.MEDIUM));
         addLegendItem(legendTb, text.levels().get(RiskLevel.LOW) + " (Score < " + content.matrix().mediumFrom() + ")",
                 RISK_COLORS.get(RiskLevel.LOW));
@@ -289,7 +287,7 @@ final class ReportPresentationWriter {
         }
 
         var table = slide.createTable();
-        table.setAnchor(new Rectangle2D.Double(60, 110, 840, 40 + (byWorkstream.size() * 30)));
+        table.setAnchor(new Rectangle2D.Double(60, 110, 840, 40.0 + (byWorkstream.size() * 30.0)));
 
         var headerRow = table.addRow();
         addCell(headerRow, "Workstream", true, COLOR_PRIMARY, COLOR_WHITE, 11.0, TextAlign.LEFT);
@@ -322,136 +320,143 @@ final class ReportPresentationWriter {
     }
 
     private static void findingSlides(XMLSlideShow ppt, Content content, ReportTexts text) {
-        // Sort findings by descending risk score
         var sorted = content.findings().stream()
                 .sorted((a, b) -> Integer.compare(score(b), score(a)))
                 .toList();
 
         for (var f : sorted) {
-            var slide = ppt.createSlide();
+            buildFindingSlide(ppt, f, content, text);
+        }
+    }
 
-            // Header Banner
-            var type = content.workstreams().get(f.workstreamId());
-            var wsName = type == null ? f.category() : text.workstreams().getOrDefault(type, type.name());
-            var level = f.riskLevel();
-            var levelName = level == null ? text.unrated() : text.levels().get(level);
+    private static void buildFindingSlide(XMLSlideShow ppt, ReleasedFinding f, Content content, ReportTexts text) {
+        var slide = ppt.createSlide();
+        buildFindingHeader(slide, f, content, text);
+        buildFindingLeftBox(slide, f, text);
+        buildFindingRightBox(slide, f, text);
+        addSlideFooter(slide, content, text, false);
+    }
 
-            var headerTb = slide.createTextBox();
-            headerTb.setAnchor(new Rectangle2D.Double(60, 20, 840, 70));
+    private static void buildFindingHeader(XSLFSlide slide, ReleasedFinding f, Content content, ReportTexts text) {
+        var type = content.workstreams().get(f.workstreamId());
+        var wsName = type == null ? f.category() : text.workstreams().getOrDefault(type, type.name());
+        var level = f.riskLevel();
+        var levelName = level == null ? text.unrated() : text.levels().get(level);
 
-            var pSub = headerTb.addNewTextParagraph();
-            var rSub = pSub.addNewTextRun();
-            rSub.setText(content.projectCode() + " · " + wsName + " · " + f.category());
-            rSub.setFontSize(11.0);
-            rSub.setFontColor(COLOR_SECONDARY);
+        var headerTb = slide.createTextBox();
+        headerTb.setAnchor(new Rectangle2D.Double(60, 20, 840, 70));
 
-            var pTitle = headerTb.addNewTextParagraph();
-            pTitle.setSpaceBefore(4.0);
-            var rNum = pTitle.addNewTextRun();
-            rNum.setText("[" + f.number() + "] ");
-            rNum.setBold(true);
-            rNum.setFontSize(18.0);
-            rNum.setFontColor(level != null ? RISK_COLORS.get(level) : COLOR_PRIMARY);
+        var pSub = headerTb.addNewTextParagraph();
+        var rSub = pSub.addNewTextRun();
+        rSub.setText(content.projectCode() + " · " + wsName + " · " + f.category());
+        rSub.setFontSize(11.0);
+        rSub.setFontColor(COLOR_SECONDARY);
 
-            var rTitle = pTitle.addNewTextRun();
-            rTitle.setText(f.title());
-            rTitle.setBold(true);
-            rTitle.setFontSize(18.0);
-            rTitle.setFontColor(COLOR_PRIMARY);
+        var pTitle = headerTb.addNewTextParagraph();
+        pTitle.setSpaceBefore(4.0);
+        var rNum = pTitle.addNewTextRun();
+        rNum.setText("[" + f.number() + "] ");
+        rNum.setBold(true);
+        rNum.setFontSize(18.0);
+        rNum.setFontColor(level != null ? RISK_COLORS.get(level) : COLOR_PRIMARY);
 
-            // Risk tag badge text
-            var rBadge = pTitle.addNewTextRun();
-            rBadge.setText("   [" + levelName.toUpperCase() + (f.riskScore() != null ? " · " + f.riskScore() : "") + "]");
-            rBadge.setFontSize(12.0);
-            rBadge.setBold(true);
-            rBadge.setFontColor(level != null ? RISK_COLORS.get(level) : COLOR_SECONDARY);
+        var rTitle = pTitle.addNewTextRun();
+        rTitle.setText(f.title());
+        rTitle.setBold(true);
+        rTitle.setFontSize(18.0);
+        rTitle.setFontColor(COLOR_PRIMARY);
 
-            // Left Box: Description & Impact
-            var leftTb = slide.createTextBox();
-            leftTb.setAnchor(new Rectangle2D.Double(60, 95, 400, 360));
+        var rBadge = pTitle.addNewTextRun();
+        rBadge.setText("   [" + levelName.toUpperCase() + (f.riskScore() != null ? " · " + f.riskScore() : "") + "]");
+        rBadge.setFontSize(12.0);
+        rBadge.setBold(true);
+        rBadge.setFontColor(level != null ? RISK_COLORS.get(level) : COLOR_SECONDARY);
+    }
 
-            var pDescHead = leftTb.addNewTextParagraph();
-            var rDescHead = pDescHead.addNewTextRun();
-            rDescHead.setText(text.description());
-            rDescHead.setBold(true);
-            rDescHead.setFontSize(12.0);
-            rDescHead.setFontColor(COLOR_PRIMARY);
+    private static void buildFindingLeftBox(XSLFSlide slide, ReleasedFinding f, ReportTexts text) {
+        var leftTb = slide.createTextBox();
+        leftTb.setAnchor(new Rectangle2D.Double(60, 95, 400, 360));
 
-            var pDesc = leftTb.addNewTextParagraph();
-            pDesc.setSpaceBefore(4.0);
-            var rDesc = pDesc.addNewTextRun();
-            rDesc.setText(f.description());
-            rDesc.setFontSize(10.5);
-            rDesc.setFontColor(COLOR_SECONDARY);
+        var pDescHead = leftTb.addNewTextParagraph();
+        var rDescHead = pDescHead.addNewTextRun();
+        rDescHead.setText(text.description());
+        rDescHead.setBold(true);
+        rDescHead.setFontSize(12.0);
+        rDescHead.setFontColor(COLOR_PRIMARY);
 
-            if (f.impactDescription() != null && !f.impactDescription().isBlank()) {
-                var pImpHead = leftTb.addNewTextParagraph();
-                pImpHead.setSpaceBefore(12.0);
-                var rImpHead = pImpHead.addNewTextRun();
-                rImpHead.setText(text.impact());
-                rImpHead.setBold(true);
-                rImpHead.setFontSize(12.0);
-                rImpHead.setFontColor(COLOR_PRIMARY);
+        var pDesc = leftTb.addNewTextParagraph();
+        pDesc.setSpaceBefore(4.0);
+        var rDesc = pDesc.addNewTextRun();
+        rDesc.setText(f.description());
+        rDesc.setFontSize(10.5);
+        rDesc.setFontColor(COLOR_SECONDARY);
 
-                var pImp = leftTb.addNewTextParagraph();
-                pImp.setSpaceBefore(4.0);
-                var rImp = pImp.addNewTextRun();
-                rImp.setText(f.impactDescription());
-                rImp.setFontSize(10.5);
-                rImp.setFontColor(COLOR_SECONDARY);
+        if (f.impactDescription() != null && !f.impactDescription().isBlank()) {
+            var pImpHead = leftTb.addNewTextParagraph();
+            pImpHead.setSpaceBefore(12.0);
+            var rImpHead = pImpHead.addNewTextRun();
+            rImpHead.setText(text.impact());
+            rImpHead.setBold(true);
+            rImpHead.setFontSize(12.0);
+            rImpHead.setFontColor(COLOR_PRIMARY);
+
+            var pImp = leftTb.addNewTextParagraph();
+            pImp.setSpaceBefore(4.0);
+            var rImp = pImp.addNewTextRun();
+            rImp.setText(f.impactDescription());
+            rImp.setFontSize(10.5);
+            rImp.setFontColor(COLOR_SECONDARY);
+        }
+
+        if (f.monetaryImpact() != null) {
+            var pMon = leftTb.addNewTextParagraph();
+            pMon.setSpaceBefore(8.0);
+            var rMon = pMon.addNewTextRun();
+            rMon.setText(text.monetary() + ": " + formatMonetary(f.monetaryImpact(), f.currency()));
+            rMon.setBold(true);
+            rMon.setFontSize(11.0);
+            rMon.setFontColor(COLOR_PRIMARY);
+        }
+    }
+
+    private static void buildFindingRightBox(XSLFSlide slide, ReleasedFinding f, ReportTexts text) {
+        var rightTb = slide.createTextBox();
+        rightTb.setAnchor(new Rectangle2D.Double(480, 95, 420, 360));
+
+        if (f.recommendation() != null && !f.recommendation().isBlank()) {
+            var pRecHead = rightTb.addNewTextParagraph();
+            var rRecHead = pRecHead.addNewTextRun();
+            rRecHead.setText(text.recommendation());
+            rRecHead.setBold(true);
+            rRecHead.setFontSize(12.0);
+            rRecHead.setFontColor(COLOR_PRIMARY);
+
+            var pRec = rightTb.addNewTextParagraph();
+            pRec.setSpaceBefore(4.0);
+            var rRec = pRec.addNewTextRun();
+            rRec.setText(f.recommendation());
+            rRec.setFontSize(10.5);
+            rRec.setFontColor(COLOR_SECONDARY);
+        }
+
+        if (!f.sources().isEmpty()) {
+            var pSrcHead = rightTb.addNewTextParagraph();
+            pSrcHead.setSpaceBefore(12.0);
+            var rSrcHead = pSrcHead.addNewTextRun();
+            rSrcHead.setText(text.sources());
+            rSrcHead.setBold(true);
+            rSrcHead.setFontSize(12.0);
+            rSrcHead.setFontColor(COLOR_PRIMARY);
+
+            for (var s : f.sources()) {
+                var pSrc = rightTb.addNewTextParagraph();
+                pSrc.setSpaceBefore(4.0);
+                var rSrc = pSrc.addNewTextRun();
+                var ref = s.pageReference() == null ? "" : " (" + s.pageReference() + ")";
+                rSrc.setText("• " + s.documentName() + ref);
+                rSrc.setFontSize(10.0);
+                rSrc.setFontColor(COLOR_SECONDARY);
             }
-
-            if (f.monetaryImpact() != null) {
-                var pMon = leftTb.addNewTextParagraph();
-                pMon.setSpaceBefore(8.0);
-                var rMon = pMon.addNewTextRun();
-                rMon.setText(text.monetary() + ": " + formatMonetary(f.monetaryImpact(), f.currency()));
-                rMon.setBold(true);
-                rMon.setFontSize(11.0);
-                rMon.setFontColor(COLOR_PRIMARY);
-            }
-
-            // Right Box: Recommendation & Sources
-            var rightTb = slide.createTextBox();
-            rightTb.setAnchor(new Rectangle2D.Double(480, 95, 420, 360));
-
-            if (f.recommendation() != null && !f.recommendation().isBlank()) {
-                var pRecHead = rightTb.addNewTextParagraph();
-                var rRecHead = pRecHead.addNewTextRun();
-                rRecHead.setText(text.recommendation());
-                rRecHead.setBold(true);
-                rRecHead.setFontSize(12.0);
-                rRecHead.setFontColor(COLOR_PRIMARY);
-
-                var pRec = rightTb.addNewTextParagraph();
-                pRec.setSpaceBefore(4.0);
-                var rRec = pRec.addNewTextRun();
-                rRec.setText(f.recommendation());
-                rRec.setFontSize(10.5);
-                rRec.setFontColor(COLOR_SECONDARY);
-            }
-
-            if (!f.sources().isEmpty()) {
-                var pSrcHead = rightTb.addNewTextParagraph();
-                pSrcHead.setSpaceBefore(12.0);
-                var rSrcHead = pSrcHead.addNewTextRun();
-                rSrcHead.setText(text.sources());
-                rSrcHead.setBold(true);
-                rSrcHead.setFontSize(12.0);
-                rSrcHead.setFontColor(COLOR_PRIMARY);
-
-                for (var s : f.sources()) {
-                    var pSrc = rightTb.addNewTextParagraph();
-                    pSrc.setSpaceBefore(4.0);
-                    var rSrc = pSrc.addNewTextRun();
-                    var ref = s.pageReference() == null ? "" : " (" + s.pageReference() + ")";
-                    rSrc.setText("• " + s.documentName() + ref);
-                    rSrc.setFontSize(10.0);
-                    rSrc.setFontColor(COLOR_SECONDARY);
-                }
-            }
-
-            addSlideFooter(slide, content, text, false);
         }
     }
 
