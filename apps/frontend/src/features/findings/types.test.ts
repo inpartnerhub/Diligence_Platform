@@ -84,4 +84,14 @@ describe("risk helpers", () => {
     expect(FINDING_STATUSES).toContain("RELEASED");
     expect(REMEDIATION_STATUSES).toEqual(["OPEN", "IN_PROGRESS", "MITIGATED", "WAIVED"]);
   });
+
+  it("handles template rating with matrix", () => {
+    const template = {
+      defaultImpact: 4,
+      defaultLikelihood: 3,
+    };
+    const score = template.defaultImpact * template.defaultLikelihood;
+    expect(score).toBe(12);
+    expect(levelFor(score, matrix)).toBe("HIGH");
+  });
 });

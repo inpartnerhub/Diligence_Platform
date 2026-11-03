@@ -13,6 +13,8 @@ import type {
   Finding,
   FindingDetail,
   FindingInput,
+  FindingLibraryTemplate,
+  FindingLibraryTemplateInput,
   FindingStatus,
   RemediationInput,
   RiskMatrix,
@@ -200,4 +202,64 @@ export async function saveRiskMatrix(
   );
   if (result.ok) revalidatePath("/admin/risk-matrix");
   return result;
+}
+
+export async function listFindingLibraryTemplates(filters?: {
+  workstream?: string;
+  q?: string;
+}): Promise<Result<FindingLibraryTemplate[]>> {
+  const params = new URLSearchParams();
+  if (filters?.workstream) params.set("workstream", filters.workstream);
+  if (filters?.q) params.set("q", filters.q);
+  const qs = params.toString();
+  const path = `/api/v1/finding-library${qs ? `?${qs}` : ""}` as `/api/${string}`;
+  return attempt(() => apiFetch<FindingLibraryTemplate[]>(path));
+}
+
+export async function importFindingFromLibrary(
+  projectId: string,
+  templateId: string,
+  workstreamId?: string,
+): Promise<Result<Finding>> {
+  const params = new URLSearchParams();
+  if (workstreamId) params.set("workstreamId", workstreamId);
+  const qs = params.toString();
+  const path =
+    `/api/v1/projects/${encodeURIComponent(projectId)}/findings/import-template/${encodeURIComponent(templateId)}${qs ? `?${qs}` : ""}` as `/api/${string}`;
+  return run(projectId, () => apiFetch<Finding>(path, { method: "POST" }));
+}
+
+export async function createFindingLibraryTemplate(
+  input: FindingLibraryTemplateInput,
+): Promise<Result<FindingLibraryTemplate>> {
+  try {
+    const title = validateRequiredText(input.title, "Title", true);
+    const category = validateRequiredText(input.category, "Category", true);
+    const standardDescription = validateRequiredText(input.standardDescription, "Standard description");
+    const defaultRecommendation = sanitizeOptionalTextOrNull(input.defaultRecommendation);
+
+    const body: FindingLibraryTemplateInput = {
+      ...input,
+      title,
+      category,
+      standardDescription,
+      defaultRecommendation,
+    };
+    return attempt(() =>
+      apiFetch<FindingLibraryTemplate>("/api/v1/admin/finding-library", {
+        method: "POST",
+        body,
+      }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
+}
+
+export async function deleteFindingLibraryTemplate(templateId: string): Promise<Result<undefined>> {
+  return attempt(() =>
+    apiFetch<undefined>(`/api/v1/admin/finding-library/${encodeURIComponent(templateId)}`, {
+      method: "DELETE",
+    }),
+  );
 }

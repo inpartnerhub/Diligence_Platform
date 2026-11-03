@@ -124,12 +124,15 @@ class FindingController {
     }
 
     private final FindingService findings;
+    private final FindingLibraryService libraryService;
     private final FindingAccess access;
     private final ProjectDirectory projects;
     private final Directory directory;
 
-    FindingController(FindingService findings, FindingAccess access, ProjectDirectory projects, Directory directory) {
+    FindingController(FindingService findings, FindingLibraryService libraryService, FindingAccess access,
+            ProjectDirectory projects, Directory directory) {
         this.findings = findings;
+        this.libraryService = libraryService;
         this.access = access;
         this.projects = projects;
         this.directory = directory;
@@ -169,6 +172,14 @@ class FindingController {
     @Operation(summary = "Record a finding (draft), optionally rated impact × likelihood — FND-01, FND-03")
     FindingResponse create(@PathVariable UUID projectId, @Valid @RequestBody FindingRequest request) {
         return single(projectId, findings.create(projectId, request.content(), request.rating()));
+    }
+
+    @PostMapping("/import-template/{templateId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Import finding from standard library template — FND-06")
+    FindingResponse importFromLibrary(@PathVariable UUID projectId, @PathVariable UUID templateId,
+            @RequestParam(required = false) UUID workstreamId) {
+        return single(projectId, libraryService.instantiate(projectId, templateId, workstreamId));
     }
 
     @PutMapping("/{findingId}")
