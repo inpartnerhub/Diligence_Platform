@@ -10,10 +10,14 @@ import { sanitizeOptionalText, sanitizeText, validateRequiredText } from "@/lib/
 import type {
   ActionResult,
   CreateProjectInput,
+  CreateTimeEntryInput,
   Project,
   ProjectRole,
   ProjectStage,
   TemplateInput,
+  TimeEntry,
+  TimeEntrySummary,
+  UpdateTimeEntryInput,
   UserSummary,
   WorkstreamType,
 } from "./types";
@@ -164,6 +168,67 @@ export async function duplicateTemplate(id: string, name: string): Promise<Actio
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
   }
+}
+
+export async function listTimeEntries(
+  projectId: string,
+  filters?: { from?: string; to?: string; userId?: string },
+): Promise<ActionResult<TimeEntry[]>> {
+  const path = withQuery(projectApi(projectId, "/time-entries"), filters ?? {});
+  return run([projectPath(projectId)], () => apiFetch<TimeEntry[]>(path));
+}
+
+export async function getTimeEntrySummary(
+  projectId: string,
+  filters?: { from?: string; to?: string },
+): Promise<ActionResult<TimeEntrySummary>> {
+  const path = withQuery(projectApi(projectId, "/time-entries/summary"), filters ?? {});
+  return run([projectPath(projectId)], () => apiFetch<TimeEntrySummary>(path));
+}
+
+export async function createTimeEntry(
+  projectId: string,
+  input: CreateTimeEntryInput,
+): Promise<ActionResult<TimeEntry>> {
+  try {
+    const description = sanitizeOptionalText(input.description);
+    const sanitizedInput: CreateTimeEntryInput = { ...input, description };
+    return run([projectPath(projectId)], () =>
+      apiFetch<TimeEntry>(projectApi(projectId, "/time-entries"), {
+        method: "POST",
+        body: sanitizedInput,
+      }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
+}
+
+export async function updateTimeEntry(
+  projectId: string,
+  entryId: string,
+  input: UpdateTimeEntryInput,
+): Promise<ActionResult<TimeEntry>> {
+  try {
+    const description = sanitizeOptionalText(input.description);
+    const sanitizedInput: UpdateTimeEntryInput = { ...input, description };
+    return run([projectPath(projectId)], () =>
+      apiFetch<TimeEntry>(projectApi(projectId, `/time-entries/${encodeURIComponent(entryId)}`), {
+        method: "PUT",
+        body: sanitizedInput,
+      }),
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Validation failed" };
+  }
+}
+
+export async function deleteTimeEntry(projectId: string, entryId: string): Promise<ActionResult> {
+  return run([projectPath(projectId)], () =>
+    apiFetch(projectApi(projectId, `/time-entries/${encodeURIComponent(entryId)}`), {
+      method: "DELETE",
+    }),
+  ).then(drop);
 }
 
 function drop<T>(result: ActionResult<T>): ActionResult {

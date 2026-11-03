@@ -3,6 +3,10 @@
 import {
   AlertOutlined,
   ArrowLeftOutlined,
+  ClockCircleOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   PlusOutlined,
@@ -20,6 +24,7 @@ import {
   Flex,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Progress,
@@ -41,12 +46,15 @@ import { riskColors } from "@/theme/themeConfig";
 
 import {
   addMember,
+  createTimeEntry,
+  deleteTimeEntry,
   purgeProjectData,
   removeMember,
   replaceWorkstreams,
   searchUsers,
   setProjectArchived,
   updateProject,
+  updateTimeEntry,
 } from "./actions";
 import {
   MANAGER_ROLES,
@@ -60,6 +68,8 @@ import {
   type Project,
   type ProjectRole,
   type ProjectStage,
+  type TimeEntry,
+  type TimeEntrySummary,
   type UserSummary,
   type Workstream,
   type WorkstreamType,
@@ -70,6 +80,8 @@ export interface ProjectDetailViewProps {
   workstreams: Workstream[];
   members: Member[];
   dashboard: Dashboard;
+  timeEntries?: TimeEntry[];
+  timeEntrySummary?: TimeEntrySummary | null;
 }
 
 export function ProjectDetailView({
@@ -77,11 +89,16 @@ export function ProjectDetailView({
   workstreams,
   members,
   dashboard,
+  timeEntries = [],
+  timeEntrySummary = null,
 }: Readonly<ProjectDetailViewProps>) {
   const t = useTranslations();
   const format = useFormatter();
   const canManage = project.myRoles.some((role) => MANAGER_ROLES.includes(role));
   const editable = canManage && project.status === "ACTIVE";
+  const isConsultant = project.myRoles.some((role) =>
+    ["PARTNER", "PROJECT_MANAGER", "ANALYST", "OBSERVER"].includes(role),
+  );
 
   return (
     <>
@@ -158,6 +175,23 @@ export function ProjectDetailView({
               <TeamTab project={project} workstreams={workstreams} members={members} editable={editable} />
             ),
           },
+          ...(isConsultant
+            ? [
+                {
+                  key: "timesheet",
+                  label: t("project.timesheet"),
+                  children: (
+                    <TimesheetTab
+                      project={project}
+                      workstreams={workstreams}
+                      timeEntries={timeEntries}
+                      summary={timeEntrySummary}
+                      editable={editable}
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             key: "settings",
             label: t("project.settings"),
@@ -252,7 +286,7 @@ function DashboardTab({ dashboard }: Readonly<{ dashboard: Dashboard }>) {
 function useActionFeedback() {
   const t = useTranslations();
   const { message } = App.useApp();
-  return (result: ActionResult, success = t("common.saved")) => {
+  return (result: ActionResult<unknown>, success = t("common.saved")) => {
     if (result.ok) {
       message.success(success);
     } else {
@@ -608,5 +642,224 @@ function SettingsTab({
         )}
       </Flex>
     </Card>
+  );
+}
+
+interface TimesheetFormValues {
+  workstreamType: WorkstreamType;
+  entryDate: Dayjs;
+  hours: number;
+  description?: string;
+}
+
+function TimesheetTab({
+  project,
+  workstreams,
+  timeEntries = [],
+  summary,
+  editable,
+}: Readonly<{
+  project: Project;
+  workstreams: Workstream[];
+  timeEntries?: TimeEntry[];
+  summary?: TimeEntrySummary | null;
+  editable: boolean;
+}>) {
+  const t = useTranslations();
+  const format = useFormatter();
+  const feedback = useActionFeedback();
+  const [pending, startTransition] = useTransition();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [form] = Form.useForm<TimesheetFormValues>();
+
+  const openCreateModal = () => {
+    setEditingEntry(null);
+    form.resetFields();
+    form.setFieldsValue({
+      entryDate: dayjs(),
+      workstreamType: workstreams[0]?.type ?? "FINANCIAL",
+      hours: 1.0,
+      description: "",
+    });
+    setModalOpen(true);
+  };
+
+  const openEditModal = (entry: TimeEntry) => {
+    setEditingEntry(entry);
+    form.setFieldsValue({
+      entryDate: dayjs(entry.entryDate),
+      workstreamType: entry.workstreamType,
+      hours: entry.hours,
+      description: entry.description ?? "",
+    });
+    setModalOpen(true);
+  };
+
+  const handleSave = (values: TimesheetFormValues) => {
+    startTransition(async () => {
+      const payload = {
+        workstreamType: values.workstreamType,
+        entryDate: values.entryDate.format("YYYY-MM-DD"),
+        hours: Number(values.hours),
+        description: values.description,
+      };
+      const result = editingEntry
+        ? await updateTimeEntry(project.id, editingEntry.id, payload)
+        : await createTimeEntry(project.id, payload);
+      feedback(result);
+      if (result.ok) {
+        setModalOpen(false);
+      }
+    });
+  };
+
+  const handleDelete = (entryId: string) => {
+    startTransition(async () => {
+      const result = await deleteTimeEntry(project.id, entryId);
+      feedback(result);
+    });
+  };
+
+  return (
+    <Flex vertical gap={16}>
+      <Flex justify="space-between" align="center" wrap gap={8}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          {t("project.timesheetTitle")}
+        </Typography.Title>
+        <Space>
+          <a href={`/api/projects/${project.id}/time-entries/export`} download>
+            <Button icon={<DownloadOutlined />}>{t("project.exportTimesheet")}</Button>
+          </a>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal} disabled={!editable}>
+            {t("project.logTime")}
+          </Button>
+        </Space>
+      </Flex>
+
+      {summary && (
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={8}>
+            <Card>
+              <Statistic
+                title={t("project.totalLoggedHours")}
+                value={summary.totalHours}
+                suffix="hrs"
+                prefix={<ClockCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={16}>
+            <Card title={t("project.hoursByWorkstream")}>
+              <Space wrap size="large">
+                {workstreams.map((w) => {
+                  const hrs = summary.byWorkstream[w.type] ?? 0;
+                  return <Statistic key={w.id} title={t(`workstreams.${w.type}`)} value={hrs} suffix="hrs" />;
+                })}
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      <Card title={t("project.timeEntriesList")}>
+        <Table<TimeEntry>
+          dataSource={timeEntries}
+          rowKey="id"
+          pagination={{ pageSize: 10 }}
+          columns={[
+            {
+              title: t("project.entryDate"),
+              dataIndex: "entryDate",
+              key: "entryDate",
+              render: (d: string) => format.dateTime(new Date(d), { dateStyle: "medium" }),
+            },
+            {
+              title: t("project.consultant"),
+              dataIndex: "userName",
+              key: "userName",
+            },
+            {
+              title: t("projects.workstreams"),
+              dataIndex: "workstreamType",
+              key: "workstreamType",
+              render: (w: WorkstreamType) => <Tag>{t(`workstreams.${w}`)}</Tag>,
+            },
+            {
+              title: t("project.hours"),
+              dataIndex: "hours",
+              key: "hours",
+              render: (h: number) => `${h} hrs`,
+            },
+            {
+              title: t("project.description"),
+              dataIndex: "description",
+              key: "description",
+              render: (desc: string | null) => desc || "—",
+            },
+            {
+              title: t("common.actions"),
+              key: "actions",
+              render: (_, record) => (
+                <Space>
+                  <Button
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => openEditModal(record)}
+                    disabled={!editable}
+                  />
+                  <Popconfirm
+                    title={t("common.confirmDelete")}
+                    onConfirm={() => handleDelete(record.id)}
+                    disabled={!editable}
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      loading={pending}
+                      disabled={!editable}
+                    />
+                  </Popconfirm>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Card>
+
+      <Modal
+        title={editingEntry ? t("project.editTimeEntry") : t("project.logTime")}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={() => form.submit()}
+        confirmLoading={pending}
+        destroyOnClose
+      >
+        <Form<TimesheetFormValues> form={form} layout="vertical" onFinish={handleSave}>
+          <Form.Item name="workstreamType" label={t("projects.workstreams")} rules={[{ required: true }]}>
+            <Select
+              options={workstreams.map((w) => ({
+                value: w.type,
+                label: t(`workstreams.${w.type}`),
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="entryDate" label={t("project.entryDate")} rules={[{ required: true }]}>
+            <DatePicker style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item
+            name="hours"
+            label={t("project.hours")}
+            rules={[{ required: true, min: 0.25, max: 24.0, type: "number" }]}
+          >
+            <InputNumber min={0.25} max={24.0} step={0.5} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="description" label={t("project.description")}>
+            <Input.TextArea rows={3} maxLength={2000} showCount />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Flex>
   );
 }

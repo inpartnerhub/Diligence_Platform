@@ -265,7 +265,19 @@
     "purgeConfirm": "Permanently purge all data room files, extracted OCR text, and annotations for this project? This action cannot be undone.",
     "purged": "Purged",
     "readOnly": "Only the project's partners and project managers can change these settings.",
-    "externalHint": "Client and target users can only be added from the project's own client or target organization."
+    "externalHint": "Client and target users can only be added from the project's own client or target organization.",
+    "timesheet": "Timesheet",
+    "timesheetTitle": "Time & Workload Tracking",
+    "logTime": "Log Time",
+    "editTimeEntry": "Edit Time Entry",
+    "exportTimesheet": "Export Timesheet",
+    "totalLoggedHours": "Total Logged Hours",
+    "hoursByWorkstream": "Hours by Workstream",
+    "timeEntriesList": "Time Entries",
+    "entryDate": "Date",
+    "consultant": "Consultant",
+    "hours": "Hours",
+    "description": "Description"
   },
   "templates": {
     "title": "Project templates",

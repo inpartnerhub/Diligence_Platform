@@ -29,12 +29,21 @@ export default async function ProjectPage({ params }: Readonly<{ params: Params 
   await requireAccess("projects");
   const { id } = await params;
   const project = await loadProject(id);
-  const [workstreams, members, dashboard] = await Promise.all([
+  const [workstreams, members, dashboard, timeEntries, timeEntrySummary] = await Promise.all([
     projectsApi.workstreams(id),
     projectsApi.members(id),
     projectsApi.dashboard(id),
+    projectsApi.timeEntries(id).catch(() => []),
+    projectsApi.timeEntrySummary(id).catch(() => null),
   ]);
   return (
-    <ProjectDetailView project={project} workstreams={workstreams} members={members} dashboard={dashboard} />
+    <ProjectDetailView
+      project={project}
+      workstreams={workstreams}
+      members={members}
+      dashboard={dashboard}
+      timeEntries={timeEntries}
+      timeEntrySummary={timeEntrySummary}
+    />
   );
 }
