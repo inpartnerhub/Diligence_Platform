@@ -3,7 +3,16 @@ import "server-only";
 import { apiFetch } from "@/lib/api/client";
 import { withQuery, type Query } from "@/lib/api/query";
 
-import type { AuditLog, Group, Organization, Page, Profile, User } from "./types";
+import type {
+  AuditLog,
+  Group,
+  Organization,
+  Page,
+  Profile,
+  User,
+  WebhookDeliveryLog,
+  WebhookSubscription,
+} from "./types";
 
 export const adminApi = {
   users: (query: Query) => apiFetch<Page<User>>(withQuery("/api/v1/admin/users", query)),
@@ -12,4 +21,7 @@ export const adminApi = {
   groups: () => apiFetch<Group[]>("/api/v1/admin/groups"),
   auditLogs: (query: Query) => apiFetch<Page<AuditLog>>(withQuery("/api/v1/admin/audit-logs", query)),
   profile: () => apiFetch<Profile>("/api/v1/me"),
+  webhooks: () => apiFetch<WebhookSubscription[]>("/api/v1/admin/webhooks"),
+  webhookDeliveries: (id: string) =>
+    apiFetch<WebhookDeliveryLog[]>(`/api/v1/admin/webhooks/${encodeURIComponent(id)}/deliveries`),
 };

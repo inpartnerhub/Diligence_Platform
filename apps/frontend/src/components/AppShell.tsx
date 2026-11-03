@@ -3,6 +3,7 @@
 import {
   AlertOutlined,
   ApartmentOutlined,
+  ApiOutlined,
   AuditOutlined,
   BankOutlined,
   CopyOutlined,
@@ -46,6 +47,7 @@ const ADMIN_NAV = [
   { key: "adminGroups", href: "/admin/groups", icon: <ApartmentOutlined /> },
   { key: "adminTemplates", href: "/admin/templates", icon: <CopyOutlined /> },
   { key: "adminRiskMatrix", href: "/admin/risk-matrix", icon: <HeatMapOutlined /> },
+  { key: "adminWebhooks", href: "/admin/webhooks", icon: <ApiOutlined /> },
   { key: "adminAudit", href: "/admin/audit", icon: <AuditOutlined /> },
 ] as const;
 
