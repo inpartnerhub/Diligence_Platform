@@ -850,6 +850,8 @@
     "generateHelp": "Laporan memuat semua temuan yang sudah dirilis beserta penilaian, rekomendasi dan dokumen sumbernya, dalam format Word dan PDF.",
     "defaultTitle": "Laporan due diligence — {project}",
     "generated": "Versi {version} dibuat",
+    "exportPptx": "Ekspor PowerPoint",
+    "pptx": "Presentasi PowerPoint (.pptx)",
     "error": "Terjadi kesalahan. Silakan coba lagi."
   },
   "picker": {
