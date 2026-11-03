@@ -355,6 +355,9 @@
     "searchResults": "{total, plural, =0 {No results} one {# result} other {# results}} for “{q}”",
     "noResults": "No documents match. Use \"quotes\" for phrases and -word to exclude.",
     "clearSearch": "Back to folders",
+    "filterByClause": "Filter by clause",
+    "allClauses": "All clause types",
+    "clauseResults": "{total, plural, =0 {No clauses found} one {# clause found} other {# clauses found}}",
     "viewer": {
       "title": "Document",
       "version": "Version {number}",
@@ -391,7 +394,27 @@
       "colorYellow": "Yellow",
       "colorRed": "Red",
       "colorGreen": "Green",
-      "colorBlue": "Blue"
+      "colorBlue": "Blue",
+      "clauses": "Key Clauses",
+      "contractClauses": "Key Contract Clauses",
+      "clauseInspector": "Clause Inspector",
+      "clauseFound": "{count, plural, =0 {No key clauses detected} one {# key clause detected} other {# key clauses detected}}",
+      "noClausesFound": "No key clauses detected in this document. Ensure OCR text extraction has completed.",
+      "reExtract": "Re-scan clauses",
+      "reExtractSuccess": "Clause analysis updated",
+      "createFindingFromClause": "Create Finding",
+      "jumpToPage": "Page {page}",
+      "confidenceScore": "{score}% confidence",
+      "clauseTypes": {
+        "ALL": "All Clauses",
+        "CHANGE_OF_CONTROL": "Change of Control",
+        "NON_COMPETE": "Non-Compete",
+        "ASSIGNMENT": "Assignment",
+        "INDEMNITY": "Indemnity",
+        "TERMINATION": "Termination",
+        "GOVERNING_LAW": "Governing Law",
+        "LIMITATION_OF_LIABILITY": "Limitation of Liability"
+      }
     }
   },
   "documentSource": {

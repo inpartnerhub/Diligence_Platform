@@ -9,6 +9,8 @@ import type {
   AnnotationUpdateRequest,
   DataRoomDocument,
   DocumentAnnotation,
+  DocumentClause,
+  DocumentClauseSummary,
   DocumentVersion,
   Folder,
   Grant,
@@ -187,6 +189,44 @@ export async function deleteAnnotation(
       },
     ),
   ).then(drop);
+}
+
+export async function loadDocumentClauses(
+  projectId: string,
+  documentId: string,
+): Promise<Result<DocumentClause[]>> {
+  return attempt(() =>
+    apiFetch<DocumentClause[]>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/clauses`,
+    ),
+  );
+}
+
+export async function listProjectClauses(
+  projectId: string,
+  filters?: { type?: string; q?: string },
+): Promise<Result<DocumentClauseSummary[]>> {
+  const query = new URLSearchParams();
+  if (filters?.type) query.set("type", filters.type);
+  if (filters?.q) query.set("q", filters.q);
+  const qs = query.toString() ? `?${query.toString()}` : "";
+  return attempt(() =>
+    apiFetch<DocumentClauseSummary[]>(`/api/v1/projects/${encodeURIComponent(projectId)}/clauses${qs}`),
+  );
+}
+
+export async function triggerClauseExtraction(
+  projectId: string,
+  documentId: string,
+): Promise<Result<DocumentClause[]>> {
+  return attempt(() =>
+    apiFetch<DocumentClause[]>(
+      `/api/v1/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/extract-clauses`,
+      {
+        method: "POST",
+      },
+    ),
+  );
 }
 
 export async function refreshDataRoom(projectId: string): Promise<void> {

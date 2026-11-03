@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTree, formatBytes, splitHighlight, type Folder } from "./types";
+import {
+  buildTree,
+  formatBytes,
+  splitHighlight,
+  STANDARD_CLAUSE_TYPES,
+  type DocumentClause,
+  type DocumentClauseSummary,
+  type Folder,
+} from "./types";
 
 const folder = (id: string, name: string, parentId: string | null = null): Folder => ({
   id,
@@ -65,5 +73,42 @@ describe("document annotations", () => {
     expect(ann.pageNumber).toBeGreaterThan(0);
     expect(ann.xPct + ann.widthPct).toBeLessThanOrEqual(100);
     expect(ann.yPct + ann.heightPct).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("document clauses (DOC-09)", () => {
+  it("includes standard legal clause types", () => {
+    expect(STANDARD_CLAUSE_TYPES).toContain("CHANGE_OF_CONTROL");
+    expect(STANDARD_CLAUSE_TYPES).toContain("NON_COMPETE");
+    expect(STANDARD_CLAUSE_TYPES).toContain("ASSIGNMENT");
+    expect(STANDARD_CLAUSE_TYPES).toContain("INDEMNITY");
+    expect(STANDARD_CLAUSE_TYPES).toContain("TERMINATION");
+    expect(STANDARD_CLAUSE_TYPES).toContain("GOVERNING_LAW");
+    expect(STANDARD_CLAUSE_TYPES).toContain("LIMITATION_OF_LIABILITY");
+  });
+
+  it("validates document clause and summary structure", () => {
+    const clause: DocumentClause = {
+      id: "clause-1",
+      projectId: "proj-1",
+      documentId: "doc-1",
+      versionId: "ver-1",
+      clauseType: "CHANGE_OF_CONTROL",
+      confidence: 0.96,
+      pageNumber: 3,
+      extractedText: "In the event of a change of control of the Company...",
+      createdAt: new Date().toISOString(),
+    };
+
+    const summary: DocumentClauseSummary = {
+      ...clause,
+      documentName: "Master Services Agreement.pdf",
+      folderId: "folder-1",
+    };
+
+    expect(clause.confidence).toBeGreaterThanOrEqual(0.7);
+    expect(clause.confidence).toBeLessThanOrEqual(1.0);
+    expect(clause.pageNumber).toBeGreaterThan(0);
+    expect(summary.documentName).toBe("Master Services Agreement.pdf");
   });
 });

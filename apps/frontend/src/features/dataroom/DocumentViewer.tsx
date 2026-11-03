@@ -5,15 +5,19 @@ import {
   DeleteOutlined,
   DownloadOutlined,
   FilePdfOutlined,
+  FileSearchOutlined,
   HighlightOutlined,
   LockOutlined,
   PrinterOutlined,
   QuestionCircleOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import {
   Alert,
   App,
   Button,
+  Card,
+  Drawer,
   Flex,
   Input,
   Modal,
@@ -31,8 +35,15 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
-import { createAnnotation, deleteAnnotation, loadAnnotations, openPreview } from "./actions";
-import type { DocumentAnnotation, PreviewInfo } from "./types";
+import {
+  createAnnotation,
+  deleteAnnotation,
+  loadAnnotations,
+  loadDocumentClauses,
+  openPreview,
+  triggerClauseExtraction,
+} from "./actions";
+import type { DocumentAnnotation, DocumentClause, PreviewInfo } from "./types";
 
 export interface ViewerTarget {
   documentId: string;
@@ -111,6 +122,12 @@ export function DocumentViewer({
   const [draftColor, setDraftColor] = useState("#faad14");
   const [savingAnnotation, setSavingAnnotation] = useState(false);
 
+  // Key clauses state (DOC-09)
+  const [clauses, setClauses] = useState<DocumentClause[]>([]);
+  const [clausesOpen, setClausesOpen] = useState(false);
+  const [extractingClauses, setExtractingClauses] = useState(false);
+  const [focusedClauseId, setFocusedClauseId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!target) return;
     let active = true;
@@ -140,6 +157,36 @@ export function DocumentViewer({
       active = false;
     };
   }, [projectId, target, findingFromPage]);
+
+  // Load key clauses for internal users (DOC-09)
+  useEffect(() => {
+    if (!target || !findingFromPage) return;
+    let active = true;
+    void loadDocumentClauses(projectId, target.documentId).then((result) => {
+      if (active && result.ok && result.data) {
+        setClauses(result.data);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [projectId, target, findingFromPage]);
+
+  const handleReExtractClauses = async () => {
+    if (!target) return;
+    setExtractingClauses(true);
+    try {
+      const res = await triggerClauseExtraction(projectId, target.documentId);
+      if (res.ok && res.data) {
+        setClauses(res.data);
+        message.success(t("reExtractSuccess"));
+      } else {
+        message.error((!res.ok && res.message) || t("error"));
+      }
+    } finally {
+      setExtractingClauses(false);
+    }
+  };
 
   // Initial page scrolling
   useEffect(() => {
@@ -296,13 +343,22 @@ export function DocumentViewer({
             <Typography.Text type="secondary">{t("watermarkNotice")}</Typography.Text>
             <Space wrap>
               {findingFromPage && ready && (
-                <Button
-                  icon={<HighlightOutlined />}
-                  type={annotating ? "primary" : "default"}
-                  onClick={() => setAnnotating((prev) => !prev)}
-                >
-                  {t("annotate")} {annotations.length > 0 && `(${annotations.length})`}
-                </Button>
+                <>
+                  <Button
+                    icon={<FileSearchOutlined />}
+                    type={clausesOpen ? "primary" : "default"}
+                    onClick={() => setClausesOpen((prev) => !prev)}
+                  >
+                    {t("clauses")} {clauses.length > 0 && `(${clauses.length})`}
+                  </Button>
+                  <Button
+                    icon={<HighlightOutlined />}
+                    type={annotating ? "primary" : "default"}
+                    onClick={() => setAnnotating((prev) => !prev)}
+                  >
+                    {t("annotate")} {annotations.length > 0 && `(${annotations.length})`}
+                  </Button>
+                </>
               )}
               {info.downloadAllowed && info.pdfAvailable && (
                 <Button icon={<FilePdfOutlined />} href={download("PDF")}>
@@ -357,7 +413,33 @@ export function DocumentViewer({
               {Array.from({ length: info.pageCount }, (_, index) => index + 1).map((page) => (
                 <div key={page} id={`dr-page-${page}`} style={{ marginBottom: 16 }}>
                   {findingFromPage && (
-                    <Flex justify="end" className="dr-viewer-action" style={{ marginBottom: 4 }}>
+                    <Flex
+                      justify="space-between"
+                      align="center"
+                      className="dr-viewer-action"
+                      style={{ marginBottom: 4 }}
+                    >
+                      <Flex gap={6} wrap>
+                        {clauses
+                          .filter((c) => c.pageNumber === page)
+                          .map((clause) => (
+                            <Tag
+                              key={clause.id}
+                              color="blue"
+                              icon={<FileSearchOutlined />}
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                setClausesOpen(true);
+                                setFocusedClauseId(clause.id);
+                              }}
+                            >
+                              {t(`clauseTypes.${clause.clauseType}`, {
+                                defaultValue: clause.clauseType,
+                              })}{" "}
+                              · {Math.round(clause.confidence * 100)}%
+                            </Tag>
+                          ))}
+                      </Flex>
                       <Link
                         href={`/projects/${encodeURIComponent(projectId)}/findings?new=1&document=${encodeURIComponent(info.documentId)}&page=${encodeURIComponent(t("pageReference", { number: page }))}`}
                       >
@@ -562,6 +644,94 @@ export function DocumentViewer({
           </div>
         </Flex>
       </Modal>
+
+      {/* Key Clauses Inspector Drawer (DOC-09) */}
+      <Drawer
+        title={t("contractClauses")}
+        placement="right"
+        width={420}
+        open={clausesOpen}
+        onClose={() => setClausesOpen(false)}
+        extra={
+          <Button
+            size="small"
+            icon={<SyncOutlined spin={extractingClauses} />}
+            loading={extractingClauses}
+            onClick={handleReExtractClauses}
+          >
+            {t("reExtract")}
+          </Button>
+        }
+      >
+        {clauses.length === 0 ? (
+          <Alert type="info" showIcon message={t("noClausesFound")} />
+        ) : (
+          <Flex vertical gap={12}>
+            <Typography.Text type="secondary">{t("clauseFound", { count: clauses.length })}</Typography.Text>
+            {clauses.map((clause) => {
+              const isFocused = focusedClauseId === clause.id;
+              return (
+                <Card
+                  key={clause.id}
+                  size="small"
+                  style={{
+                    borderColor: isFocused ? "#1890ff" : undefined,
+                    boxShadow: isFocused ? "0 0 6px rgba(24, 144, 255, 0.4)" : undefined,
+                  }}
+                  title={
+                    <Flex justify="space-between" align="center" gap={8}>
+                      <Tag color="cyan">
+                        {t(`clauseTypes.${clause.clauseType}`, { defaultValue: clause.clauseType })}
+                      </Tag>
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        {t("confidenceScore", { score: Math.round(clause.confidence * 100) })}
+                      </Typography.Text>
+                    </Flex>
+                  }
+                  extra={
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() => {
+                        const el = document.getElementById(`dr-page-${clause.pageNumber}`);
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        setFocusedClauseId(clause.id);
+                      }}
+                    >
+                      {t("jumpToPage", { page: clause.pageNumber })}
+                    </Button>
+                  }
+                >
+                  <Typography.Paragraph
+                    ellipsis={{ rows: 4, expandable: true }}
+                    style={{
+                      margin: 0,
+                      background: "#fafafa",
+                      padding: 8,
+                      borderRadius: 4,
+                      fontSize: 13,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {`"${clause.extractedText}"`}
+                  </Typography.Paragraph>
+                  {info && (
+                    <Flex justify="end" style={{ marginTop: 8 }}>
+                      <Link
+                        href={`/projects/${encodeURIComponent(projectId)}/findings?new=1&document=${encodeURIComponent(info.documentId)}&page=${encodeURIComponent(t("pageReference", { number: clause.pageNumber }))}&title=${encodeURIComponent(`Key Clause: ${t("clauseTypes." + clause.clauseType, { defaultValue: clause.clauseType })} in ${info.name}`)}&description=${encodeURIComponent(clause.extractedText)}`}
+                      >
+                        <Button size="small" type="primary" ghost icon={<AlertOutlined />}>
+                          {t("createFindingFromClause")}
+                        </Button>
+                      </Link>
+                    </Flex>
+                  )}
+                </Card>
+              );
+            })}
+          </Flex>
+        )}
+      </Drawer>
     </Modal>
   );
 }
