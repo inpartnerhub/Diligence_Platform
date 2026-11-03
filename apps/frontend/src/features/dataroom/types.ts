@@ -171,6 +171,42 @@ export function buildTree(folders: Folder[]): TreeNode[] {
   return roots;
 }
 
+export interface DocumentClause {
+  id: string;
+  projectId: string;
+  documentId: string;
+  versionId: string;
+  clauseType: string;
+  confidence: number;
+  pageNumber: number;
+  extractedText: string;
+  createdAt: string;
+}
+
+export interface DocumentClauseSummary {
+  id: string;
+  documentId: string;
+  documentName: string;
+  folderId: string;
+  clauseType: string;
+  confidence: number;
+  pageNumber: number;
+  extractedText: string;
+  createdAt: string;
+}
+
+export const STANDARD_CLAUSE_TYPES = [
+  "CHANGE_OF_CONTROL",
+  "NON_COMPETE",
+  "ASSIGNMENT",
+  "INDEMNITY",
+  "TERMINATION",
+  "GOVERNING_LAW",
+  "LIMITATION_OF_LIABILITY",
+] as const;
+
+export type StandardClauseType = (typeof STANDARD_CLAUSE_TYPES)[number];
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];

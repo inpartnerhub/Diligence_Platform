@@ -355,6 +355,9 @@
     "searchResults": "{total, plural, =0 {Tidak ada hasil} other {# hasil}} untuk “{q}”",
     "noResults": "Tidak ada dokumen yang cocok. Gunakan \"tanda kutip\" untuk frasa dan -kata untuk mengecualikan.",
     "clearSearch": "Kembali ke folder",
+    "filterByClause": "Filter berdasarkan klausa",
+    "allClauses": "Semua jenis klausa",
+    "clauseResults": "{total, plural, =0 {Tidak ada klausa ditemukan} other {# klausa ditemukan}}",
     "viewer": {
       "title": "Dokumen",
       "version": "Versi {number}",
@@ -384,14 +387,34 @@
       "cancel": "Batal",
       "createFindingFromAnnotation": "Buat temuan dari sorotan",
       "linkedFinding": "Temuan terkait",
-      "deleteAnnotation": "Hapus anotasi",
+      "deleteAnnotation": "Delete anotasi",
       "deleteAnnotationConfirm": "Hapus anotasi ini?",
       "annotationSaved": "Anotasi tersimpan",
       "annotationDeleted": "Anotasi dihapus",
       "colorYellow": "Kuning",
       "colorRed": "Merah",
       "colorGreen": "Hijau",
-      "colorBlue": "Biru"
+      "colorBlue": "Biru",
+      "clauses": "Klausa Kunci",
+      "contractClauses": "Klausa Kunci Kontrak",
+      "clauseInspector": "Inspektur Klausa",
+      "clauseFound": "{count, plural, =0 {Tidak ada klausa kunci terdeteksi} other {# klausa kunci terdeteksi}}",
+      "noClausesFound": "Tidak ada klausa kunci yang terdeteksi di dokumen ini. Pastikan ekstraksi teks OCR telah selesai.",
+      "reExtract": "Pindai ulang klausa",
+      "reExtractSuccess": "Analisis klausa berhasil diperbarui",
+      "createFindingFromClause": "Buat Temuan",
+      "jumpToPage": "Halaman {page}",
+      "confidenceScore": "Keyakinan {score}%",
+      "clauseTypes": {
+        "ALL": "Semua Klausa",
+        "CHANGE_OF_CONTROL": "Perubahan Kendali",
+        "NON_COMPETE": "Non-Kompetisi",
+        "ASSIGNMENT": "Pengalihan Hak",
+        "INDEMNITY": "Ganti Rugi (Indemnitas)",
+        "TERMINATION": "Pengakhiran Kontrak",
+        "GOVERNING_LAW": "Hukum yang Mengatur",
+        "LIMITATION_OF_LIABILITY": "Batasan Tanggung Jawab"
+      }
     }
   },
   "documentSource": {

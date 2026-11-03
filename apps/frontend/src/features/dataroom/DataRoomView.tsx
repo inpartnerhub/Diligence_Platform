@@ -7,6 +7,7 @@ import {
   DownloadOutlined,
   EditOutlined,
   EyeOutlined,
+  FileSearchOutlined,
   FolderAddOutlined,
   FolderOutlined,
   HistoryOutlined,
@@ -52,6 +53,7 @@ import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 import {
   createFolder,
   deleteFolder,
+  listProjectClauses,
   loadGrants,
   loadVersions,
   saveGrants,
@@ -63,7 +65,9 @@ import {
   buildTree,
   formatBytes,
   splitHighlight,
+  STANDARD_CLAUSE_TYPES,
   type DataRoomDocument,
+  type DocumentClauseSummary,
   type DocumentVersion,
   type Folder,
   type Grant,
@@ -103,7 +107,13 @@ export function DataRoomView({
   const tree = useMemo(() => buildTree(folders), [folders]);
   const [versionsOf, setVersionsOf] = useState<DataRoomDocument | null>(null);
   const [viewing, setViewing] = useState<ViewerTarget | null>(null);
-  const [search, setSearch] = useState<{ q: string; page: number; response: SearchResponse } | null>(null);
+  const [search, setSearch] = useState<{
+    q: string;
+    page: number;
+    response: SearchResponse;
+    clauseType?: string;
+    clauses?: DocumentClauseSummary[];
+  } | null>(null);
 
   // Scans run asynchronously; refresh while any document in view is still pending.
   const scanning = documents.some((d) => d.scanStatus === "PENDING");
@@ -652,34 +662,83 @@ function SearchBox({
   onResults,
 }: Readonly<{
   projectId: string;
-  onResults: (search: { q: string; page: number; response: SearchResponse } | null) => void;
+  onResults: (
+    search: {
+      q: string;
+      page: number;
+      response: SearchResponse;
+      clauseType?: string;
+      clauses?: DocumentClauseSummary[];
+    } | null,
+  ) => void;
 }>) {
   const t = useTranslations("dataRoom");
   const common = useTranslations("common");
   const { message } = App.useApp();
   const [pending, startTransition] = useTransition();
-  return (
-    <Input.Search
-      allowClear
-      enterButton
-      loading={pending}
-      maxLength={500}
-      placeholder={t("searchPlaceholder")}
-      aria-label={t("search")}
-      style={{ width: "min(100%, 420px)" }}
-      onSearch={(value) => {
-        const q = value.trim();
-        if (!q) {
-          onResults(null);
-          return;
+  const [clauseType, setClauseType] = useState<string>("");
+  const [keyword, setKeyword] = useState<string>("");
+
+  const handleSearch = (qValue: string, typeValue = clauseType) => {
+    const q = qValue.trim();
+    if (!q && !typeValue) {
+      onResults(null);
+      return;
+    }
+    startTransition(async () => {
+      if (typeValue) {
+        const result = await listProjectClauses(projectId, { type: typeValue, q });
+        if (result.ok && result.data) {
+          onResults({
+            q,
+            page: 0,
+            response: { results: [], total: result.data.length, page: 0, size: 50 },
+            clauseType: typeValue,
+            clauses: result.data,
+          });
+        } else {
+          message.error((!result.ok && result.message) || common("error"));
         }
-        startTransition(async () => {
-          const result = await searchDocuments(projectId, q);
-          if (result.ok && result.data) onResults({ q, page: 0, response: result.data });
-          else message.error((!result.ok && result.message) || common("error"));
-        });
-      }}
-    />
+      } else {
+        const result = await searchDocuments(projectId, q);
+        if (result.ok && result.data) {
+          onResults({ q, page: 0, response: result.data });
+        } else {
+          message.error((!result.ok && result.message) || common("error"));
+        }
+      }
+    });
+  };
+
+  return (
+    <Space.Compact style={{ width: "min(100%, 460px)" }}>
+      <Select
+        value={clauseType}
+        onChange={(val) => {
+          setClauseType(val);
+          handleSearch(keyword, val);
+        }}
+        style={{ width: 140 }}
+        options={[
+          { value: "", label: t("allClauses") },
+          ...STANDARD_CLAUSE_TYPES.map((type) => ({
+            value: type,
+            label: t(`viewer.clauseTypes.${type}`, { defaultValue: type }),
+          })),
+        ]}
+      />
+      <Input.Search
+        allowClear
+        enterButton
+        loading={pending}
+        maxLength={500}
+        value={keyword}
+        onChange={(e) => setKeyword(e.target.value)}
+        placeholder={t("searchPlaceholder")}
+        aria-label={t("search")}
+        onSearch={(value) => handleSearch(value, clauseType)}
+      />
+    </Space.Compact>
   );
 }
 
@@ -693,18 +752,35 @@ function SearchResults({
 }: Readonly<{
   projectId: string;
   folders: Folder[];
-  search: { q: string; page: number; response: SearchResponse };
-  onPage: (search: { q: string; page: number; response: SearchResponse }) => void;
+  search: {
+    q: string;
+    page: number;
+    response: SearchResponse;
+    clauseType?: string;
+    clauses?: DocumentClauseSummary[];
+  };
+  onPage: (search: {
+    q: string;
+    page: number;
+    response: SearchResponse;
+    clauseType?: string;
+    clauses?: DocumentClauseSummary[];
+  }) => void;
   onClose: () => void;
   onOpen: (target: ViewerTarget) => void;
 }>) {
   const t = useTranslations("dataRoom");
   const [pending, startTransition] = useTransition();
   const folderNames = useMemo(() => new Map(folders.map((f) => [f.id, f.name])), [folders]);
-  const { response } = search;
+  const { response, clauses, clauseType } = search;
+
+  const title = clauseType
+    ? `${t("clauseResults", { total: clauses?.length ?? 0 })} (${t("viewer.clauseTypes." + clauseType, { defaultValue: clauseType })})`
+    : t("searchResults", { total: response.total, q: search.q });
+
   return (
     <Card
-      title={t("searchResults", { total: response.total, q: search.q })}
+      title={title}
       extra={
         <Button size="small" icon={<ArrowLeftOutlined />} onClick={onClose}>
           {t("clearSearch")}
@@ -712,7 +788,76 @@ function SearchResults({
       }
     >
       <Spin spinning={pending}>
-        {response.results.length === 0 ? (
+        {clauses ? (
+          clauses.length === 0 ? (
+            <Empty description={t("noResults")} />
+          ) : (
+            <Flex vertical gap={12}>
+              {clauses.map((clause) => (
+                <Card
+                  key={clause.id}
+                  size="small"
+                  title={
+                    <Flex justify="space-between" align="center" gap={8}>
+                      <Typography.Link
+                        strong
+                        onClick={() =>
+                          onOpen({ documentId: clause.documentId, initialPage: clause.pageNumber })
+                        }
+                      >
+                        <FileSearchOutlined /> {clause.documentName}
+                      </Typography.Link>
+                      <Space>
+                        <Tag color="cyan">
+                          {t(`viewer.clauseTypes.${clause.clauseType}`, { defaultValue: clause.clauseType })}
+                        </Tag>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {t("viewer.confidenceScore", { score: Math.round(clause.confidence * 100) })}
+                        </Typography.Text>
+                      </Space>
+                    </Flex>
+                  }
+                  extra={
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() =>
+                        onOpen({ documentId: clause.documentId, initialPage: clause.pageNumber })
+                      }
+                    >
+                      {t("viewer.jumpToPage", { page: clause.pageNumber })}
+                    </Button>
+                  }
+                >
+                  <Typography.Text type="secondary" style={{ display: "block", marginBottom: 6 }}>
+                    <FolderOutlined /> {folderNames.get(clause.folderId) ?? "—"}
+                  </Typography.Text>
+                  <Typography.Paragraph
+                    ellipsis={{ rows: 3, expandable: true }}
+                    style={{
+                      margin: 0,
+                      background: "#fafafa",
+                      padding: 8,
+                      borderRadius: 4,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {`"${clause.extractedText}"`}
+                  </Typography.Paragraph>
+                  <Flex justify="end" style={{ marginTop: 8 }}>
+                    <Link
+                      href={`/projects/${encodeURIComponent(projectId)}/findings?new=1&document=${encodeURIComponent(clause.documentId)}&page=${encodeURIComponent(t("viewer.pageReference", { number: clause.pageNumber }))}&title=${encodeURIComponent(`Key Clause: ${t("viewer.clauseTypes." + clause.clauseType, { defaultValue: clause.clauseType })} in ${clause.documentName}`)}&description=${encodeURIComponent(clause.extractedText)}`}
+                    >
+                      <Button size="small" type="primary" ghost icon={<FileSearchOutlined />}>
+                        {t("viewer.createFindingFromClause")}
+                      </Button>
+                    </Link>
+                  </Flex>
+                </Card>
+              ))}
+            </Flex>
+          )
+        ) : response.results.length === 0 ? (
           <Empty description={t("noResults")} />
         ) : (
           <Flex vertical>
@@ -743,7 +888,7 @@ function SearchResults({
           </Flex>
         )}
       </Spin>
-      {response.total > response.size && (
+      {!clauses && response.total > response.size && (
         <Pagination
           style={{ marginTop: 16 }}
           align="end"
