@@ -90,4 +90,47 @@ export interface InviteUserInput {
   locale: "id" | "en";
 }
 
-export type ActionResult = { ok: true } | { ok: false; message: string };
+export interface WebhookSubscription {
+  id: string;
+  organizationId: string | null;
+  targetUrl: string;
+  signingKey: string;
+  description: string | null;
+  subscribedEvents: string;
+  active: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookSubscriptionInput {
+  organizationId?: string | null;
+  targetUrl: string;
+  signingKey?: string | null;
+  description?: string | null;
+  subscribedEvents?: string;
+  active?: boolean;
+}
+
+export interface WebhookDeliveryLog {
+  id: string;
+  subscriptionId: string;
+  eventType: string;
+  payload: string;
+  statusCode: number | null;
+  success: boolean;
+  attemptCount: number;
+  errorMessage: string | null;
+  deliveredAt: string;
+  durationMs: number | null;
+}
+
+export interface WebhookTestResult {
+  success: boolean;
+  statusCode: number | null;
+  durationMs: number;
+  errorMessage: string | null;
+  logId: string;
+}
+
+export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };

@@ -5,7 +5,16 @@ import { revalidatePath } from "next/cache";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import type { Role } from "@/lib/auth/roles";
 
-import type { ActionResult, InviteUserInput, OrganizationStatus, OrganizationType } from "./types";
+import type {
+  ActionResult,
+  InviteUserInput,
+  OrganizationStatus,
+  OrganizationType,
+  WebhookDeliveryLog,
+  WebhookSubscription,
+  WebhookSubscriptionInput,
+  WebhookTestResult,
+} from "./types";
 
 async function run(path: string, call: () => Promise<unknown>): Promise<ActionResult> {
   try {
@@ -84,4 +93,82 @@ export async function replaceGroupMembers(groupId: string, userIds: string[]): P
       body: { userIds },
     }),
   );
+}
+
+export async function createWebhook(
+  input: WebhookSubscriptionInput,
+): Promise<ActionResult<WebhookSubscription>> {
+  try {
+    const data = await apiFetch<WebhookSubscription>("/api/v1/admin/webhooks", {
+      method: "POST",
+      body: input,
+    });
+    revalidatePath("/admin/webhooks");
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message };
+    }
+    console.error("Create webhook failed", error);
+    return { ok: false, message: "" };
+  }
+}
+
+export async function updateWebhook(
+  id: string,
+  input: Partial<WebhookSubscriptionInput>,
+): Promise<ActionResult<WebhookSubscription>> {
+  try {
+    const data = await apiFetch<WebhookSubscription>(`/api/v1/admin/webhooks/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: input,
+    });
+    revalidatePath("/admin/webhooks");
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message };
+    }
+    console.error("Update webhook failed", error);
+    return { ok: false, message: "" };
+  }
+}
+
+export async function deleteWebhook(id: string): Promise<ActionResult> {
+  return run("/admin/webhooks", () =>
+    apiFetch(`/api/v1/admin/webhooks/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  );
+}
+
+export async function testWebhook(id: string): Promise<ActionResult<WebhookTestResult>> {
+  try {
+    const data = await apiFetch<WebhookTestResult>(`/api/v1/admin/webhooks/${encodeURIComponent(id)}/test`, {
+      method: "POST",
+    });
+    revalidatePath("/admin/webhooks");
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message };
+    }
+    console.error("Test webhook failed", error);
+    return { ok: false, message: "" };
+  }
+}
+
+export async function loadWebhookDeliveries(id: string): Promise<ActionResult<WebhookDeliveryLog[]>> {
+  try {
+    const data = await apiFetch<WebhookDeliveryLog[]>(
+      `/api/v1/admin/webhooks/${encodeURIComponent(id)}/deliveries`,
+    );
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message };
+    }
+    console.error("Load webhook deliveries failed", error);
+    return { ok: false, message: "" };
+  }
 }
