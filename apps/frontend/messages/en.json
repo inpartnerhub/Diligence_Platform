@@ -850,6 +850,8 @@
     "generateHelp": "The report contains every released finding with its rating, recommendation and source documents, as Word and PDF.",
     "defaultTitle": "Due diligence report — {project}",
     "generated": "Version {version} generated",
+    "exportPptx": "Export PowerPoint",
+    "pptx": "PowerPoint presentation (.pptx)",
     "error": "Something went wrong. Please try again."
   },
   "picker": {

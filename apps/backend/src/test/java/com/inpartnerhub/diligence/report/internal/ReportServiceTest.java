@@ -337,6 +337,18 @@ class ReportServiceTest {
         assertThat(bytes(service.download(PROJECT, report.getId(), ReportService.Format.DOCX))).isEqualTo("DOCX");
         assertThat(bytes(service.download(PROJECT, report.getId(), ReportService.Format.PDF))).isEqualTo("%PDF");
         assertThat(service.list(PROJECT)).isEmpty();
+
+        // PPTX download
+        when(findings.released(PROJECT, null)).thenReturn(List.of(finding(LEGAL, "LEG-001", 5, 4)));
+        var pptxDownload = service.download(PROJECT, report.getId(), ReportService.Format.PPTX);
+        assertThat(pptxDownload.fileName()).isEqualTo("dd-1-report-v4.pptx");
+        assertThat(pptxDownload.contentType()).isEqualTo(ReportService.PPTX);
+        var pptxBytes = new ByteArrayOutputStream();
+        pptxDownload.writer().writeTo(pptxBytes);
+        assertThat(pptxBytes.size()).isGreaterThan(0);
+        try (var ppt = new org.apache.poi.xslf.usermodel.XMLSlideShow(new ByteArrayInputStream(pptxBytes.toByteArray()))) {
+            assertThat(ppt.getSlides()).isNotEmpty();
+        }
     }
 
     private static String bytes(ReportService.Download download) throws Exception {

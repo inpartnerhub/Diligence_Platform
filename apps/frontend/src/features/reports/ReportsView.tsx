@@ -6,6 +6,7 @@ import {
   DeleteOutlined,
   DiffOutlined,
   FilePdfOutlined,
+  FilePptOutlined,
   FileWordOutlined,
   HistoryOutlined,
   PlusOutlined,
@@ -84,7 +85,7 @@ export function ReportsView({
 
   const date = (value: string) =>
     format.dateTime(new Date(value), { dateStyle: "medium", timeStyle: "short" });
-  const download = (report: Report, fileFormat: "pdf" | "docx") =>
+  const download = (report: Report, fileFormat: "pdf" | "docx" | "pptx") =>
     `/api/projects/${project.id}/reports/${report.id}/download?format=${fileFormat}`;
 
   const act = (call: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
@@ -169,9 +170,14 @@ export function ReportsView({
               PDF
             </Button>
             {permissions.word && (
-              <Button size="small" icon={<FileWordOutlined />} href={download(r, "docx")}>
-                Word
-              </Button>
+              <>
+                <Button size="small" icon={<FileWordOutlined />} href={download(r, "docx")}>
+                  Word
+                </Button>
+                <Button size="small" icon={<FilePptOutlined />} href={download(r, "pptx")}>
+                  PPTX
+                </Button>
+              </>
             )}
 
             {/* Stage 1: DRAFT -> Submit for Review */}

@@ -54,10 +54,11 @@ import com.inpartnerhub.diligence.shared.web.UpstreamServiceException;
 class ReportService {
 
     static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     static final int MAX_TITLE = 200;
 
     enum Format {
-        DOCX, PDF
+        DOCX, PDF, PPTX
     }
 
     @FunctionalInterface
@@ -323,6 +324,25 @@ class ReportService {
                         String.valueOf(!internal)), RequestMetadata.capture()));
         if (chosen == Format.DOCX) {
             return new Download(base + ".docx", DOCX, out -> copy(report.getDocxKey(), out));
+        }
+        if (chosen == Format.PPTX) {
+            var user = currentUser.requireCurrentUser();
+            var watermarkStr = user.displayName() == null || user.displayName().isBlank()
+                    ? user.email() : user.displayName() + " (" + user.email() + ")";
+            var summary = projects.summary(projectId).orElseThrow();
+            var workstreams = projects.workstreams(projectId).stream()
+                    .collect(Collectors.toMap(WorkstreamSummary::id, WorkstreamSummary::type));
+            var target = Optional.ofNullable(summary.targetOrganizationId()).flatMap(directory::findOrganization)
+                    .map(OrganizationSummary::name).orElse(null);
+            var released = findings.released(projectId, null);
+
+            var pptxBytes = ReportPresentationWriter.write(new ReportPresentationWriter.Content(
+                    summary.code(), summary.name(), target, report.getTitle(),
+                    version, report.getVersionNumber(), report.getLanguage(),
+                    Instant.now(clock), zone, workstreams, released, findings.riskMatrix(),
+                    watermarkStr));
+
+            return new Download(base + ".pptx", PPTX, out -> out.write(pptxBytes));
         }
         if (internal) {
             return new Download(base + ".pdf", "application/pdf", out -> copy(report.getPdfKey(), out));

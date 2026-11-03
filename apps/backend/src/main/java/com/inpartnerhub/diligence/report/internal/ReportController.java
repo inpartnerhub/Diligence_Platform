@@ -203,15 +203,28 @@ class ReportController {
     }
 
     @GetMapping("/{reportId}/download")
-    @Operation(summary = "Download Word or PDF (team); the client gets the issued PDF watermarked for them; logged")
+    @Operation(summary = "Download Word, PDF, or PowerPoint presentation; the client gets the issued PDF watermarked for them; logged")
     ResponseEntity<StreamingResponseBody> download(@PathVariable UUID projectId, @PathVariable UUID reportId,
             @RequestParam(defaultValue = "pdf") String format) {
         var parsed = switch (format.toLowerCase(Locale.ROOT)) {
             case "pdf" -> ReportService.Format.PDF;
             case "docx" -> ReportService.Format.DOCX;
-            default -> throw new InvalidRequestException("Format must be pdf or docx");
+            case "pptx" -> ReportService.Format.PPTX;
+            default -> throw new InvalidRequestException("Format must be pdf, docx, or pptx");
         };
         var download = reports.download(projectId, reportId, parsed);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(download.fileName(), StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentType(MediaType.parseMediaType(download.contentType()))
+                .body(out -> download.writer().writeTo(out));
+    }
+
+    @GetMapping("/{reportId}/export-pptx")
+    @Operation(summary = "Export findings and executive summaries to PowerPoint (PPTX) presentation — RPT-04")
+    ResponseEntity<StreamingResponseBody> exportPowerPoint(@PathVariable UUID projectId, @PathVariable UUID reportId) {
+        var download = reports.download(projectId, reportId, ReportService.Format.PPTX);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(download.fileName(), StandardCharsets.UTF_8).build().toString())
