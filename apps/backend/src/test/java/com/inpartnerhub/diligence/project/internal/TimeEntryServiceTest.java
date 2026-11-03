@@ -82,9 +82,10 @@ class TimeEntryServiceTest {
     @Test
     void recordTimeRejectsExternalUsers() {
         when(access.rolesOf(testProject)).thenReturn(Set.of(ProjectRole.CLIENT));
+        var today = LocalDate.now();
+        var hours = BigDecimal.valueOf(2.0);
 
-        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.FINANCIAL, LocalDate.now(),
-                BigDecimal.valueOf(2.0), "Notes"))
+        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.FINANCIAL, today, hours, "Notes"))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Only project consultants can log time entries");
     }
@@ -92,9 +93,10 @@ class TimeEntryServiceTest {
     @Test
     void recordTimeRejectsUnconfiguredWorkstream() {
         when(access.rolesOf(testProject)).thenReturn(Set.of(ProjectRole.ANALYST));
+        var today = LocalDate.now();
+        var hours = BigDecimal.valueOf(2.0);
 
-        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.TAX, LocalDate.now(),
-                BigDecimal.valueOf(2.0), "Tax review"))
+        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.TAX, today, hours, "Tax review"))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("Workstream TAX is not configured");
     }
@@ -102,14 +104,15 @@ class TimeEntryServiceTest {
     @Test
     void recordTimeRejectsInvalidHours() {
         when(access.rolesOf(testProject)).thenReturn(Set.of(ProjectRole.ANALYST));
+        var today = LocalDate.now();
+        var overLimit = BigDecimal.valueOf(25.0);
+        var zero = BigDecimal.ZERO;
 
-        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.FINANCIAL, LocalDate.now(),
-                BigDecimal.valueOf(25.0), "Over limit"))
+        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.FINANCIAL, today, overLimit, "Over limit"))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("Hours must be greater than 0 and less than or equal to 24");
 
-        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.FINANCIAL, LocalDate.now(),
-                BigDecimal.ZERO, "Zero hours"))
+        assertThatThrownBy(() -> service.recordTime(projectId, WorkstreamType.FINANCIAL, today, zero, "Zero hours"))
                 .isInstanceOf(InvalidRequestException.class);
     }
 
@@ -183,8 +186,9 @@ class TimeEntryServiceTest {
         service.exportCsv(projectId, null, null, writer);
 
         var csv = writer.toString();
-        assertThat(csv).startsWith("\uFEFF\"Date\",\"Consultant\",\"Workstream\",\"Hours\",\"Description\"");
-        assertThat(csv).contains("\"2026-11-01\",\"Alice Consultant\",\"FINANCIAL\",\"7.5\"");
-        assertThat(csv).contains("\"'=cmd|' /C calc'!A0\""); // formula protection
+        assertThat(csv)
+                .startsWith("\uFEFF\"Date\",\"Consultant\",\"Workstream\",\"Hours\",\"Description\"")
+                .contains("\"2026-11-01\",\"Alice Consultant\",\"FINANCIAL\",\"7.5\"")
+                .contains("\"'=cmd|' /C calc'!A0\""); // formula protection
     }
 }

@@ -221,6 +221,67 @@ export function WebhooksView({
     },
   ];
 
+  const formatLogStatus = (log: WebhookDeliveryLog) => {
+    if (log.statusCode) {
+      return `HTTP ${log.statusCode}`;
+    }
+    return log.success ? "SUCCESS" : "FAILED";
+  };
+
+  const renderDrawerContent = () => {
+    if (logsLoading) {
+      return (
+        <Flex justify="center" style={{ padding: 40 }}>
+          <Typography.Text>{t("loadingLogs")}</Typography.Text>
+        </Flex>
+      );
+    }
+    if (logs.length === 0) {
+      return <Empty description={t("noLogsFound")} style={{ marginTop: 40 }} />;
+    }
+    return (
+      <Flex vertical gap={12}>
+        {logs.map((log) => (
+          <Card key={log.id} size="small" styles={{ body: { padding: 12 } }}>
+            <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
+              <Space>
+                <Badge status={log.success ? "success" : "error"} />
+                <Tag color={log.success ? "green" : "red"}>{formatLogStatus(log)}</Tag>
+                <Tag>{log.eventType}</Tag>
+              </Space>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {date(log.deliveredAt)} · {log.durationMs ?? 0}ms · {log.attemptCount} attempt(s)
+              </Typography.Text>
+            </Flex>
+
+            {log.errorMessage && (
+              <Typography.Paragraph type="danger" style={{ margin: "4px 0", fontSize: 12 }}>
+                {log.errorMessage}
+              </Typography.Paragraph>
+            )}
+
+            <details style={{ marginTop: 6, fontSize: 12 }}>
+              <summary style={{ cursor: "pointer", color: "#1677ff" }}>{t("viewPayload")}</summary>
+              <pre
+                style={{
+                  background: "#f5f5f5",
+                  padding: 8,
+                  borderRadius: 4,
+                  marginTop: 4,
+                  maxHeight: 180,
+                  overflow: "auto",
+                  fontSize: 11,
+                }}
+              >
+                {log.payload}
+              </pre>
+            </details>
+          </Card>
+        ))}
+      </Flex>
+    );
+  };
+
   return (
     <>
       <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
@@ -264,57 +325,9 @@ export function WebhooksView({
         }
         open={Boolean(logsTarget)}
         onClose={() => setLogsTarget(null)}
-        width={680}
+        size="large"
       >
-        {logsLoading ? (
-          <Flex justify="center" style={{ padding: 40 }}>
-            <Typography.Text>{t("loadingLogs")}</Typography.Text>
-          </Flex>
-        ) : logs.length === 0 ? (
-          <Empty description={t("noLogsFound")} style={{ marginTop: 40 }} />
-        ) : (
-          <Flex vertical gap={12}>
-            {logs.map((log) => (
-              <Card key={log.id} size="small" styles={{ body: { padding: 12 } }}>
-                <Flex justify="space-between" align="center" style={{ marginBottom: 6 }}>
-                  <Space>
-                    <Badge status={log.success ? "success" : "error"} />
-                    <Tag color={log.success ? "green" : "red"}>
-                      {log.statusCode ? `HTTP ${log.statusCode}` : log.success ? "SUCCESS" : "FAILED"}
-                    </Tag>
-                    <Tag>{log.eventType}</Tag>
-                  </Space>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {date(log.deliveredAt)} · {log.durationMs ?? 0}ms · {log.attemptCount} attempt(s)
-                  </Typography.Text>
-                </Flex>
-
-                {log.errorMessage && (
-                  <Typography.Paragraph type="danger" style={{ margin: "4px 0", fontSize: 12 }}>
-                    {log.errorMessage}
-                  </Typography.Paragraph>
-                )}
-
-                <details style={{ marginTop: 6, fontSize: 12 }}>
-                  <summary style={{ cursor: "pointer", color: "#1677ff" }}>{t("viewPayload")}</summary>
-                  <pre
-                    style={{
-                      background: "#f5f5f5",
-                      padding: 8,
-                      borderRadius: 4,
-                      marginTop: 4,
-                      maxHeight: 180,
-                      overflow: "auto",
-                      fontSize: 11,
-                    }}
-                  >
-                    {log.payload}
-                  </pre>
-                </details>
-              </Card>
-            ))}
-          </Flex>
-        )}
+        {renderDrawerContent()}
       </Drawer>
     </>
   );

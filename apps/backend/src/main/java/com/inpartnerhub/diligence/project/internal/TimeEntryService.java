@@ -7,10 +7,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -74,6 +72,10 @@ class TimeEntryService {
 
     @Transactional(readOnly = true)
     List<TimeEntry> list(UUID projectId, LocalDate from, LocalDate to, UUID userId) {
+        return findEntries(projectId, from, to, userId);
+    }
+
+    private List<TimeEntry> findEntries(UUID projectId, LocalDate from, LocalDate to, UUID userId) {
         access.visible(projectId);
 
         if (from != null && to != null) {
@@ -95,7 +97,7 @@ class TimeEntryService {
     @Transactional(readOnly = true)
     TimeEntrySummary summary(UUID projectId, LocalDate from, LocalDate to) {
         access.visible(projectId);
-        var entries = list(projectId, from, to, null);
+        var entries = findEntries(projectId, from, to, null);
 
         var totalHours = entries.stream()
                 .map(TimeEntry::getHours)
@@ -178,7 +180,7 @@ class TimeEntryService {
 
     @Transactional(readOnly = true)
     void exportCsv(UUID projectId, LocalDate from, LocalDate to, Writer writer) throws IOException {
-        var entries = list(projectId, from, to, null);
+        var entries = findEntries(projectId, from, to, null);
 
         var userIds = entries.stream().map(TimeEntry::getUserId).distinct().toList();
         var userSummaryMap = directory.findUsers(userIds).stream()
