@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -94,6 +95,7 @@ class FolderController {
     }
 
     @GetMapping
+    @Transactional(readOnly = true)
     @Operation(summary = "Folders the caller can see (target side: granted folders only) — DOC-01")
     List<FolderResponse> tree(@PathVariable UUID projectId) {
         var context = access.project(projectId);

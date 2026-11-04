@@ -30,7 +30,7 @@ The same variables without the `KEYCLOAK_` prefix (`E2E_PASSWORD`, `E2E_TOTP_SEC
 ```bash
 make up && make keycloak-bootstrap          # with KEYCLOAK_E2E_* set in .env
 make backend-run                            # separate terminal
-cd apps/frontend && npm run build && OIDC_ALLOW_HTTP=true npm start   # separate terminal
+cd apps/frontend && npm run build && RATE_LIMIT_DISABLED=true OIDC_ALLOW_HTTP=true npm start   # separate terminal
 ```
 
 ```bash

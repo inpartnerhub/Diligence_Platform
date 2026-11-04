@@ -10,11 +10,11 @@ help: ## Show available targets
 	@cp .env.example .env && echo "Created .env from .env.example — replace every 'change-me' value."
 
 .PHONY: up
-up: .env ## Start local infrastructure (databases, broker, IdP, gateway, processing)
+up: .env ## Start local infrastructure (requires >= 6 GiB Docker RAM)
 	$(COMPOSE) up -d
 
 .PHONY: up-all
-up-all: .env ## Start infrastructure + observability + containerised apps
+up-all: .env ## Start infrastructure + observability + containerised apps (requires >= 8 GiB Docker RAM)
 	$(COMPOSE) --profile observability --profile app up -d --build
 
 .PHONY: down

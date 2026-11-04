@@ -1,7 +1,7 @@
 # Local development stack. Not for production use.
-#   docker compose up -d                                  # infrastructure only
+#   docker compose up -d                                  # infrastructure only (requires >= 6.0 GiB Docker VM RAM)
 #   docker compose --profile app up -d --build            # + backend & frontend containers
-#   docker compose --profile observability up -d          # + Prometheus, Grafana, OTel Collector, Dashboards
+#   docker compose --profile observability up -d          # + Prometheus, Grafana, OTel Collector, Dashboards (requires >= 8.0 GiB Docker VM RAM)
 name: diligence
 
 x-healthcheck: &healthcheck
@@ -115,6 +115,7 @@ services:
     image: quay.io/keycloak/keycloak:26.4
     command: ["start-dev", "--import-realm", "--http-port=8180"]
     environment:
+      JAVA_OPTS_APPEND: "-Xms128m -Xmx384m"
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HEALTH_ENABLED: "true"
@@ -169,6 +170,7 @@ services:
       object-storage-init: { condition: service_completed_successfully }
     environment:
       SPRING_PROFILES_ACTIVE: local
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
       APP_ENVIRONMENT: ${APP_ENVIRONMENT}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
@@ -222,6 +224,7 @@ services:
       OIDC_ALLOW_HTTP: "true"
       SESSION_SECRET: ${SESSION_SECRET}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      RATE_LIMIT_DISABLED: ${RATE_LIMIT_DISABLED:-false}
     ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:3000"]
 
   # ---------------------------------------------------------------- observability
