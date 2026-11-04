@@ -60,7 +60,7 @@ class FindingLibraryController {
     }
 
     @GetMapping(ApiPaths.V1 + "/finding-library")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER', 'PROJECT_MANAGER', 'ANALYST', 'OBSERVER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PARTNER', 'PROJECT_MANAGER', 'ANALYST', 'OBSERVER')")
     @Operation(summary = "List standard finding templates from library (FND-06)")
     List<TemplateResponse> list(
             @RequestParam(required = false) WorkstreamType workstream,
@@ -71,7 +71,7 @@ class FindingLibraryController {
     }
 
     @GetMapping(ApiPaths.V1 + "/finding-library/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PARTNER', 'PROJECT_MANAGER', 'ANALYST', 'OBSERVER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PARTNER', 'PROJECT_MANAGER', 'ANALYST', 'OBSERVER')")
     @Operation(summary = "Get standard finding template by ID (FND-06)")
     TemplateResponse get(@PathVariable UUID id) {
         return TemplateResponse.of(libraryService.get(id));
@@ -79,7 +79,7 @@ class FindingLibraryController {
 
     @PostMapping(ApiPaths.V1 + "/admin/finding-library")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "Create standard finding template in library (FND-06)")
     TemplateResponse create(@Valid @RequestBody TemplateRequest request) {
         return TemplateResponse.of(libraryService.create(
@@ -88,7 +88,7 @@ class FindingLibraryController {
     }
 
     @PutMapping(ApiPaths.V1 + "/admin/finding-library/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "Update standard finding template in library (FND-06)")
     TemplateResponse update(@PathVariable UUID id, @Valid @RequestBody TemplateRequest request) {
         return TemplateResponse.of(libraryService.update(
@@ -98,7 +98,7 @@ class FindingLibraryController {
 
     @DeleteMapping(ApiPaths.V1 + "/admin/finding-library/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "Delete standard finding template from library (FND-06)")
     void delete(@PathVariable UUID id) {
         libraryService.delete(id);
