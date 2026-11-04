@@ -35,6 +35,7 @@
     "auth": "false"
   },
   "eventsEnabled": true,
+  "eventsListeners": ["jboss-logging", "metrics-listener"],
   "enabledEventTypes": [
     "LOGIN",
     "LOGIN_ERROR",

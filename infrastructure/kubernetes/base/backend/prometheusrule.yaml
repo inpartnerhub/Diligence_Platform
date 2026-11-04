@@ -1,0 +1,87 @@
+# Requires the Prometheus Operator (kube-prometheus-stack). Same rules as infrastructure/docker/prometheus/alerts.yml
+# (PRD Bab 7 alerts for error rate, latency and suspicious logins; Bab 10.1 anomalous logins) — keep both in sync.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: diligence-alerts
+spec:
+  groups:
+    - name: diligence-availability
+      rules:
+        - alert: DiligenceBackendDown
+          expr: up{job="diligence-backend"} == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: Backend instance {{ $labels.instance }} is not scraped
+            runbook: docs/runbooks/backend-unavailable.md
+
+    - name: diligence-api
+      rules:
+        - alert: DiligenceHighErrorRate
+          expr: |
+            sum(rate(http_server_requests_seconds_count{job="diligence-backend",status=~"5..",uri!~"/actuator.*"}[5m]))
+              / clamp_min(sum(rate(http_server_requests_seconds_count{job="diligence-backend",uri!~"/actuator.*"}[5m])), 1e-9)
+              > 0.05
+          for: 10m
+          labels: { severity: critical }
+          annotations:
+            summary: More than 5% of API requests fail with 5xx
+            runbook: docs/runbooks/backend-unavailable.md
+        - alert: DiligenceSlowApi
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(http_server_requests_seconds_bucket{job="diligence-backend",uri!~"/actuator.*"}[5m]))) > 2
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: API P95 latency above 2 s (PRD Bab 7 target)
+            runbook: docs/runbooks/slow-api.md
+        - alert: DiligenceDatabasePoolExhausted
+          expr: max(hikaricp_connections_pending{job="diligence-backend"}) > 5
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: Requests are waiting for database connections
+            runbook: docs/runbooks/slow-api.md
+
+    - name: diligence-security
+      rules:
+        - alert: DiligenceLoginFailureSpike
+          # Keycloak event metrics (KC_EVENT_METRICS_USER_ENABLED): failed logins across the realm.
+          expr: sum(rate(keycloak_user_events_total{event="login",error!=""}[5m])) * 300 > 30
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: More than 30 failed logins in 5 minutes — possible password spraying
+            runbook: docs/runbooks/suspicious-login.md
+        - alert: DiligenceAccountLockouts
+          expr: sum(increase(keycloak_user_events_total{event="login",error="user_temporarily_disabled"}[15m])) > 5
+          labels: { severity: warning }
+          annotations:
+            summary: Several accounts were locked by brute-force protection
+            runbook: docs/runbooks/suspicious-login.md
+        - alert: DiligenceProjectAccessBlocked
+          expr: sum(increase(diligence_project_access_blocked_total[15m])) > 0
+          labels: { severity: warning }
+          annotations:
+            summary: External users tried to open a project from outside its IP allow-list
+            runbook: docs/runbooks/suspicious-login.md
+        - alert: DiligenceForbiddenSpike
+          # Many 403/404 answers from one service can mean someone probes other projects' IDs (IDOR).
+          expr: sum(rate(http_server_requests_seconds_count{job="diligence-backend",status=~"403|404"}[5m])) * 300 > 200
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: Unusually many 403/404 responses — possible access probing
+            runbook: docs/runbooks/suspicious-login.md
+
+    - name: diligence-pipeline
+      rules:
+        - alert: DiligenceMessagesStuck
+          expr: sum(rabbitmq_queue_messages_ready) > 1000
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: Document processing queue is backing up (scan, OCR, preview)
+            runbook: docs/runbooks/dead-letter-queue.md
