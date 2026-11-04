@@ -31,8 +31,9 @@ Only the latest release deployed from `main` receives security fixes.
 | Encryption in transit (TLS 1.2+) and at rest (AES-256) | TLS at Kong/ingress, `sslmode=verify-full`; customer-managed KMS keys (rotated) for S3 documents, RDS and log groups; encrypted ElastiCache/OpenSearch/MQ | ✅ IaC |
 | Watermark, download/print restrictions, access logging | Per-viewer watermark on preview pages and downloaded PDFs; previews are images so the file never reaches a browser that may not download it; `dr.folder.download_allowed/print_allowed` (deny by default, PDF print permission removed); views and downloads audited | ✅ |
 | Malware scan on every upload, type validation, size limit | ClamAV INSTREAM + Tika magic-byte detection against an allowlist (`diligence.ingestion.allowed-content-types`); nothing is served before CLEAN; 100 MB limit at Kong, Spring and clamd | ✅ |
-| IP / location restriction, anomalous login detection | Keycloak events + alerting; per-project IP allow-list | ⏳ phase 2 |
-| Encrypted backups, restore tests, incident response | RDS backups (14 days), quarterly restore test, runbooks | ⏳ before go-live |
+| Outbound webhooks (ADM-07) | HTTPS-only targets that must resolve to public addresses (checked on save and before every delivery, no redirects, receiver bodies never echoed: SSRF); HMAC-SHA256 signature with the key shown once and rotatable; Super Admin only (controller + RLS, migration `V202611050500`); deliveries outside DB transactions | ✅ |
+| IP / location restriction, anomalous login detection | Per-project IP allow-list for external users (project settings, `ProjectNetworkConfiguration`, refusals audited as `project.access-blocked`); Keycloak login event metrics + Prometheus alerts for failed-login spikes, lockouts and blocked access ([suspicious-login runbook](docs/runbooks/suspicious-login.md)) | ✅ |
+| Encrypted backups, restore tests, incident response | RDS backups (14 days) + PITR, S3 versioning, KMS; [incident response plan](docs/runbooks/incident-response.md) and [backup/restore runbook](docs/runbooks/backup-restore.md) | ✅ plan; ⏳ first restore test before go-live |
 
 ## Compliance and data governance (PRD 10.2)
 
