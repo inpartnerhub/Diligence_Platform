@@ -10,7 +10,9 @@ services:
     connect_timeout: 10000
     read_timeout: 60000
     write_timeout: 60000
-    retries: 5
+    # No proxy retries: a retried POST/PUT (upload, approval, report release) would run twice and leave duplicate
+    # entries in the audit trail (PRD ADM-03). Clients wait for /actuator/health instead of relying on retries.
+    retries: 0
     routes:
       - name: diligence-api-v1
         paths: ["/api/v1"]

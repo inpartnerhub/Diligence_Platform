@@ -13,3 +13,8 @@ diligence:
   webhooks:
     # Developer machines may point webhooks at http://localhost receivers.
     allow-insecure-targets: true
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true

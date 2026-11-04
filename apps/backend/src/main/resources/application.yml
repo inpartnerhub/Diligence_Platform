@@ -134,13 +134,15 @@ diligence:
     # Tesseract languages for scanned documents and images (the image must have the trained data installed).
     ocr-languages: ${OCR_LANGUAGES:eng+ind}
 
+# API documentation is off by default so production does not publish a map of the API; the local profile and the
+# dev/staging overlays (API_DOCS_ENABLED=true) keep it available (PRD 8.1 API-first).
 springdoc:
   api-docs:
     path: /v3/api-docs
-    enabled: ${API_DOCS_ENABLED:true}
+    enabled: ${API_DOCS_ENABLED:false}
   swagger-ui:
     path: /swagger-ui.html
-    enabled: ${API_DOCS_ENABLED:true}
+    enabled: ${API_DOCS_ENABLED:false}
   default-produces-media-type: application/json
   paths-to-match: /api/**
 
