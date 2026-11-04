@@ -4,7 +4,7 @@ import { expect, type Page, test } from "@playwright/test";
 
 import { credentials, ROLES } from "../support/auth";
 import { label } from "../support/i18n";
-import { as, projectId } from "../support/session";
+import { as, projectId, resetRateLimits } from "../support/session";
 
 /**
  * One due diligence engagement end to end, each step by the role that does it in practice (PRD Bab 5 and 11):
@@ -12,6 +12,9 @@ import { as, projectId } from "../support/session";
  * approval → report issued to the client. Runs in order on project E2E-001 (tests/e2e/fixtures/seed.sh).
  */
 test.describe.configure({ mode: "serial" });
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
 // Skipped only without the fixture or the users; the sessions themselves come from auth.setup.ts, which runs first.
 test.skip(
   !projectId() || !ROLES.every((role) => credentials(role)),
@@ -166,8 +169,11 @@ test("9 · the target answers and uploads the resolution from the answer panel",
   await action(page, "qna.sendAnswer").click();
   await toast(page, "qna.answered");
   await chooseFolder(page, "documentSource.chooseFolder", "01 Legal");
+  await expect(
+    drawer(page).getByRole("button", { name: label("documentSource.uploadAndAttach") }),
+  ).toBeEnabled();
   await drawer(page).locator("input[type=file]").setInputFiles(DOCUMENT);
-  await expect(drawer(page).getByText("deed-of-establishment.pdf")).toBeVisible();
+  await expect(drawer(page).getByText("deed-of-establishment.pdf")).toBeVisible({ timeout: 60_000 });
 });
 
 test("10 · the project manager closes the question", async ({ browser }) => {
@@ -175,7 +181,7 @@ test("10 · the project manager closes the question", async ({ browser }) => {
   await page.goto(project("/qna"));
   await page.getByRole("row", { name: new RegExp(QUESTION.slice(0, 40)) }).click();
   await action(page, "qna.moves.CLOSED").click();
-  await expect(drawer(page).getByText(label("qna.statusValues.CLOSED")).first()).toBeVisible();
+  await expect(drawer(page).getByText(label("qna.statusValues.CLOSED")).first()).toBeVisible({ timeout: 30_000 });
 });
 
 test("11 · a partner generates the report from the released finding and issues it", async ({ browser }) => {

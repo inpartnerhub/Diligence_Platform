@@ -17,8 +17,24 @@ const RETURN_TO_HEADER = "x-diligence-return-to";
 
 const FILE_PATH = /\.[a-z0-9]+$/;
 
-const AUTH_LIMIT = { windowSeconds: 60, maxRequests: 30 };
-const ACTION_LIMIT = { windowSeconds: 60, maxRequests: 60 };
+// Rate limiting can be disabled or relaxed in test/CI environments.
+// Hard security guardrail: Never allow disabling in production.
+const isRateLimitDisabled =
+  process.env.RATE_LIMIT_DISABLED === "true" && process.env.NODE_ENV !== "production";
+
+const parseLimit = (value: string | undefined, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const AUTH_LIMIT = {
+  windowSeconds: 60,
+  maxRequests: parseLimit(process.env.RATE_LIMIT_AUTH_MAX, 30),
+};
+const ACTION_LIMIT = {
+  windowSeconds: 60,
+  maxRequests: parseLimit(process.env.RATE_LIMIT_ACTION_MAX, 60),
+};
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -27,7 +43,7 @@ export async function proxy(request: NextRequest) {
     request.headers.has("next-action") ||
     (request.method === "POST" && !isAuth && !pathname.startsWith("/api/"));
 
-  if (isAuth || isServerAction) {
+  if (!isRateLimitDisabled && (isAuth || isServerAction)) {
     const trustedHops = Number(process.env.TRUSTED_PROXY_HOPS ?? "0");
     const ip = resolveClientIp(request.headers, trustedHops);
     const scope = isAuth ? "auth" : "action";

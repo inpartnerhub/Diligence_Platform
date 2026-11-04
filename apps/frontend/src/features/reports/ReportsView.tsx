@@ -235,7 +235,15 @@ export function ReportsView({
                 onConfirm={() => act(() => issueReport(project.id, r.id), t("issuedMessage"))}
               >
                 <Tooltip title={t("issue")}>
-                  <Button size="small" icon={<SendOutlined />} loading={pending} />
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<SendOutlined />}
+                    loading={pending}
+                    aria-label={t("issue")}
+                  >
+                    {t("issue")}
+                  </Button>
                 </Tooltip>
               </Popconfirm>
             )}

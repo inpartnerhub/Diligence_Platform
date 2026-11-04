@@ -7,7 +7,12 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./specs",
   globalSetup: "./global-setup.ts",
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
+  timeout: 120_000,
+  expect: {
+    timeout: 30_000,
+  },
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

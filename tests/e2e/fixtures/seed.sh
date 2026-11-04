@@ -36,6 +36,7 @@ DELETE FROM dr.document_version WHERE project_id IN (SELECT id FROM e2e_project)
 DELETE FROM dr.document WHERE project_id IN (SELECT id FROM e2e_project);
 DELETE FROM dr.folder WHERE project_id IN (SELECT id FROM e2e_project);
 DELETE FROM prj.project WHERE id IN (SELECT id FROM e2e_project);
+DELETE FROM adm.user_account WHERE email IN ('e2e.partner@diligence.test', 'e2e.analyst@diligence.test', 'e2e.target@diligence.test', 'e2e.client@diligence.test');
 COMMIT;
 SQL
 }

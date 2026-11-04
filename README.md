@@ -60,6 +60,18 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 | kubectl | 1.30+ | optional, renders Kustomize overlays |
 | Terraform | 1.10+ | optional, infrastructure work |
 
+### Host & Virtual Machine Resource Requirements
+
+Running the Diligence multi-container stack locally requires adequate memory allocation for the Docker Desktop / Colima / OrbStack Linux virtual machine.
+
+| Stack Profile | Minimum Allocated RAM | Recommended RAM | Minimum CPUs | Notes |
+|---------------|-----------------------|-----------------|--------------|-------|
+| **Core Dev** (`make up` + local apps) | **6.0 GiB** | **8.0 GiB** | 4 cores | ClamAV (~900 MB), JVM backend (~800 MB), Keycloak (~450 MB), Kong (~500 MB), Tika, Gotenberg, SeaweedFS, Postgres, Redis, RabbitMQ |
+| **Full Containerized** (`make up-all`) | **8.0 GiB** | **10.0 GiB** | 6 cores | Adds OpenSearch 3 (~800 MB), Prometheus, Grafana, OpenSearch Dashboards, OpenTelemetry Collector |
+
+> **Warning:** On macOS hosts with default Docker Desktop virtual machine settings (3.8–4.0 GiB RAM), running `make up-all` or high-throughput file ingestion alongside OpenSearch can trigger the Linux kernel Out-Of-Memory (OOM) Killer (`Exit 137`), terminating `clamd` or `backend`.
+> Increase your VM memory allocation via **Docker Desktop Settings → Resources → Advanced → Memory: ≥ 6 GiB** (and Swap: ≥ 2 GiB).
+
 ## Quick start
 
 ```bash
