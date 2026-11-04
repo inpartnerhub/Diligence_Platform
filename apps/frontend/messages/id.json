@@ -278,7 +278,10 @@
     "entryDate": "Tanggal",
     "consultant": "Konsultan",
     "hours": "Jam",
-    "description": "Deskripsi"
+    "description": "Deskripsi",
+    "ipAllowList": "Daftar IP yang diizinkan untuk pengguna eksternal",
+    "ipAllowListNone": "Tanpa pembatasan",
+    "ipAllowListHelp": "Opsional (PRD 10.1). Satu alamat IP atau rentang CIDR per baris, misalnya jaringan kantor klien dan target. Pengguna klien, target, dan pengamat di luar rentang ini ditolak dan percobaannya dicatat. Kosongkan bila tanpa pembatasan."
   },
   "templates": {
     "title": "Template proyek",

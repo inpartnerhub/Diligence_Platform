@@ -278,7 +278,10 @@
     "entryDate": "Date",
     "consultant": "Consultant",
     "hours": "Hours",
-    "description": "Description"
+    "description": "Description",
+    "ipAllowList": "IP allow-list for external users",
+    "ipAllowListNone": "No restriction",
+    "ipAllowListHelp": "Optional (PRD 10.1). One IP address or CIDR range per line, e.g. the client's and target's office networks. Client, target and observer users outside these ranges are refused and the attempt is logged. Leave empty for no restriction."
   },
   "templates": {
     "title": "Project templates",

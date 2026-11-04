@@ -2,6 +2,7 @@ package com.inpartnerhub.diligence.project.internal;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import com.inpartnerhub.diligence.project.ProjectStage;
@@ -58,6 +59,10 @@ class Project {
 
     @Column(name = "retention_period_days", nullable = false)
     private int retentionPeriodDays = 365;
+
+    /** PRD Bab 10.1: network locations external users may reach this project from, one range per line. */
+    @Column(name = "allowed_ip_ranges", nullable = false)
+    private String allowedIpRanges = "";
 
     @Column(name = "created_by", nullable = false, updatable = false)
     private UUID createdBy;
@@ -144,6 +149,30 @@ class Project {
             throw new InvalidRequestException("Retention period must be between 1 and 3650 days");
         }
         this.retentionPeriodDays = days;
+    }
+
+    static final int MAX_IP_RANGES = 50;
+
+    /** Replaces the IP allow-list; an empty list lifts the restriction. Every entry must be a valid range. */
+    void updateAllowedIpRanges(List<String> ranges) {
+        var cleaned = ranges == null ? List.<String>of()
+                : ranges.stream().map(String::strip).filter(r -> !r.isEmpty()).distinct().toList();
+        if (cleaned.size() > MAX_IP_RANGES) {
+            throw new InvalidRequestException("At most " + MAX_IP_RANGES + " IP ranges per project");
+        }
+        cleaned.forEach(IpRange::parse);
+        this.allowedIpRanges = String.join("\n", cleaned);
+    }
+
+    List<String> getAllowedIpRanges() {
+        return allowedIpRanges == null || allowedIpRanges.isBlank() ? List.of()
+                : List.of(allowedIpRanges.split("\n"));
+    }
+
+    /** Whether an external user at this address may access the project. */
+    boolean allowsAddress(String ip) {
+        var ranges = getAllowedIpRanges();
+        return ranges.isEmpty() || ranges.stream().map(IpRange::parse).anyMatch(r -> r.contains(ip));
     }
 
     static void validateDates(LocalDate start, LocalDate end) {

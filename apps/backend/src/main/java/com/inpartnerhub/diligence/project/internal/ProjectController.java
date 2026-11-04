@@ -48,7 +48,7 @@ class ProjectController {
             UUID targetOrganizationId, String targetName, ProjectStage stage, Project.Status status,
             LocalDate startDate, LocalDate endDate, UUID templateId, int retentionPeriodDays,
             Instant retentionDeadline, Instant purgedAt, Instant createdAt, Instant archivedAt,
-            Set<ProjectRole> myRoles) {
+            List<String> allowedIpRanges, Set<ProjectRole> myRoles) {
     }
 
     record WorkstreamResponse(UUID id, WorkstreamType type, UUID leadUserId) {
@@ -70,8 +70,10 @@ class ProjectController {
             Integer retentionPeriodDays) {
     }
 
+    /** {@code allowedIpRanges}: when present, replaces the IP allow-list for external users (PRD Bab 10.1). */
     record UpdateProjectRequest(@Size(max = 200) String name, LocalDate startDate, LocalDate endDate,
-            ProjectStage stage, Integer retentionPeriodDays) {
+            ProjectStage stage, Integer retentionPeriodDays,
+            @Size(max = Project.MAX_IP_RANGES) List<@Size(max = 64) String> allowedIpRanges) {
     }
 
     record UpdateRetentionRequest(
@@ -125,6 +127,9 @@ class ProjectController {
         var updated = projects.update(id, request.name(), request.startDate(), request.endDate(), request.stage());
         if (request.retentionPeriodDays() != null) {
             updated = projects.updateRetention(id, request.retentionPeriodDays());
+        }
+        if (request.allowedIpRanges() != null) {
+            updated = projects.updateAllowedIpRanges(id, request.allowedIpRanges());
         }
         return response(updated);
     }
@@ -186,7 +191,7 @@ class ProjectController {
                 organizationName(p.getClientOrganizationId()), p.getTargetOrganizationId(),
                 organizationName(p.getTargetOrganizationId()), p.getStage(), p.getStatus(), p.getStartDate(),
                 p.getEndDate(), p.getTemplateId(), p.getRetentionPeriodDays(), p.getRetentionDeadline(),
-                p.getPurgedAt(), p.getCreatedAt(), p.getArchivedAt(), access.rolesOf(p));
+                p.getPurgedAt(), p.getCreatedAt(), p.getArchivedAt(), p.getAllowedIpRanges(), access.rolesOf(p));
     }
 
     private String organizationName(UUID id) {

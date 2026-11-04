@@ -21,6 +21,7 @@ import com.inpartnerhub.diligence.admin.Directory.OrganizationType;
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectCreated;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectDataPurgeRequested;
+import com.inpartnerhub.diligence.project.ProjectEvents.ProjectIpAllowListUpdated;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectRetentionUpdated;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectUpdated;
 import com.inpartnerhub.diligence.project.ProjectEvents.TemplateRequestItem;
@@ -172,6 +173,15 @@ class ProjectService {
         project.updateRetentionPeriod(retentionPeriodDays);
         events.publishEvent(new ProjectRetentionUpdated(project.getId(), project.getCode(), retentionPeriodDays,
                 RequestMetadata.capture()));
+        return project;
+    }
+
+    /** Sets the network locations external users may access the project from (PRD Bab 10.1). */
+    Project updateAllowedIpRanges(UUID id, List<String> ranges) {
+        var project = access.manageable(id);
+        project.updateAllowedIpRanges(ranges);
+        events.publishEvent(new ProjectIpAllowListUpdated(project.getId(), project.getCode(),
+                project.getAllowedIpRanges().size(), RequestMetadata.capture()));
         return project;
     }
 
