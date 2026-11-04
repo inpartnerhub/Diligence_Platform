@@ -9,3 +9,7 @@ logging:
       console: ""
   level:
     com.inpartnerhub.diligence: DEBUG
+diligence:
+  webhooks:
+    # Developer machines may point webhooks at http://localhost receivers.
+    allow-insecure-targets: true

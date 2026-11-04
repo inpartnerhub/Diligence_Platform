@@ -862,13 +862,13 @@
   },
   "webhooks": {
     "title": "Langganan Webhook",
-    "subtitle": "Konfigurasi endpoint webhook outbound untuk pengiriman event platform secara real-time.",
+    "subtitle": "Konfigurasi endpoint webhook outbound untuk pengiriman event platform secara real-time (khusus Super Admin).",
     "newWebhook": "Webhook Baru",
     "editWebhook": "Ubah Webhook",
     "targetUrl": "URL Endpoint",
     "targetUrlRequired": "URL target wajib diisi",
     "targetUrlInvalid": "Masukkan URL yang valid",
-    "targetUrlHelp": "URL HTTPS atau HTTP yang akan menerima notifikasi POST event.",
+    "targetUrlHelp": "URL HTTPS publik yang menerima notifikasi POST event. Alamat internal dan privat ditolak.",
     "description": "Deskripsi",
     "subscribedEvents": "Event yang Dilanggan",
     "eventsRequired": "Minimal satu pola event harus dipilih",
@@ -902,6 +902,11 @@
     "disabledSuccess": "Webhook dinonaktifkan",
     "createdSuccess": "Langganan webhook berhasil dibuat",
     "updatedSuccess": "Langganan webhook berhasil diperbarui",
-    "error": "Gagal menyelesaikan permintaan. Silakan coba lagi."
+    "error": "Gagal menyelesaikan permintaan. Silakan coba lagi.",
+    "signingKeyRevealTitle": "Salin kunci penandatangan sekarang",
+    "signingKeyRevealBody": "Demi keamanan, kunci ini hanya ditampilkan sekali. Simpan di penyimpanan rahasia sistem penerima untuk memverifikasi header X-Diligence-Signature.",
+    "signingKeyKeepHelp": "Kosongkan untuk mempertahankan kunci saat ini. Gunakan tombol kunci di daftar untuk membuat kunci baru.",
+    "rotateKey": "Buat kunci penandatangan baru",
+    "rotateKeyConfirm": "Buat kunci penandatangan baru? Kunci saat ini langsung tidak berlaku."
   }
 }

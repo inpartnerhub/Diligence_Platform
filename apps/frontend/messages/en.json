@@ -862,13 +862,13 @@
   },
   "webhooks": {
     "title": "Webhook Subscriptions",
-    "subtitle": "Configure outbound webhook endpoints to deliver real-time platform events.",
+    "subtitle": "Configure outbound webhook endpoints to deliver real-time platform events (Super Admin only).",
     "newWebhook": "New Webhook",
     "editWebhook": "Edit Webhook",
     "targetUrl": "Endpoint URL",
     "targetUrlRequired": "Target URL is required",
     "targetUrlInvalid": "Please enter a valid URL",
-    "targetUrlHelp": "The HTTPS or HTTP URL that will receive POST event notifications.",
+    "targetUrlHelp": "Public HTTPS URL that receives POST event notifications. Internal and private addresses are rejected.",
     "description": "Description",
     "subscribedEvents": "Subscribed Events",
     "eventsRequired": "At least one event pattern is required",
@@ -902,6 +902,11 @@
     "disabledSuccess": "Webhook disabled",
     "createdSuccess": "Webhook subscription created",
     "updatedSuccess": "Webhook subscription updated",
-    "error": "Failed to complete request. Please try again."
+    "error": "Failed to complete request. Please try again.",
+    "signingKeyRevealTitle": "Copy the signing key now",
+    "signingKeyRevealBody": "For security this key is shown only once. Store it in your receiver's secret store to verify the X-Diligence-Signature header.",
+    "signingKeyKeepHelp": "Leave empty to keep the current key. Use the key button in the list to generate a new one.",
+    "rotateKey": "Generate new signing key",
+    "rotateKeyConfirm": "Generate a new signing key? The current key stops working immediately."
   }
 }

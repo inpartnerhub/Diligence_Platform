@@ -110,6 +110,9 @@ diligence:
     region: ${S3_REGION:us-east-1}
     bucket: ${S3_BUCKET:diligence-documents}
     path-style: ${S3_PATH_STYLE:true}
+  webhooks:
+    # PRD ADM-07: outbound webhooks may only call public HTTPS endpoints (SSRF protection). Local profile only: true.
+    allow-insecure-targets: ${WEBHOOKS_ALLOW_INSECURE_TARGETS:false}
   dataroom:
     # Time zone of the timestamp in viewer watermarks (PRD DOC-04).
     watermark-zone: ${WATERMARK_ZONE:Asia/Jakarta}

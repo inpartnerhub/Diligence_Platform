@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -47,17 +48,21 @@ class WebhookService {
     private final HttpClient httpClient;
     private final Clock clock;
     private final long retryBaseDelayMs;
+    private final WebhookTargetPolicy targetPolicy;
 
     @Autowired
     WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
-            CurrentUserProvider currentUser, JsonMapper json) {
+            CurrentUserProvider currentUser, JsonMapper json, WebhookProperties properties) {
+        // Redirect.NEVER (the default) is deliberate: a redirect could bypass the target policy.
         this(subscriptions, deliveryLogs, currentUser, json,
-                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(),
-                Clock.systemUTC(), 50L);
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
+                        .followRedirects(HttpClient.Redirect.NEVER).build(),
+                Clock.systemUTC(), 50L, WebhookTargetPolicy.of(properties));
     }
 
     WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
-            CurrentUserProvider currentUser, JsonMapper json, HttpClient httpClient, Clock clock, long retryBaseDelayMs) {
+            CurrentUserProvider currentUser, JsonMapper json, HttpClient httpClient, Clock clock, long retryBaseDelayMs,
+            WebhookTargetPolicy targetPolicy) {
         this.subscriptions = subscriptions;
         this.deliveryLogs = deliveryLogs;
         this.currentUser = currentUser;
@@ -65,6 +70,7 @@ class WebhookService {
         this.httpClient = httpClient;
         this.clock = clock;
         this.retryBaseDelayMs = retryBaseDelayMs;
+        this.targetPolicy = targetPolicy;
     }
 
     @Transactional(readOnly = true)
@@ -83,9 +89,7 @@ class WebhookService {
         validateUrl(targetUrl);
         var id = UUID.randomUUID();
         var now = Instant.now(clock);
-        var key = signingKey != null && !signingKey.isBlank()
-                ? signingKey.strip()
-                : "whsec_" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+        var key = signingKey != null && !signingKey.isBlank() ? signingKey.strip() : generateSigningKey();
         var sub = new WebhookSubscription(id, organizationId, targetUrl.strip(), key,
                 description != null ? description.strip() : null,
                 subscribedEvents, active == null || active, me(), now, now);
@@ -116,6 +120,15 @@ class WebhookService {
         return subscriptions.save(sub);
     }
 
+    /** Replaces the signing key with a freshly generated one; the caller shows it once. */
+    @Transactional
+    WebhookSubscription rotateSigningKey(UUID id) {
+        var sub = get(id);
+        sub.setSigningKey(generateSigningKey());
+        sub.setUpdatedAt(Instant.now(clock));
+        return subscriptions.save(sub);
+    }
+
     @Transactional
     void delete(UUID id) {
         var sub = get(id);
@@ -128,9 +141,10 @@ class WebhookService {
         return deliveryLogs.findTop25BySubscriptionIdOrderByDeliveredAtDesc(subscriptionId);
     }
 
-    @Transactional
+    /** No transaction: a database connection must not be held while waiting on a remote endpoint. */
     DeliveryResult testPing(UUID subscriptionId) {
-        var sub = get(subscriptionId);
+        var sub = subscriptions.findById(subscriptionId)
+                .orElseThrow(() -> new ResourceNotFoundException("WebhookSubscription", subscriptionId));
         var payload = new LinkedHashMap<String, Object>();
         payload.put("id", UUID.randomUUID().toString());
         payload.put("event", "ping");
@@ -143,30 +157,39 @@ class WebhookService {
         return deliverWithRetry(sub, "ping", payloadJson, 1, 0L);
     }
 
-    @Transactional
+    /**
+     * Delivers one platform event to every matching subscription. Runs without a transaction (each repository call
+     * commits on its own) and delivers to the subscriptions in parallel on virtual threads, so a slow or failing
+     * receiver neither holds a pooled database connection nor delays the other receivers.
+     */
     void dispatch(AuditableEvent event) {
-        var activeSubs = subscriptions.findByActiveTrue();
-        if (activeSubs.isEmpty()) {
+        var action = event.auditAction();
+        var matching = subscriptions.findByActiveTrue().stream()
+                .filter(sub -> matchesEvent(sub.getSubscribedEvents(), action))
+                .toList();
+        if (matching.isEmpty()) {
             return;
         }
 
-        var action = event.auditAction();
-        for (var sub : activeSubs) {
-            if (matchesEvent(sub.getSubscribedEvents(), action)) {
-                var payload = new LinkedHashMap<String, Object>();
-                payload.put("id", UUID.randomUUID().toString());
-                payload.put("event", action);
-                payload.put("objectType", event.auditObjectType());
-                payload.put("objectId", event.auditObjectId());
-                payload.put("timestamp", Instant.now(clock).toString());
-                payload.put("data", event.auditDetails());
+        var payload = new LinkedHashMap<String, Object>();
+        payload.put("id", UUID.randomUUID().toString());
+        payload.put("event", action);
+        payload.put("objectType", event.auditObjectType());
+        payload.put("objectId", event.auditObjectId());
+        payload.put("timestamp", Instant.now(clock).toString());
+        payload.put("data", event.auditDetails());
+        String payloadJson = serialize(payload);
 
-                String payloadJson = serialize(payload);
-                try {
-                    deliverWithRetry(sub, action, payloadJson, 5, retryBaseDelayMs);
-                } catch (Exception ex) {
-                    log.error("Failed to dispatch webhook event {} to {}: {}", action, sub.getTargetUrl(), ex.getMessage());
-                }
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (var sub : matching) {
+                executor.submit(() -> {
+                    try {
+                        deliverWithRetry(sub, action, payloadJson, 5, retryBaseDelayMs);
+                    } catch (Exception ex) {
+                        log.error("Failed to dispatch webhook event {} to subscription {}: {}", action, sub.getId(),
+                                ex.getMessage());
+                    }
+                });
             }
         }
     }
@@ -181,11 +204,20 @@ class WebhookService {
         String signature = calculateSignature(sub.getSigningKey(), payloadJson);
         String deliveryId = UUID.randomUUID().toString();
 
+        URI target;
+        try {
+            target = targetPolicy.validate(sub.getTargetUrl());
+        } catch (InvalidRequestException e) {
+            var logEntry = deliveryLogs.save(new WebhookDeliveryLog(UUID.randomUUID(), sub.getId(), eventType,
+                    payloadJson, null, false, 0, "Blocked by target policy: " + e.getMessage(), Instant.now(clock), 0L));
+            return new DeliveryResult(false, null, 0L, logEntry.getErrorMessage(), logEntry.getId());
+        }
+
         while (attempts < maxAttempts) {
             attempts++;
             try {
                 HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(sub.getTargetUrl()))
+                        .uri(target)
                         .header("Content-Type", "application/json")
                         .header("X-Diligence-Event", eventType)
                         .header("X-Diligence-Signature", signature)
@@ -195,7 +227,7 @@ class WebhookService {
                         .POST(HttpRequest.BodyPublishers.ofString(payloadJson, StandardCharsets.UTF_8))
                         .build();
 
-                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<?> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
                 lastStatusCode = response.statusCode();
                 if (lastStatusCode >= 200 && lastStatusCode < 300) {
                     long duration = System.currentTimeMillis() - start;
@@ -203,13 +235,14 @@ class WebhookService {
                             payloadJson, lastStatusCode, true, attempts, null, Instant.now(clock), duration));
                     return new DeliveryResult(true, lastStatusCode, duration, null, logEntry.getId());
                 }
-                lastError = "HTTP " + lastStatusCode + ": " + truncate(response.body(), 250);
+                // The response body is never stored or returned: it could expose an internal service (SSRF).
+                lastError = "HTTP " + lastStatusCode;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 lastError = "Interrupted: " + e.getMessage();
                 break;
             } catch (Exception e) {
-                lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+                lastError = e.getClass().getSimpleName();
             }
 
             if (attempts < maxAttempts && baseDelayMs > 0) {
@@ -267,27 +300,21 @@ class WebhookService {
         }
     }
 
-    private static void validateUrl(String url) {
-        if (url == null || url.isBlank()) {
-            throw new InvalidRequestException("Target URL cannot be empty");
-        }
-        try {
-            var uri = URI.create(url);
-            var scheme = uri.getScheme();
-            if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
-                throw new InvalidRequestException("Target URL must use HTTP or HTTPS protocol");
-            }
-            if (uri.getHost() == null || uri.getHost().isBlank()) {
-                throw new InvalidRequestException("Target URL must contain a valid host");
-            }
-        } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException("Invalid target URL format: " + e.getMessage());
-        }
+    private void validateUrl(String url) {
+        targetPolicy.validate(url);
     }
 
-    private static String truncate(String text, int max) {
-        if (text == null) return "";
-        return text.length() <= max ? text : text.substring(0, max) + "...";
+    static String generateSigningKey() {
+        return "whsec_" + UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    /** What the UI shows instead of the secret: its prefix and last four characters. */
+    static String signingKeyHint(String key) {
+        if (key == null || key.length() <= 10) {
+            return "••••";
+        }
+        var prefix = key.startsWith("whsec_") ? "whsec_" : "";
+        return prefix + "••••" + key.substring(key.length() - 4);
     }
 
     private UUID me() {

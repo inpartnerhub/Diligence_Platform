@@ -5,6 +5,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   HistoryOutlined,
+  KeyOutlined,
   PlusOutlined,
   SendOutlined,
 } from "@ant-design/icons";
@@ -33,7 +34,14 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
-import { createWebhook, deleteWebhook, loadWebhookDeliveries, testWebhook, updateWebhook } from "./actions";
+import {
+  createWebhook,
+  deleteWebhook,
+  loadWebhookDeliveries,
+  rotateWebhookSigningKey,
+  testWebhook,
+  updateWebhook,
+} from "./actions";
 import type {
   Organization,
   WebhookDeliveryLog,
@@ -54,6 +62,26 @@ const EVENT_OPTIONS = [
   { value: "dataroom.*", label: "dataroom.* (All data room events)" },
 ];
 
+/** The signing key is returned once (create, rotate); show it so the administrator can copy it. */
+function useRevealSigningKey() {
+  const t = useTranslations("webhooks");
+  const { modal } = App.useApp();
+  return (key: string | null) => {
+    if (!key) return;
+    modal.info({
+      title: t("signingKeyRevealTitle"),
+      content: (
+        <Flex vertical gap={8}>
+          <Typography.Text>{t("signingKeyRevealBody")}</Typography.Text>
+          <Typography.Text code copyable={{ text: key }}>
+            {key}
+          </Typography.Text>
+        </Flex>
+      ),
+    });
+  };
+}
+
 export function WebhooksView({
   subscriptions,
   organizations,
@@ -65,6 +93,7 @@ export function WebhooksView({
   const format = useFormatter();
   const router = useRouter();
   const { message } = App.useApp();
+  const revealSigningKey = useRevealSigningKey();
 
   const [editing, setEditing] = useState<WebhookSubscription | "new" | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -110,6 +139,18 @@ export function WebhooksView({
         message.error(res.message);
       } else {
         message.error(t("error"));
+      }
+    });
+  };
+
+  const handleRotateKey = (sub: WebhookSubscription) => {
+    startTransition(async () => {
+      const res = await rotateWebhookSigningKey(sub.id);
+      if (res.ok && res.data) {
+        revealSigningKey(res.data.signingKey);
+        router.refresh();
+      } else if (!res.ok) {
+        message.error(res.message || t("error"));
       }
     });
   };
@@ -160,6 +201,12 @@ export function WebhooksView({
       ),
     },
     {
+      title: t("signingKey"),
+      dataIndex: "signingKeyHint",
+      width: 170,
+      render: (hint: string) => <Typography.Text code>{hint}</Typography.Text>,
+    },
+    {
       title: t("status"),
       dataIndex: "active",
       width: 110,
@@ -199,6 +246,11 @@ export function WebhooksView({
               {t("logs")}
             </Button>
           </Tooltip>
+          <Popconfirm title={t("rotateKeyConfirm")} onConfirm={() => handleRotateKey(sub)}>
+            <Tooltip title={t("rotateKey")}>
+              <Button size="small" icon={<KeyOutlined />} aria-label={t("rotateKey")} />
+            </Tooltip>
+          </Popconfirm>
           <Button size="small" icon={<EditOutlined />} onClick={() => setEditing(sub)} />
           <Popconfirm
             title={t("deleteConfirm")}
@@ -345,6 +397,7 @@ function WebhookModal({
   const t = useTranslations("webhooks");
   const { message } = App.useApp();
   const router = useRouter();
+  const revealSigningKey = useRevealSigningKey();
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
 
@@ -352,7 +405,6 @@ function WebhookModal({
     ? {
         targetUrl: subscription.targetUrl,
         description: subscription.description,
-        signingKey: subscription.signingKey,
         subscribedEvents: subscription.subscribedEvents.split(",").map((s) => s.trim()),
         active: subscription.active,
         organizationId: subscription.organizationId,
@@ -386,6 +438,7 @@ function WebhookModal({
     setSaving(false);
     if (res.ok) {
       message.success(t(subscription ? "updatedSuccess" : "createdSuccess"));
+      if (!subscription) revealSigningKey(res.data?.signingKey ?? null);
       onClose();
       router.refresh();
     } else {
@@ -436,7 +489,11 @@ function WebhookModal({
           />
         </Form.Item>
 
-        <Form.Item name="signingKey" label={t("signingKey")} extra={t("signingKeyHelp")}>
+        <Form.Item
+          name="signingKey"
+          label={t("signingKey")}
+          extra={subscription ? t("signingKeyKeepHelp") : t("signingKeyHelp")}
+        >
           <Input.Password placeholder={t("signingKeyPlaceholder")} />
         </Form.Item>
 

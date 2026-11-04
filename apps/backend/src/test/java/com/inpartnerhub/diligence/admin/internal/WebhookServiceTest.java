@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.admin.internal;
 
+import java.net.InetAddress;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -54,7 +55,10 @@ class WebhookServiceTest {
         when(subscriptions.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(deliveryLogs.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L);
+        // Every host resolves to a public documentation address unless a test says otherwise.
+        var policy = new WebhookTargetPolicy(false,
+                host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { 93, (byte) 184, (byte) 215, 14 }) });
+        service = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L, policy);
     }
 
     @Test
@@ -73,6 +77,59 @@ class WebhookServiceTest {
 
         assertThatThrownBy(() -> service.create(ORG_ID, "", null, null, null, true))
                 .isInstanceOf(InvalidRequestException.class);
+
+        assertThatThrownBy(() -> service.create(ORG_ID, "http://api.example.com/webhook", null, null, null, true))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("HTTPS");
+    }
+
+    @Test
+    void rejectsTargetsThatResolveToInternalAddresses() {
+        var internal = new WebhookTargetPolicy(false,
+                host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { 10, 0, 0, 5 }) });
+        var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L,
+                internal);
+
+        assertThatThrownBy(() -> guarded.create(ORG_ID, "https://vault.internal/v1/secret", null, null, null, true))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("public");
+    }
+
+    @Test
+    void classifiesPublicAndInternalAddresses() throws Exception {
+        assertThat(WebhookTargetPolicy.isPublic(InetAddress.getByName("93.184.215.14"))).isTrue();
+        assertThat(WebhookTargetPolicy.isPublic(InetAddress.getByName("2606:4700::1111"))).isTrue();
+        for (var internal : List.of("127.0.0.1", "10.1.2.3", "172.20.0.4", "192.168.1.1", "169.254.169.254",
+                "100.64.0.1", "0.0.0.0", "::1", "fd00::1", "fe80::1", "64:ff9b::a9fe:a9fe", "::ffff:127.0.0.1")) {
+            assertThat(WebhookTargetPolicy.isPublic(InetAddress.getByName(internal))).as(internal).isFalse();
+        }
+    }
+
+    @Test
+    void allowsHttpAndPrivateTargetsOnlyWhenInsecureTargetsAreEnabled() {
+        var local = new WebhookTargetPolicy(true, host -> {
+            throw new AssertionError("must not resolve when insecure targets are allowed");
+        });
+        assertThat(local.validate("http://localhost:9000/hook").getHost()).isEqualTo("localhost");
+        assertThatThrownBy(() -> local.validate("https://user:pass@example.com/hook"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("credentials");
+    }
+
+    @Test
+    void hidesSigningKeyBehindHintAndRotatesIt() {
+        assertThat(WebhookService.signingKeyHint("whsec_0123456789abcdef")).isEqualTo("whsec_••••cdef");
+        assertThat(WebhookService.signingKeyHint("short")).isEqualTo("••••");
+
+        var id = UUID.randomUUID();
+        var existing = new WebhookSubscription(id, ORG_ID, "https://old.url/hook", "key123", "Old", "*", true,
+                USER_ID, Instant.now(clock), Instant.now(clock));
+        when(subscriptions.findById(id)).thenReturn(Optional.of(existing));
+
+        var rotated = service.rotateSigningKey(id);
+        assertThat(rotated.getSigningKey()).startsWith("whsec_").isNotEqualTo("key123");
+        assertThat(WebhookController.WebhookResponse.of(rotated).signingKey()).isNull();
+        assertThat(WebhookController.WebhookResponse.of(rotated, true).signingKey()).isEqualTo(rotated.getSigningKey());
     }
 
     @Test
@@ -147,6 +204,7 @@ class WebhookServiceTest {
         var result = service.deliverWithRetry(sub, "test.event", "{\"data\":123}", 5, 0L);
         assertThat(result.success()).isFalse();
         assertThat(result.statusCode()).isEqualTo(500);
+        assertThat(result.errorMessage()).isEqualTo("HTTP 500"); // the receiver's body is never echoed (SSRF)
 
         verify(httpClient, times(5)).send(any(), any());
         ArgumentCaptor<WebhookDeliveryLog> captor = ArgumentCaptor.forClass(WebhookDeliveryLog.class);
@@ -201,6 +259,22 @@ class WebhookServiceTest {
 
         // Only sub1 matches "finding.*"
         verify(httpClient, times(1)).send(any(), any());
+    }
+
+    @Test
+    void blocksDeliveryWhenTargetNoLongerPassesThePolicy() throws Exception {
+        var rebinding = new WebhookTargetPolicy(false,
+                host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { (byte) 169, (byte) 254, (byte) 169, (byte) 254 }) });
+        var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L,
+                rebinding);
+        var sub = new WebhookSubscription(UUID.randomUUID(), ORG_ID, "https://api.example.com/hook", "testkey",
+                "Desc", "*", true, USER_ID, Instant.now(clock), Instant.now(clock));
+
+        var result = guarded.deliverWithRetry(sub, "test.event", "{}", 3, 0L);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).startsWith("Blocked by target policy");
+        verify(httpClient, times(0)).send(any(), any());
     }
 
     @Test

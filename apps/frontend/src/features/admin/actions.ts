@@ -134,6 +134,23 @@ export async function updateWebhook(
   }
 }
 
+export async function rotateWebhookSigningKey(id: string): Promise<ActionResult<WebhookSubscription>> {
+  try {
+    const data = await apiFetch<WebhookSubscription>(
+      `/api/v1/admin/webhooks/${encodeURIComponent(id)}/rotate-signing-key`,
+      { method: "POST" },
+    );
+    revalidatePath("/admin/webhooks");
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message };
+    }
+    console.error("Rotate webhook signing key failed", error);
+    return { ok: false, message: "" };
+  }
+}
+
 export async function deleteWebhook(id: string): Promise<ActionResult> {
   return run("/admin/webhooks", () =>
     apiFetch(`/api/v1/admin/webhooks/${encodeURIComponent(id)}`, {
