@@ -848,12 +848,15 @@
     "clientHint": "Reports issued to you. Downloads are watermarked with your name and logged.",
     "empty": "No reports yet.",
     "emptyClient": "No reports have been issued yet.",
-    "generateHelp": "The report contains every released finding with its rating, recommendation and source documents, as Word and PDF.",
+    "generateHelp": "The report contains the released findings you select, with their rating, recommendation and source documents, as Word and PDF.",
     "defaultTitle": "Due diligence report — {project}",
     "generated": "Version {version} generated",
     "exportPptx": "Export PowerPoint",
     "pptx": "PowerPoint presentation (.pptx)",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "findingsToInclude": "Findings to include",
+    "findingsToIncludeHelp": "Only released findings can be included. All of them are selected by default.",
+    "findingsToIncludeRequired": "Select at least one released finding."
   },
   "picker": {
     "chooseProject": "Choose a project.",

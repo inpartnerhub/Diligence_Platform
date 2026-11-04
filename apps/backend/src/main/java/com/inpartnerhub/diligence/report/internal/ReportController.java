@@ -64,15 +64,18 @@ class ReportController {
             Instant issuedAt) {
     }
 
+    /** {@code findingIds}: the released findings to include (PRD RPT-01); omitted means all released findings. */
     record GenerateRequest(
             @NotBlank @Size(max = ReportService.MAX_TITLE) String title,
-            @Pattern(regexp = "id|en") String language) {
+            @Pattern(regexp = "id|en") String language,
+            @Size(max = 1000) List<UUID> findingIds) {
     }
 
     record RevisionRequest(
             @NotNull Boolean major,
             @Size(max = ReportService.MAX_TITLE) String title,
-            @Pattern(regexp = "id|en") String language) {
+            @Pattern(regexp = "id|en") String language,
+            @Size(max = 1000) List<UUID> findingIds) {
     }
 
     record ReviewActionRequest(
@@ -112,9 +115,9 @@ class ReportController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Generate a new report version from the released findings (Word + PDF) — RPT-01")
+    @Operation(summary = "Generate a new report version from selected released findings (Word + PDF) — RPT-01")
     ReportResponse generate(@PathVariable UUID projectId, @Valid @RequestBody GenerateRequest request) {
-        var report = reports.generate(projectId, request.title(), request.language());
+        var report = reports.generate(projectId, request.title(), request.language(), request.findingIds());
         return response(report, names(List.of(report.getCreatedBy())));
     }
 
@@ -126,7 +129,7 @@ class ReportController {
             @PathVariable UUID reportId,
             @Valid @RequestBody RevisionRequest request) {
         var report = reports.generateRevision(projectId, reportId, request.title(), Boolean.TRUE.equals(request.major()),
-                request.language());
+                request.language(), request.findingIds());
         return response(report, names(List.of(report.getCreatedBy())));
     }
 
@@ -203,14 +206,15 @@ class ReportController {
     }
 
     @GetMapping("/{reportId}/download")
-    @Operation(summary = "Download Word, PDF, or PowerPoint presentation; the client gets the issued PDF watermarked for them; logged")
+    @Operation(summary = "Download Word, PDF, PowerPoint or the findings as Excel (RPT-04); the client gets the issued PDF watermarked for them; logged")
     ResponseEntity<StreamingResponseBody> download(@PathVariable UUID projectId, @PathVariable UUID reportId,
             @RequestParam(defaultValue = "pdf") String format) {
         var parsed = switch (format.toLowerCase(Locale.ROOT)) {
             case "pdf" -> ReportService.Format.PDF;
             case "docx" -> ReportService.Format.DOCX;
             case "pptx" -> ReportService.Format.PPTX;
-            default -> throw new InvalidRequestException("Format must be pdf, docx, or pptx");
+            case "xlsx" -> ReportService.Format.XLSX;
+            default -> throw new InvalidRequestException("Format must be pdf, docx, pptx or xlsx");
         };
         var download = reports.download(projectId, reportId, parsed);
         return ResponseEntity.ok()

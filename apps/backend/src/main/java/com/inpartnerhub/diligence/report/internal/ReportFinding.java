@@ -44,4 +44,12 @@ class ReportFinding {
         this.projectId = projectId;
         this.position = position;
     }
+
+    UUID getFindingId() {
+        return findingId;
+    }
+
+    int getPosition() {
+        return position;
+    }
 }

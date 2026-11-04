@@ -848,12 +848,15 @@
     "clientHint": "Laporan yang diterbitkan untuk Anda. Unduhan diberi watermark nama Anda dan dicatat.",
     "empty": "Belum ada laporan.",
     "emptyClient": "Belum ada laporan yang diterbitkan.",
-    "generateHelp": "Laporan memuat semua temuan yang sudah dirilis beserta penilaian, rekomendasi dan dokumen sumbernya, dalam format Word dan PDF.",
+    "generateHelp": "Laporan memuat temuan yang dirilis yang Anda pilih, lengkap dengan rating, rekomendasi, dan dokumen sumber, dalam format Word dan PDF.",
     "defaultTitle": "Laporan due diligence — {project}",
     "generated": "Versi {version} dibuat",
     "exportPptx": "Ekspor PowerPoint",
     "pptx": "Presentasi PowerPoint (.pptx)",
-    "error": "Terjadi kesalahan. Silakan coba lagi."
+    "error": "Terjadi kesalahan. Silakan coba lagi.",
+    "findingsToInclude": "Temuan yang dimasukkan",
+    "findingsToIncludeHelp": "Hanya temuan yang sudah dirilis yang dapat dimasukkan. Secara bawaan semuanya dipilih.",
+    "findingsToIncludeRequired": "Pilih minimal satu temuan yang dirilis."
   },
   "picker": {
     "chooseProject": "Pilih proyek.",

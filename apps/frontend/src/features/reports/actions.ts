@@ -25,9 +25,14 @@ async function run<T>(projectId: string, call: () => Promise<T>): Promise<Result
   }
 }
 
-export async function generateReport(projectId: string, title: string, language: "id" | "en") {
+export async function generateReport(
+  projectId: string,
+  title: string,
+  language: "id" | "en",
+  findingIds?: string[],
+) {
   return run(projectId, () =>
-    apiFetch<Report>(base(projectId), { method: "POST", body: { title, language } }),
+    apiFetch<Report>(base(projectId), { method: "POST", body: { title, language, findingIds } }),
   );
 }
 
@@ -37,11 +42,12 @@ export async function generateReportRevision(
   major: boolean,
   title?: string,
   language?: "id" | "en",
+  findingIds?: string[],
 ) {
   return run(projectId, () =>
     apiFetch<Report>(base(projectId, `/${encodeURIComponent(reportId)}/revision`), {
       method: "POST",
-      body: { major, title, language },
+      body: { major, title, language, findingIds },
     }),
   );
 }
