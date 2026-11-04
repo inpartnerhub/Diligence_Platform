@@ -6,6 +6,7 @@ import {
   DeleteOutlined,
   DiffOutlined,
   FilePdfOutlined,
+  FileExcelOutlined,
   FilePptOutlined,
   FileWordOutlined,
   HistoryOutlined,
@@ -40,6 +41,7 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
+import type { Finding } from "@/features/findings/types";
 import type { Project } from "@/features/projects/types";
 
 import {
@@ -69,7 +71,7 @@ export function ReportsView({
   project: Project;
   reports: Report[];
   permissions: ReportPermissions;
-  releasedFindings: number | null;
+  releasedFindings: Finding[] | null;
 }>) {
   const t = useTranslations("reports");
   const format = useFormatter();
@@ -85,7 +87,7 @@ export function ReportsView({
 
   const date = (value: string) =>
     format.dateTime(new Date(value), { dateStyle: "medium", timeStyle: "short" });
-  const download = (report: Report, fileFormat: "pdf" | "docx" | "pptx") =>
+  const download = (report: Report, fileFormat: "pdf" | "docx" | "pptx" | "xlsx") =>
     `/api/projects/${project.id}/reports/${report.id}/download?format=${fileFormat}`;
 
   const act = (call: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
@@ -176,6 +178,9 @@ export function ReportsView({
                 </Button>
                 <Button size="small" icon={<FilePptOutlined />} href={download(r, "pptx")}>
                   PPTX
+                </Button>
+                <Button size="small" icon={<FileExcelOutlined />} href={download(r, "xlsx")}>
+                  Excel
                 </Button>
               </>
             )}
@@ -304,7 +309,7 @@ export function ReportsView({
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          title={t("teamHint", { count: releasedFindings ?? 0 })}
+          title={t("teamHint", { count: releasedFindings?.length ?? 0 })}
         />
       ) : (
         <Alert type="info" showIcon style={{ marginBottom: 16 }} title={t("clientHint")} />
@@ -323,6 +328,7 @@ export function ReportsView({
       {generating && (
         <GenerateModal
           projectId={project.id}
+          findings={releasedFindings ?? []}
           defaultTitle={t("defaultTitle", { project: project.name })}
           onClose={() => setGenerating(false)}
         />
@@ -330,6 +336,7 @@ export function ReportsView({
       {revisionTarget && (
         <RevisionModal
           projectId={project.id}
+          findings={releasedFindings ?? []}
           report={revisionTarget}
           onClose={() => setRevisionTarget(null)}
         />
@@ -374,15 +381,37 @@ export function ReportsView({
   );
 }
 
+/** Picker for the released findings a report version includes (PRD RPT-01 "pilih temuan yang dirilis"). */
+function FindingPicker({ findings }: Readonly<{ findings: Finding[] }>) {
+  const t = useTranslations("reports");
+  return (
+    <Form.Item
+      name="findingIds"
+      label={t("findingsToInclude")}
+      extra={t("findingsToIncludeHelp")}
+      rules={[{ required: true, type: "array", min: 1, message: t("findingsToIncludeRequired") }]}
+    >
+      <Select
+        mode="multiple"
+        allowClear
+        maxTagCount="responsive"
+        optionFilterProp="label"
+        options={findings.map((f) => ({ value: f.id, label: `${f.number} · ${f.title}` }))}
+      />
+    </Form.Item>
+  );
+}
+
 function GenerateModal({
   projectId,
+  findings,
   defaultTitle,
   onClose,
-}: Readonly<{ projectId: string; defaultTitle: string; onClose: () => void }>) {
+}: Readonly<{ projectId: string; findings: Finding[]; defaultTitle: string; onClose: () => void }>) {
   const t = useTranslations("reports");
   const { message } = App.useApp();
   const router = useRouter();
-  const [form] = Form.useForm<{ title: string; language: "id" | "en" }>();
+  const [form] = Form.useForm<{ title: string; language: "id" | "en"; findingIds: string[] }>();
   const [pending, startTransition] = useTransition();
   return (
     <Modal
@@ -398,10 +427,10 @@ function GenerateModal({
       <Form
         form={form}
         layout="vertical"
-        initialValues={{ title: defaultTitle, language: "id" }}
+        initialValues={{ title: defaultTitle, language: "id", findingIds: findings.map((f) => f.id) }}
         onFinish={(values) =>
           startTransition(async () => {
-            const result = await generateReport(projectId, values.title, values.language);
+            const result = await generateReport(projectId, values.title, values.language, values.findingIds);
             if (!result.ok) {
               message.error(result.message || t("error"));
               return;
@@ -423,6 +452,7 @@ function GenerateModal({
             ]}
           />
         </Form.Item>
+        <FindingPicker findings={findings} />
       </Form>
     </Modal>
   );
@@ -430,13 +460,19 @@ function GenerateModal({
 
 function RevisionModal({
   projectId,
+  findings,
   report,
   onClose,
-}: Readonly<{ projectId: string; report: Report; onClose: () => void }>) {
+}: Readonly<{ projectId: string; findings: Finding[]; report: Report; onClose: () => void }>) {
   const t = useTranslations("reports");
   const { message } = App.useApp();
   const router = useRouter();
-  const [form] = Form.useForm<{ major: boolean; title: string; language: "id" | "en" }>();
+  const [form] = Form.useForm<{
+    major: boolean;
+    title: string;
+    language: "id" | "en";
+    findingIds: string[];
+  }>();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -457,6 +493,7 @@ function RevisionModal({
           major: false,
           title: report.title,
           language: report.language,
+          findingIds: findings.map((f) => f.id),
         }}
         onFinish={(values) =>
           startTransition(async () => {
@@ -466,6 +503,7 @@ function RevisionModal({
               values.major,
               values.title,
               values.language,
+              values.findingIds,
             );
             if (!result.ok) {
               message.error(result.message || t("error"));
@@ -496,6 +534,7 @@ function RevisionModal({
             ]}
           />
         </Form.Item>
+        <FindingPicker findings={findings} />
       </Form>
     </Modal>
   );

@@ -358,6 +358,66 @@ class ReportServiceTest {
     }
 
     @Test
+    void generatesFromTheSelectedReleasedFindingsOnly() {
+        as(ProjectRole.PROJECT_MANAGER);
+        var legal = finding(LEGAL, "F-LEG-001", 5, 4);
+        var tax = finding(TAX, "F-TAX-001", 2, 2);
+        when(findings.released(PROJECT, null)).thenReturn(List.of(legal, tax));
+
+        var report = service.generate(PROJECT, "Selected", "id", List.of(tax.id()));
+
+        assertThat(report.getFindingCount()).isEqualTo(1);
+        var saved = ArgumentCaptor.forClass(ReportFinding.class);
+        verify(reportFindings).save(saved.capture());
+        assertThat(saved.getValue().getFindingId()).isEqualTo(tax.id());
+
+        assertThatThrownBy(() -> service.generate(PROJECT, "x", "id", List.of(UUID.randomUUID())))
+                .isInstanceOf(InvalidRequestException.class).hasMessageContaining("released findings");
+        assertThatThrownBy(() -> service.generate(PROJECT, "x", "id", List.of()))
+                .isInstanceOf(InvalidRequestException.class).hasMessageContaining("at least one");
+    }
+
+    @Test
+    void powerPointContainsTheFindingsOfThatReportVersion() throws Exception {
+        as(ProjectRole.PARTNER);
+        var included = finding(LEGAL, "F-LEG-001", 5, 4);
+        var releasedLater = finding(TAX, "F-TAX-009", 2, 2);
+        when(findings.released(PROJECT, null)).thenReturn(List.of(included, releasedLater));
+        var report = new Report(UUID.randomUUID(), PROJECT, null, 4, "R", "id", 1, "r.docx", "r.pdf", 4, ME);
+        when(reports.findById(report.getId())).thenReturn(Optional.of(report));
+        when(reportFindings.findByReportIdOrderByPositionAsc(report.getId()))
+                .thenReturn(List.of(new ReportFinding(report.getId(), included.id(), PROJECT, 1)));
+
+        var out = new ByteArrayOutputStream();
+        service.download(PROJECT, report.getId(), ReportService.Format.PPTX).writer().writeTo(out);
+
+        try (var ppt = new org.apache.poi.xslf.usermodel.XMLSlideShow(new ByteArrayInputStream(out.toByteArray()))) {
+            var text = new StringBuilder();
+            ppt.getSlides().forEach(slide -> slide.getShapes().forEach(shape -> {
+                if (shape instanceof org.apache.poi.xslf.usermodel.XSLFTextShape textShape) {
+                    text.append(textShape.getText()).append('\n');
+                }
+            }));
+            assertThat(text.toString()).contains("F-LEG-001").doesNotContain("F-TAX-009");
+        }
+        var xlsx = service.download(PROJECT, report.getId(), ReportService.Format.XLSX);
+        assertThat(xlsx.fileName()).isEqualTo("dd-1-report-v4.xlsx");
+        var xlsxBytes = new ByteArrayOutputStream();
+        xlsx.writer().writeTo(xlsxBytes);
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new ByteArrayInputStream(xlsxBytes.toByteArray()))) {
+            var findingsSheet = workbook.getSheetAt(0);
+            assertThat(findingsSheet.getLastRowNum()).isEqualTo(1);
+            assertThat(findingsSheet.getRow(1).getCell(0).getStringCellValue()).isEqualTo("F-LEG-001");
+            assertThat(findingsSheet.getRow(1).getCell(4).getStringCellValue()).isEqualTo("Kritis");
+        }
+
+        as(ProjectRole.CLIENT); // the client only ever gets the issued, watermarked PDF
+        report.issue(ME, Instant.now());
+        assertThat(service.download(PROJECT, report.getId(), ReportService.Format.XLSX).fileName()).endsWith(".pdf");
+    }
+
+    @Test
     void severityOrderInTheSummary() {
         assertThat(ReportDocumentWriter.COLORS).containsKeys(RiskLevel.values());
     }

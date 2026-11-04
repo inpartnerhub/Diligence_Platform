@@ -110,6 +110,9 @@ diligence:
     region: ${S3_REGION:us-east-1}
     bucket: ${S3_BUCKET:diligence-documents}
     path-style: ${S3_PATH_STYLE:true}
+  webhooks:
+    # PRD ADM-07: outbound webhooks may only call public HTTPS endpoints (SSRF protection). Local profile only: true.
+    allow-insecure-targets: ${WEBHOOKS_ALLOW_INSECURE_TARGETS:false}
   dataroom:
     # Time zone of the timestamp in viewer watermarks (PRD DOC-04).
     watermark-zone: ${WATERMARK_ZONE:Asia/Jakarta}
@@ -131,13 +134,15 @@ diligence:
     # Tesseract languages for scanned documents and images (the image must have the trained data installed).
     ocr-languages: ${OCR_LANGUAGES:eng+ind}
 
+# API documentation is off by default so production does not publish a map of the API; the local profile and the
+# dev/staging overlays (API_DOCS_ENABLED=true) keep it available (PRD 8.1 API-first).
 springdoc:
   api-docs:
     path: /v3/api-docs
-    enabled: ${API_DOCS_ENABLED:true}
+    enabled: ${API_DOCS_ENABLED:false}
   swagger-ui:
     path: /swagger-ui.html
-    enabled: ${API_DOCS_ENABLED:true}
+    enabled: ${API_DOCS_ENABLED:false}
   default-produces-media-type: application/json
   paths-to-match: /api/**
 
@@ -159,6 +164,13 @@ management:
   observations:
     key-values:
       application: ${spring.application.name}
+  metrics:
+    distribution:
+      # Histogram buckets for the P95 latency alert (PRD Bab 7: pages <= 2 s P95).
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 500ms, 1s, 2s, 3s
   tracing:
     sampling:
       probability: ${TRACING_SAMPLING_PROBABILITY:0.1}

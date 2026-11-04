@@ -278,7 +278,10 @@
     "entryDate": "Tanggal",
     "consultant": "Konsultan",
     "hours": "Jam",
-    "description": "Deskripsi"
+    "description": "Deskripsi",
+    "ipAllowList": "Daftar IP yang diizinkan untuk pengguna eksternal",
+    "ipAllowListNone": "Tanpa pembatasan",
+    "ipAllowListHelp": "Opsional (PRD 10.1). Satu alamat IP atau rentang CIDR per baris, misalnya jaringan kantor klien dan target. Pengguna klien, target, dan pengamat di luar rentang ini ditolak dan percobaannya dicatat. Kosongkan bila tanpa pembatasan."
   },
   "templates": {
     "title": "Template proyek",
@@ -848,12 +851,15 @@
     "clientHint": "Laporan yang diterbitkan untuk Anda. Unduhan diberi watermark nama Anda dan dicatat.",
     "empty": "Belum ada laporan.",
     "emptyClient": "Belum ada laporan yang diterbitkan.",
-    "generateHelp": "Laporan memuat semua temuan yang sudah dirilis beserta penilaian, rekomendasi dan dokumen sumbernya, dalam format Word dan PDF.",
+    "generateHelp": "Laporan memuat temuan yang dirilis yang Anda pilih, lengkap dengan rating, rekomendasi, dan dokumen sumber, dalam format Word dan PDF.",
     "defaultTitle": "Laporan due diligence — {project}",
     "generated": "Versi {version} dibuat",
     "exportPptx": "Ekspor PowerPoint",
     "pptx": "Presentasi PowerPoint (.pptx)",
-    "error": "Terjadi kesalahan. Silakan coba lagi."
+    "error": "Terjadi kesalahan. Silakan coba lagi.",
+    "findingsToInclude": "Temuan yang dimasukkan",
+    "findingsToIncludeHelp": "Hanya temuan yang sudah dirilis yang dapat dimasukkan. Secara bawaan semuanya dipilih.",
+    "findingsToIncludeRequired": "Pilih minimal satu temuan yang dirilis."
   },
   "picker": {
     "chooseProject": "Pilih proyek.",
@@ -862,13 +868,13 @@
   },
   "webhooks": {
     "title": "Langganan Webhook",
-    "subtitle": "Konfigurasi endpoint webhook outbound untuk pengiriman event platform secara real-time.",
+    "subtitle": "Konfigurasi endpoint webhook outbound untuk pengiriman event platform secara real-time (khusus Super Admin).",
     "newWebhook": "Webhook Baru",
     "editWebhook": "Ubah Webhook",
     "targetUrl": "URL Endpoint",
     "targetUrlRequired": "URL target wajib diisi",
     "targetUrlInvalid": "Masukkan URL yang valid",
-    "targetUrlHelp": "URL HTTPS atau HTTP yang akan menerima notifikasi POST event.",
+    "targetUrlHelp": "URL HTTPS publik yang menerima notifikasi POST event. Alamat internal dan privat ditolak.",
     "description": "Deskripsi",
     "subscribedEvents": "Event yang Dilanggan",
     "eventsRequired": "Minimal satu pola event harus dipilih",
@@ -902,6 +908,11 @@
     "disabledSuccess": "Webhook dinonaktifkan",
     "createdSuccess": "Langganan webhook berhasil dibuat",
     "updatedSuccess": "Langganan webhook berhasil diperbarui",
-    "error": "Gagal menyelesaikan permintaan. Silakan coba lagi."
+    "error": "Gagal menyelesaikan permintaan. Silakan coba lagi.",
+    "signingKeyRevealTitle": "Salin kunci penandatangan sekarang",
+    "signingKeyRevealBody": "Demi keamanan, kunci ini hanya ditampilkan sekali. Simpan di penyimpanan rahasia sistem penerima untuk memverifikasi header X-Diligence-Signature.",
+    "signingKeyKeepHelp": "Kosongkan untuk mempertahankan kunci saat ini. Gunakan tombol kunci di daftar untuk membuat kunci baru.",
+    "rotateKey": "Buat kunci penandatangan baru",
+    "rotateKeyConfirm": "Buat kunci penandatangan baru? Kunci saat ini langsung tidak berlaku."
   }
 }

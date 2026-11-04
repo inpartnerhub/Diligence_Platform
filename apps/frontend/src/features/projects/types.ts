@@ -73,6 +73,8 @@ export interface Project {
   templateId: string | null;
   retentionPeriodDays: number;
   retentionDeadline?: string | null;
+  /** PRD Bab 10.1: networks external users may access the project from; empty = no restriction. */
+  allowedIpRanges?: string[];
   purgedAt?: string | null;
   createdAt: string;
   archivedAt: string | null;

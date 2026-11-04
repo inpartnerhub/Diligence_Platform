@@ -119,6 +119,9 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HEALTH_ENABLED: "true"
+      # Metrics incl. login events for the suspicious-login alerts (PRD Bab 7, 10.1)
+      KC_METRICS_ENABLED: "true"
+      KC_EVENT_METRICS_USER_ENABLED: "true"
       # Tokens must carry the same issuer whether fetched by the browser or validated in containers.
       KC_HOSTNAME: http://localhost:8180
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
@@ -242,6 +245,7 @@ services:
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]
     volumes:
       - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     ports: ["127.0.0.1:9090:9090"]
 

@@ -9,3 +9,4 @@ resources:
   - hpa.yaml
   - pdb.yaml
   - servicemonitor.yaml
+  - prometheusrule.yaml

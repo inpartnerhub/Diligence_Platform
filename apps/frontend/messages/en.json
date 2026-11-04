@@ -278,7 +278,10 @@
     "entryDate": "Date",
     "consultant": "Consultant",
     "hours": "Hours",
-    "description": "Description"
+    "description": "Description",
+    "ipAllowList": "IP allow-list for external users",
+    "ipAllowListNone": "No restriction",
+    "ipAllowListHelp": "Optional (PRD 10.1). One IP address or CIDR range per line, e.g. the client's and target's office networks. Client, target and observer users outside these ranges are refused and the attempt is logged. Leave empty for no restriction."
   },
   "templates": {
     "title": "Project templates",
@@ -848,12 +851,15 @@
     "clientHint": "Reports issued to you. Downloads are watermarked with your name and logged.",
     "empty": "No reports yet.",
     "emptyClient": "No reports have been issued yet.",
-    "generateHelp": "The report contains every released finding with its rating, recommendation and source documents, as Word and PDF.",
+    "generateHelp": "The report contains the released findings you select, with their rating, recommendation and source documents, as Word and PDF.",
     "defaultTitle": "Due diligence report — {project}",
     "generated": "Version {version} generated",
     "exportPptx": "Export PowerPoint",
     "pptx": "PowerPoint presentation (.pptx)",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "findingsToInclude": "Findings to include",
+    "findingsToIncludeHelp": "Only released findings can be included. All of them are selected by default.",
+    "findingsToIncludeRequired": "Select at least one released finding."
   },
   "picker": {
     "chooseProject": "Choose a project.",
@@ -862,13 +868,13 @@
   },
   "webhooks": {
     "title": "Webhook Subscriptions",
-    "subtitle": "Configure outbound webhook endpoints to deliver real-time platform events.",
+    "subtitle": "Configure outbound webhook endpoints to deliver real-time platform events (Super Admin only).",
     "newWebhook": "New Webhook",
     "editWebhook": "Edit Webhook",
     "targetUrl": "Endpoint URL",
     "targetUrlRequired": "Target URL is required",
     "targetUrlInvalid": "Please enter a valid URL",
-    "targetUrlHelp": "The HTTPS or HTTP URL that will receive POST event notifications.",
+    "targetUrlHelp": "Public HTTPS URL that receives POST event notifications. Internal and private addresses are rejected.",
     "description": "Description",
     "subscribedEvents": "Subscribed Events",
     "eventsRequired": "At least one event pattern is required",
@@ -902,6 +908,11 @@
     "disabledSuccess": "Webhook disabled",
     "createdSuccess": "Webhook subscription created",
     "updatedSuccess": "Webhook subscription updated",
-    "error": "Failed to complete request. Please try again."
+    "error": "Failed to complete request. Please try again.",
+    "signingKeyRevealTitle": "Copy the signing key now",
+    "signingKeyRevealBody": "For security this key is shown only once. Store it in your receiver's secret store to verify the X-Diligence-Signature header.",
+    "signingKeyKeepHelp": "Leave empty to keep the current key. Use the key button in the list to generate a new one.",
+    "rotateKey": "Generate new signing key",
+    "rotateKeyConfirm": "Generate a new signing key? The current key stops working immediately."
   }
 }

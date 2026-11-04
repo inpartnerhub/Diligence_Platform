@@ -94,7 +94,9 @@ export interface WebhookSubscription {
   id: string;
   organizationId: string | null;
   targetUrl: string;
-  signingKey: string;
+  /** Only present right after the key was generated (create, rotate); shown once. */
+  signingKey: string | null;
+  signingKeyHint: string;
   description: string | null;
   subscribedEvents: string;
   active: boolean;

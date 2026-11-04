@@ -24,15 +24,21 @@ import jakarta.validation.constraints.Size;
 
 @RestController
 @RequestMapping(AdminApiPaths.ADMIN + "/webhooks")
-@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PARTNER')")
+// Platform-wide events cross every project boundary, so only the Super Admin may configure them (PRD Bab 3).
+@PreAuthorize("hasRole('SUPER_ADMIN')")
 @Tag(name = "Administration")
 class WebhookController {
 
+    /**
+     * {@code signingKey} is only filled right after the key was generated (create, rotate) so the administrator can
+     * copy it once; every other response carries just {@code signingKeyHint}.
+     */
     record WebhookResponse(
             UUID id,
             UUID organizationId,
             String targetUrl,
             String signingKey,
+            String signingKeyHint,
             String description,
             String subscribedEvents,
             boolean active,
@@ -41,11 +47,16 @@ class WebhookController {
             Instant updatedAt) {
 
         static WebhookResponse of(WebhookSubscription s) {
+            return of(s, false);
+        }
+
+        static WebhookResponse of(WebhookSubscription s, boolean revealSigningKey) {
             return new WebhookResponse(
                     s.getId(),
                     s.getOrganizationId(),
                     s.getTargetUrl(),
-                    s.getSigningKey(),
+                    revealSigningKey ? s.getSigningKey() : null,
+                    WebhookService.signingKeyHint(s.getSigningKey()),
                     s.getDescription(),
                     s.getSubscribedEvents(),
                     s.isActive(),
@@ -135,7 +146,13 @@ class WebhookController {
                 req.signingKey(),
                 req.description(),
                 req.subscribedEvents(),
-                req.active()));
+                req.active()), true);
+    }
+
+    @PostMapping("/{id}/rotate-signing-key")
+    @Operation(summary = "Generate a new signing key; it is returned once — ADM-07")
+    WebhookResponse rotateSigningKey(@PathVariable UUID id) {
+        return WebhookResponse.of(service.rotateSigningKey(id), true);
     }
 
     @PutMapping("/{id}")

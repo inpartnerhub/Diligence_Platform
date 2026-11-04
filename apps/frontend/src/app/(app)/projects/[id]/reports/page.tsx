@@ -28,8 +28,9 @@ export default async function ProjectReportsPage({ params }: Readonly<{ params: 
     throw error;
   }
   const permissions = reportPermissions(project.myRoles, project.status === "ACTIVE");
+  // The team picks which released findings go into a report version (PRD RPT-01).
   const released = permissions.word
-    ? ((await findingsApi.list(id, { status: "RELEASED" }).catch(() => null))?.length ?? null)
+    ? await findingsApi.list(id, { status: "RELEASED" }).catch(() => null)
     : null;
   return (
     <ReportsView project={project} reports={reports} permissions={permissions} releasedFindings={released} />

@@ -481,6 +481,7 @@ interface SettingsForm {
   period?: [Dayjs, Dayjs];
   workstreams: WorkstreamType[];
   retentionPeriodDays: number;
+  allowedIpRanges: string;
 }
 
 function SettingsTab({
@@ -505,6 +506,11 @@ function SettingsTab({
                 <Tag key={w.id}>{t(`workstreams.${w.type}`)}</Tag>
               ))}
             </Space>
+          </Descriptions.Item>
+          <Descriptions.Item label={t("project.ipAllowList")}>
+            {project.allowedIpRanges?.length
+              ? project.allowedIpRanges.join(", ")
+              : t("project.ipAllowListNone")}
           </Descriptions.Item>
           <Descriptions.Item label={t("project.retentionSchedule")}>
             {project.retentionPeriodDays} {t("common.days")}
@@ -531,6 +537,7 @@ function SettingsTab({
       project.startDate && project.endDate ? [dayjs(project.startDate), dayjs(project.endDate)] : undefined,
     workstreams: workstreams.map((w) => w.type),
     retentionPeriodDays: project.retentionPeriodDays || 365,
+    allowedIpRanges: (project.allowedIpRanges ?? []).join("\n"),
   };
 
   const save = (values: SettingsForm) =>
@@ -541,6 +548,10 @@ function SettingsTab({
         startDate: values.period?.[0].format("YYYY-MM-DD"),
         endDate: values.period?.[1].format("YYYY-MM-DD"),
         retentionPeriodDays: values.retentionPeriodDays,
+        allowedIpRanges: values.allowedIpRanges
+          .split(/[\s,]+/)
+          .map((range) => range.trim())
+          .filter(Boolean),
       });
       const changed = [...values.workstreams].sort().join() !== [...initial.workstreams].sort().join();
       const result =
@@ -592,6 +603,13 @@ function SettingsTab({
               { value: 730, label: "730 " + t("common.days") },
             ]}
           />
+        </Form.Item>
+        <Form.Item
+          name="allowedIpRanges"
+          label={t("project.ipAllowList")}
+          extra={t("project.ipAllowListHelp")}
+        >
+          <Input.TextArea rows={3} placeholder={"203.0.113.0/24\n2001:db8::/32"} spellCheck={false} />
         </Form.Item>
         <Flex justify="space-between" wrap gap={12}>
           <Button type="primary" htmlType="submit" loading={pending}>

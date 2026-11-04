@@ -9,9 +9,11 @@ import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -28,6 +30,7 @@ import com.inpartnerhub.diligence.admin.Directory.OrganizationSummary;
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
 import com.inpartnerhub.diligence.dataroom.PdfWatermark;
 import com.inpartnerhub.diligence.finding.FindingDirectory;
+import com.inpartnerhub.diligence.finding.FindingDirectory.ReleasedFinding;
 import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
 import com.inpartnerhub.diligence.project.ProjectDirectory;
 import com.inpartnerhub.diligence.project.ProjectDirectory.ProjectContext;
@@ -58,7 +61,7 @@ class ReportService {
     static final int MAX_TITLE = 200;
 
     enum Format {
-        DOCX, PDF, PPTX
+        DOCX, PDF, PPTX, XLSX
     }
 
     @FunctionalInterface
@@ -127,10 +130,20 @@ class ReportService {
     }
 
     Report generate(UUID projectId, String title, String language) {
-        return createReport(projectId, title, language, 1, 0, "v1.0", null);
+        return generate(projectId, title, language, null);
+    }
+
+    /** @param findingIds released findings to include (PRD RPT-01 "pilih temuan"); {@code null} includes all. */
+    Report generate(UUID projectId, String title, String language, List<UUID> findingIds) {
+        return createReport(projectId, title, language, 1, 0, "v1.0", null, findingIds);
     }
 
     Report generateRevision(UUID projectId, UUID previousReportId, String title, boolean major, String language) {
+        return generateRevision(projectId, previousReportId, title, major, language, null);
+    }
+
+    Report generateRevision(UUID projectId, UUID previousReportId, String title, boolean major, String language,
+            List<UUID> findingIds) {
         var prev = report(projectId, previousReportId);
         int newMajor = major ? prev.getMajorVersion() + 1 : prev.getMajorVersion();
         int newMinor = major ? 0 : prev.getMinorVersion() + 1;
@@ -138,11 +151,11 @@ class ReportService {
         String chosenTitle = title == null || title.isBlank() ? prev.getTitle() : title;
         String chosenLang = language == null || language.isBlank() ? prev.getLanguage() : language;
         return createReport(projectId, chosenTitle, chosenLang, newMajor, newMinor, versionLabel,
-                "Revision " + versionLabel + " created from " + prev.getVersionLabel());
+                "Revision " + versionLabel + " created from " + prev.getVersionLabel(), findingIds);
     }
 
     private Report createReport(UUID projectId, String title, String language, int majorVersion, int minorVersion,
-            String versionLabel, String note) {
+            String versionLabel, String note, List<UUID> findingIds) {
         var context = writable(project(projectId));
         if (!context.canManage()) {
             throw new AccessDeniedException("Only partners and project managers generate reports");
@@ -155,10 +168,7 @@ class ReportService {
         if (!lang.equals("id") && !lang.equals("en")) {
             throw new InvalidRequestException("Reports are written in Indonesian (id) or English (en)");
         }
-        var released = findings.released(projectId, null);
-        if (released.isEmpty()) {
-            throw new ResourceConflictException("Release at least one finding before generating a report");
-        }
+        var released = selectFindings(projectId, findingIds);
         var summary = projects.summary(projectId).orElseThrow();
         var workstreams = projects.workstreams(projectId).stream()
                 .collect(Collectors.toMap(WorkstreamSummary::id, WorkstreamSummary::type));
@@ -191,6 +201,39 @@ class ReportService {
             storage.delete(base + ".pdf");
             throw ex;
         }
+    }
+
+    /** The released findings chosen for a new report version, in register order. */
+    private List<ReleasedFinding> selectFindings(UUID projectId, List<UUID> findingIds) {
+        var released = findings.released(projectId, null);
+        if (released.isEmpty()) {
+            throw new ResourceConflictException("Release at least one finding before generating a report");
+        }
+        if (findingIds == null) {
+            return released;
+        }
+        var wanted = new HashSet<>(findingIds);
+        if (wanted.isEmpty()) {
+            throw new InvalidRequestException("Select at least one released finding for the report");
+        }
+        var selected = released.stream().filter(f -> wanted.contains(f.id())).toList();
+        if (selected.size() != wanted.size()) {
+            throw new InvalidRequestException("Reports can only include released findings of this project");
+        }
+        return selected;
+    }
+
+    /**
+     * The findings a report version was generated from (its snapshot in {@code rpt.report_finding}), so exports such
+     * as the PowerPoint match the approved report instead of whatever is released today.
+     */
+    private List<ReleasedFinding> includedFindings(UUID projectId, UUID reportId) {
+        var byId = findings.released(projectId, null).stream()
+                .collect(Collectors.toMap(ReleasedFinding::id, f -> f, (a, b) -> a));
+        return reportFindings.findByReportIdOrderByPositionAsc(reportId).stream()
+                .map(rf -> byId.get(rf.getFindingId()))
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     /** Submit a report draft for manager review (RPT-03). */
@@ -334,7 +377,7 @@ class ReportService {
                     .collect(Collectors.toMap(WorkstreamSummary::id, WorkstreamSummary::type));
             var target = Optional.ofNullable(summary.targetOrganizationId()).flatMap(directory::findOrganization)
                     .map(OrganizationSummary::name).orElse(null);
-            var released = findings.released(projectId, null);
+            var released = includedFindings(projectId, reportId);
 
             var pptxBytes = ReportPresentationWriter.write(new ReportPresentationWriter.Content(
                     summary.code(), summary.name(), target, report.getTitle(),
@@ -343,6 +386,13 @@ class ReportService {
                     watermarkStr));
 
             return new Download(base + ".pptx", PPTX, out -> out.write(pptxBytes));
+        }
+        if (chosen == Format.XLSX) {
+            var workstreams = projects.workstreams(projectId).stream()
+                    .collect(Collectors.toMap(WorkstreamSummary::id, WorkstreamSummary::type));
+            var xlsx = ReportSpreadsheetWriter.write(new ReportSpreadsheetWriter.Content(context.code(), version,
+                    report.getLanguage(), workstreams, includedFindings(projectId, reportId)));
+            return new Download(base + ".xlsx", ReportSpreadsheetWriter.CONTENT_TYPE, out -> out.write(xlsx));
         }
         if (internal) {
             return new Download(base + ".pdf", "application/pdf", out -> copy(report.getPdfKey(), out));

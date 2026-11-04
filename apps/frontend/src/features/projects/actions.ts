@@ -63,6 +63,7 @@ export async function updateProject(
     endDate?: string;
     stage?: ProjectStage;
     retentionPeriodDays?: number;
+    allowedIpRanges?: string[];
   },
 ): Promise<ActionResult> {
   try {

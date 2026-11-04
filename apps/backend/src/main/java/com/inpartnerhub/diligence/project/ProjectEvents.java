@@ -151,6 +151,59 @@ public final class ProjectEvents {
     public record ProjectDataPurgeRequested(UUID projectId, String code, RequestMetadata requestMetadata) {
     }
 
+    /** PRD Bab 10.1: the project's IP allow-list for external users changed. */
+    public record ProjectIpAllowListUpdated(UUID projectId, String code, int ranges, RequestMetadata requestMetadata)
+            implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.ip-allow-list-updated";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "project";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return projectId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("code", code, "ranges", String.valueOf(ranges));
+        }
+    }
+
+    /**
+     * An external user was refused because their address is outside the project's allow-list (PRD Bab 10.1). Kept in
+     * the audit log and counted for the suspicious-access alert.
+     */
+    public record ProjectAccessBlocked(UUID projectId, String code, RequestMetadata requestMetadata)
+            implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.access-blocked";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "project";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return projectId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("code", code, "reason", "ip-not-allowed");
+        }
+    }
+
     public record ProjectDataPurged(UUID projectId, String code, long documentsCount, long versionsCount,
             long s3ObjectsPurged, RequestMetadata requestMetadata) implements AuditableEvent {
 
