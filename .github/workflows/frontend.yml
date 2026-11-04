@@ -2,10 +2,10 @@ name: Frontend
 
 on:
   pull_request:
-    paths: ["apps/frontend/**", ".github/workflows/frontend.yml"]
+    paths: ["apps/frontend/**", ".github/workflows/frontend.yml", ".github/workflows/container-image.yml"]
   push:
     branches: [main]
-    paths: ["apps/frontend/**", ".github/workflows/frontend.yml"]
+    paths: ["apps/frontend/**", ".github/workflows/frontend.yml", ".github/workflows/container-image.yml"]
 
 permissions:
   contents: read

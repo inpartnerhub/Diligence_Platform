@@ -12,7 +12,10 @@ RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon bootJar -x tes
  && java -Djarmode=tools -jar build/libs/app.jar extract --layers --launcher --destination /workspace/extracted
 
 FROM eclipse-temurin:21-jre-noble AS runtime
-RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
+RUN apt-get update \
+ && apt-get upgrade -y \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
 WORKDIR /app
 COPY --from=build --chown=app:app /workspace/extracted/dependencies/ ./
 COPY --from=build --chown=app:app /workspace/extracted/spring-boot-loader/ ./
