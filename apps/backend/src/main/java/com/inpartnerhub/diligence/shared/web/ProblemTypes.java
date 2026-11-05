@@ -14,6 +14,8 @@ public final class ProblemTypes {
     public static final URI UPSTREAM_FAILURE = URI.create("urn:diligence:problem:upstream-failure");
     /** The caller must sign in again (password + MFA) before this action; see {@link StepUpRequiredException}. */
     public static final URI STEP_UP_REQUIRED = URI.create("urn:diligence:problem:step-up-required");
+    /** Too many requests from one user; retry after the {@code Retry-After} header (issue #63). */
+    public static final URI RATE_LIMITED = URI.create("urn:diligence:problem:rate-limited");
 
     private ProblemTypes() {
     }

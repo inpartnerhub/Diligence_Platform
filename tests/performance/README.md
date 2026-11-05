@@ -65,6 +65,8 @@ Things to know:
   each VU keeps its session like a browser tab.
 - **Kong rate limit.** Kong allows 600 requests per minute per client address. Run against the backend directly, or
   exempt the load generator's address, or the `api` scenario measures 429s.
+- **Per-user rate limit.** The backend also limits each user (600 requests per minute, 60 for search, downloads and
+  exports). All VUs sign in as one account, so start the backend with `USER_RATE_LIMIT_ENABLED=false` for load runs.
 
 ## Deployed environments
 

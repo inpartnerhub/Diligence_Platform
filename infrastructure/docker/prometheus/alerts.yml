@@ -71,6 +71,13 @@ groups:
         annotations:
           summary: A user downloaded an unusually large number of documents — possible data exfiltration
           runbook: docs/runbooks/suspicious-login.md
+      - alert: DiligenceRateLimitedUsers
+        # Requests refused by the per-user rate limit (#63): scraping, a runaway script or a stolen session.
+        expr: sum by (tier) (increase(diligence_ratelimit_rejected_total[10m])) > 50
+        labels: { severity: warning }
+        annotations:
+          summary: Many requests refused by the per-user rate limit ({{ $labels.tier }})
+          runbook: docs/runbooks/suspicious-login.md
       - alert: DiligenceForbiddenSpike
         # Many 403/404 answers from one service can mean someone probes other projects' IDs (IDOR).
         expr: sum(rate(http_server_requests_seconds_count{job="diligence-backend",status=~"403|404"}[5m])) * 300 > 200

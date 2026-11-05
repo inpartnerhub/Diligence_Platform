@@ -110,6 +110,12 @@ diligence:
     region: ${S3_REGION:us-east-1}
     bucket: ${S3_BUCKET:diligence-documents}
     path-style: ${S3_PATH_STYLE:true}
+  # Per-user API rate limit (#63), on top of Kong's per-IP limit: requests per user and minute, and a stricter limit
+  # for search, downloads and exports. Counted in Redis; load tests that reuse one account switch it off.
+  rate-limit:
+    enabled: ${USER_RATE_LIMIT_ENABLED:true}
+    per-minute: ${USER_RATE_LIMIT_PER_MINUTE:600}
+    expensive-per-minute: ${USER_RATE_LIMIT_EXPENSIVE_PER_MINUTE:60}
   webhooks:
     # PRD ADM-07: outbound webhooks may only call public HTTPS endpoints (SSRF protection). Local profile only: true.
     allow-insecure-targets: ${WEBHOOKS_ALLOW_INSECURE_TARGETS:false}

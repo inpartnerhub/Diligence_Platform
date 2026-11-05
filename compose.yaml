@@ -173,6 +173,7 @@ services:
       object-storage-init: { condition: service_completed_successfully }
     environment:
       SPRING_PROFILES_ACTIVE: local
+      USER_RATE_LIMIT_ENABLED: ${USER_RATE_LIMIT_ENABLED:-true}
       JAVA_TOOL_OPTIONS: "-Xms128m -Xmx384m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
       APP_ENVIRONMENT: ${APP_ENVIRONMENT}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
