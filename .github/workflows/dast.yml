@@ -1,0 +1,106 @@
+name: DAST
+
+# Dynamic application security testing with OWASP ZAP against the full stack (issue #67, PRD Bab 8.2 and Bab 14):
+# a passive baseline scan of the web app signed in as a project manager, and an active API scan of the backend from
+# its OpenAPI spec with a bearer token. Fails on high-risk alerts and on rules marked FAIL in
+# tests/security/baseline.conf. Runs nightly on main and on demand; reports are kept as artifacts.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *" # nightly
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dast
+  cancel-in-progress: false
+
+env:
+  ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:2.16.1
+
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create a throw-away environment
+        run: |
+          cp .env.example .env
+          # Every placeholder gets a random value; nothing here is a real secret.
+          while grep -q 'change-me' .env; do
+            sed -i "0,/change-me[^[:space:]]*/s//ci$(openssl rand -hex 16)/" .env
+          done
+          printf '\nUSER_RATE_LIMIT_ENABLED=false\n' >> .env   # the scans reuse one account (#63)
+          grep -E '^(KEYCLOAK_DEV_PM|KEYCLOAK_DEV_PM_PASSWORD)=' .env | sed 's/=.*/=***/'
+
+      - name: Start the stack
+        run: docker compose --profile app up -d --build --wait --wait-timeout 1200
+
+      - name: Create the Keycloak users
+        run: make keycloak-bootstrap
+
+      - name: Sign in for the authenticated scans
+        id: login
+        run: |
+          set -a; source .env; set +a
+          ZAP_USER="$KEYCLOAK_DEV_PM" ZAP_PASSWORD="$KEYCLOAK_DEV_PM_PASSWORD" APP_URL=http://localhost:3000 \
+            python3 tests/security/zap-login.py > "$RUNNER_TEMP/zap.env"
+          while IFS='=' read -r name value; do
+            secret="${value#diligence_sid=}"
+            echo "::add-mask::$secret"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done < "$RUNNER_TEMP/zap.env"
+
+      - name: Baseline scan of the web app (signed in)
+        run: |
+          mkdir -p tests/security/reports && chmod -R a+rwX tests/security
+          # The scan must run signed in: a page behind the session must not redirect to the sign-in.
+          status=$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: $ZAP_COOKIE" http://localhost:3000/dashboard)
+          [ "$status" = 200 ] || { echo "Session cookie does not sign in (HTTP $status)"; exit 1; }
+          set +e
+          # ZAP_AUTH_HEADER*: ZAP adds the session cookie to every request. Sign-in and sign-out, and Keycloak's
+          # own pages (its cookies are by design SameSite=None), are not the app under test.
+          docker run --rm --network host -v "$PWD/tests/security:/zap/wrk:rw" \
+            -e ZAP_AUTH_HEADER=Cookie -e ZAP_AUTH_HEADER_VALUE="$ZAP_COOKIE" \
+            "$ZAP_IMAGE" zap-baseline.py -t http://localhost:3000/dashboard -c baseline.conf -I -m 5 \
+            -r reports/zap-baseline.html -J reports/zap-baseline.json \
+            -z "-config globalexcludeurl.url_list.url(0).regex=.*/auth/(login|logout|callback).* \
+                -config globalexcludeurl.url_list.url(0).enabled=true \
+                -config globalexcludeurl.url_list.url(0).description=auth \
+                -config globalexcludeurl.url_list.url(1).regex=^https?://localhost:8180/.* \
+                -config globalexcludeurl.url_list.url(1).enabled=true \
+                -config globalexcludeurl.url_list.url(1).description=keycloak"
+          echo "ZAP_EXIT_BASELINE=$?" >> "$GITHUB_ENV"
+
+      - name: API scan of the backend (OpenAPI, bearer token)
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $ZAP_BEARER" \
+            http://localhost:8080/api/v1/me)
+          [ "$status" = 200 ] || { echo "Bearer token is not accepted (HTTP $status)"; exit 1; }
+          set +e
+          docker run --rm --network host -v "$PWD/tests/security:/zap/wrk:rw" \
+            -e ZAP_AUTH_HEADER=Authorization -e ZAP_AUTH_HEADER_VALUE="Bearer $ZAP_BEARER" \
+            "$ZAP_IMAGE" zap-api-scan.py -t http://localhost:8080/v3/api-docs -f openapi -I \
+            -r reports/zap-api.html -J reports/zap-api.json \
+            -z "-config scanner.maxScanDurationInMins=30"
+          echo "ZAP_EXIT_API=$?" >> "$GITHUB_ENV"
+
+      - name: Gate on high-risk alerts
+        env:
+          ZAP_EXIT_CODES: baseline=${{ env.ZAP_EXIT_BASELINE }} api=${{ env.ZAP_EXIT_API }}
+        run: python3 tests/security/zap-gate.py tests/security/reports/zap-baseline.json tests/security/reports/zap-api.json
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zap-reports
+          path: tests/security/reports
+          retention-days: 30
+
+      - name: Service logs on failure
+        if: failure()
+        run: docker compose --profile app logs --tail 200 backend frontend keycloak kong
