@@ -5,13 +5,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,17 +44,10 @@ class QuestionService {
     record QuestionCommand(String body, Question.Links links, UUID recipientUserId, LocalDate dueDate) {
     }
 
+    /** Log filters; the query matches number or question text (case-insensitive), evaluated in SQL. */
     record QuestionFilter(QuestionStatus status, UUID workstreamId, String query) {
 
         static final QuestionFilter ALL = new QuestionFilter(null, null, null);
-
-        boolean matches(Question q) {
-            return (status == null || q.getStatus() == status)
-                    && (workstreamId == null || workstreamId.equals(q.getWorkstreamId()))
-                    && (query == null || query.isBlank()
-                            || q.getNumber().toLowerCase(Locale.ROOT).contains(query.strip().toLowerCase(Locale.ROOT))
-                            || q.getBody().toLowerCase(Locale.ROOT).contains(query.strip().toLowerCase(Locale.ROOT)));
-        }
     }
 
     record LinkedDocument(DocumentSummary document, UUID linkedBy, Instant linkedAt) {
@@ -68,6 +62,7 @@ class QuestionService {
     }
 
     private final QuestionRepository questions;
+    private final QuestionQueries queries;
     private final AnswerRepository answers;
     private final AnswerDocumentRepository answerDocuments;
     private final QuestionStatusChangeRepository history;
@@ -81,19 +76,21 @@ class QuestionService {
     private final Clock clock;
 
     @Autowired
-    QuestionService(QuestionRepository questions, AnswerRepository answers, AnswerDocumentRepository answerDocuments,
-            QuestionStatusChangeRepository history, QnaAccess access, ProjectDirectory projects,
-            DocumentDirectory documents, RequestItemDirectory requestItems, FindingDirectory findings,
-            CurrentUserProvider currentUser, ApplicationEventPublisher events) {
-        this(questions, answers, answerDocuments, history, access, projects, documents, requestItems, findings,
-                currentUser, events, Clock.systemDefaultZone());
+    QuestionService(QuestionRepository questions, QuestionQueries queries, AnswerRepository answers,
+            AnswerDocumentRepository answerDocuments, QuestionStatusChangeRepository history, QnaAccess access,
+            ProjectDirectory projects, DocumentDirectory documents, RequestItemDirectory requestItems,
+            FindingDirectory findings, CurrentUserProvider currentUser, ApplicationEventPublisher events) {
+        this(questions, queries, answers, answerDocuments, history, access, projects, documents, requestItems,
+                findings, currentUser, events, Clock.systemDefaultZone());
     }
 
-    QuestionService(QuestionRepository questions, AnswerRepository answers, AnswerDocumentRepository answerDocuments,
-            QuestionStatusChangeRepository history, QnaAccess access, ProjectDirectory projects,
-            DocumentDirectory documents, RequestItemDirectory requestItems, FindingDirectory findings,
-            CurrentUserProvider currentUser, ApplicationEventPublisher events, Clock clock) {
+    QuestionService(QuestionRepository questions, QuestionQueries queries, AnswerRepository answers,
+            AnswerDocumentRepository answerDocuments, QuestionStatusChangeRepository history, QnaAccess access,
+            ProjectDirectory projects, DocumentDirectory documents, RequestItemDirectory requestItems,
+            FindingDirectory findings, CurrentUserProvider currentUser, ApplicationEventPublisher events,
+            Clock clock) {
         this.questions = questions;
+        this.queries = queries;
         this.answers = answers;
         this.answerDocuments = answerDocuments;
         this.history = history;
@@ -113,10 +110,21 @@ class QuestionService {
     @Transactional(readOnly = true)
     List<Question> list(UUID projectId, QuestionFilter filter) {
         var context = access.project(projectId);
-        return questions.findByProjectIdOrderByNumber(projectId).stream()
-                .filter(q -> QnaAccess.isClient(context) || context.coversWorkstream(q.getWorkstreamId()))
-                .filter(filter::matches)
-                .toList();
+        return questions.findAll(QuestionQueries.specification(projectId, context, filter), QuestionQueries.BY_NUMBER);
+    }
+
+    /** One page of the Q&A log, filtered and ordered by number in SQL (issue #58). */
+    @Transactional(readOnly = true)
+    Page<Question> page(UUID projectId, QuestionFilter filter, int page, int size) {
+        var context = access.project(projectId);
+        return questions.findAll(QuestionQueries.specification(projectId, context, filter),
+                PageRequest.of(page, size, QuestionQueries.BY_NUMBER));
+    }
+
+    @Transactional(readOnly = true)
+    QuestionQueries.Summary summary(UUID projectId, QuestionFilter filter) {
+        var context = access.project(projectId);
+        return queries.summarize(QuestionQueries.specification(projectId, context, filter));
     }
 
     /** Answers the caller may read (the client: only of its closed questions). */

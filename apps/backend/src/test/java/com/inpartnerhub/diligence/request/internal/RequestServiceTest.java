@@ -29,6 +29,9 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -68,8 +71,9 @@ class RequestServiceTest {
     private final DocumentDirectory documents = mock(DocumentDirectory.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final RequestService service = new RequestService(items, links, history, comments, access, projects,
-            documents, currentUser, events, Clock.fixed(Instant.parse("2026-11-02T01:00:00Z"), ZoneOffset.UTC));
+    private final RequestQueries queries = mock(RequestQueries.class);
+    private final RequestService service = new RequestService(items, queries, links, history, comments, access,
+            projects, documents, currentUser, events, Clock.fixed(Instant.parse("2026-11-02T01:00:00Z"), ZoneOffset.UTC));
 
     private final List<RequestStatusChange> changes = new ArrayList<>();
 
@@ -334,16 +338,25 @@ class RequestServiceTest {
     }
 
     @Test
-    void listFiltersByScopeAndCriteria() {
+    @SuppressWarnings("unchecked")
+    void listsPagesAndSummarisesInSql() {
+        // Filtering and scope are SQL now (RequestQueries); RequestIntegrationTest checks them against PostgreSQL.
         when(access.project(PROJECT)).thenReturn(scoped(ProjectRole.ANALYST, LEGAL));
         var legal = item("LEG-001", RequestStatus.REQUESTED);
-        var tax = new RequestItem(PROJECT, TAX, "TAX-001", "c", "Tax returns", null, null, 2);
-        when(items.findByProjectIdOrderByNumber(PROJECT)).thenReturn(List.of(legal, tax));
-
+        when(items.findAll(any(Specification.class), eq(RequestQueries.BY_NUMBER))).thenReturn(List.of(legal));
         assertThat(service.list(PROJECT, RequestService.ItemFilter.ALL)).containsExactly(legal);
-        assertThat(service.list(PROJECT, new RequestService.ItemFilter(RequestStatus.REQUESTED, LEGAL, 1, "DEED")))
-                .containsExactly(legal);
-        assertThat(service.list(PROJECT, new RequestService.ItemFilter(null, null, null, "nothing"))).isEmpty();
+
+        var pageable = ArgumentCaptor.forClass(Pageable.class);
+        when(items.findAll(any(Specification.class), pageable.capture())).thenReturn(new PageImpl<>(List.of(legal)));
+        assertThat(service.page(PROJECT, RequestService.ItemFilter.ALL, 1, 20).getContent()).containsExactly(legal);
+        assertThat(pageable.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pageable.getValue().getSort()).isEqualTo(RequestQueries.BY_NUMBER);
+
+        var today = ArgumentCaptor.forClass(LocalDate.class);
+        var summary = new RequestQueries.Summary(Map.of(), 2, List.of(1, 2), List.of());
+        when(queries.summarize(any(), any(), today.capture())).thenReturn(summary);
+        assertThat(service.summary(PROJECT, RequestService.ItemFilter.ALL, null)).isEqualTo(summary);
+        assertThat(today.getValue()).isEqualTo(LocalDate.of(2026, 11, 2)); // the service clock
 
         when(links.countsByItem(PROJECT)).thenReturn(List.<Object[]>of(new Object[] { legal.getId(), 3L }));
         assertThat(service.documentCounts(PROJECT)).isEqualTo(Map.of(legal.getId(), 3L));

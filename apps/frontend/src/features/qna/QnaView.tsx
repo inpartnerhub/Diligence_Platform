@@ -44,6 +44,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { DocumentSource } from "@/features/dataroom/DocumentSource";
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
+import type { Page } from "@/features/admin/types";
 import type { Member, Project, Workstream } from "@/features/projects/types";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
@@ -65,6 +66,7 @@ import {
   teamMoves,
   type QnaPermissions,
   type Question,
+  type QuestionSummary,
   type QuestionDetail,
   type QuestionInput,
   type QuestionStatus,
@@ -79,7 +81,10 @@ export interface QuestionSource {
 
 export interface QnaViewProps {
   project: Project;
-  questions: Question[];
+  /** One page of the filtered log. */
+  questions: Page<Question>;
+  /** Approval count of the whole filtered log, computed by the backend. */
+  summary: QuestionSummary;
   workstreams: Workstream[];
   targetMembers: Member[];
   permissions: QnaPermissions;
@@ -92,6 +97,7 @@ export interface QnaViewProps {
 export function QnaView({
   project,
   questions,
+  summary,
   workstreams,
   targetMembers,
   permissions,
@@ -103,7 +109,7 @@ export function QnaView({
   const format = useFormatter();
   const { update } = useUrlQuery();
   const [editing, setEditing] = useState<Question | "new" | null>(source && permissions.ask ? "new" : null);
-  const pending = questions.filter((q) => q.status === "PENDING_APPROVAL").length;
+  const pending = summary.pendingApproval;
 
   const columns: TableColumnsType<Question> = [
     { title: t("number"), dataIndex: "number", width: 90 },
@@ -206,9 +212,16 @@ export function QnaView({
           rowKey="id"
           size="middle"
           columns={columns}
-          dataSource={questions}
+          dataSource={questions.items}
           scroll={{ x: 800 }}
-          pagination={{ pageSize: 50, hideOnSinglePage: true, showSizeChanger: false }}
+          pagination={{
+            current: questions.page + 1,
+            pageSize: questions.size,
+            total: questions.totalElements,
+            hideOnSinglePage: true,
+            showSizeChanger: false,
+            onChange: (page) => update({ p: page - 1 }, false),
+          }}
           locale={{ emptyText: permissions.answer ? t("emptyTarget") : t("empty") }}
           onRow={(q) => ({ onClick: () => update({ question: q.id }, false), style: { cursor: "pointer" } })}
         />

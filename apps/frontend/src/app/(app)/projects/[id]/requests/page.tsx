@@ -16,6 +16,8 @@ type SearchParams = Promise<Record<string, string | undefined>>;
 /** Due dates are calendar days in the platform's time zone (WIB), like the backend reminders. */
 const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" });
 
+const PAGE_SIZE = 50;
+
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("requests"))("title") };
 }
@@ -27,12 +29,16 @@ export default async function ProjectRequestsPage({
 }: Readonly<{ params: Params; searchParams: SearchParams }>) {
   await requireAccess("requests");
   const { id } = await params;
-  const { status, workstreamId, wave, q, item } = await searchParams;
-  let project, items, workstreams;
+  const { status, workstreamId, wave, q, item, p } = await searchParams;
+  const filters = { status, workstreamId, wave, q };
+  const today = TODAY.format(new Date());
+  let project, items, summary, workstreams;
   try {
-    [project, items, workstreams] = await Promise.all([
+    // The list is paged and its figures computed by the backend (issue #58).
+    [project, items, summary, workstreams] = await Promise.all([
       projectsApi.get(id),
-      requestsApi.list(id, { status, workstreamId, wave, q }),
+      requestsApi.page(id, { ...filters, page: Number(p ?? 0) || 0, size: PAGE_SIZE }),
+      requestsApi.summary(id, { ...filters, today }),
       projectsApi.workstreams(id),
     ]);
   } catch (error) {
@@ -49,12 +55,13 @@ export default async function ProjectRequestsPage({
     <RequestListView
       project={project}
       items={items}
+      summary={summary}
       workstreams={workstreams}
       targetMembers={targetMembers}
       permissions={permissions}
-      filters={{ status, workstreamId, wave, q }}
+      filters={filters}
       selectedItemId={item ?? null}
-      today={TODAY.format(new Date())}
+      today={today}
     />
   );
 }

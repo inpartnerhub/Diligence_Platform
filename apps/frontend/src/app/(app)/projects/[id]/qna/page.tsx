@@ -13,6 +13,8 @@ import { requireAccess } from "@/lib/auth/session";
 type Params = Promise<{ id: string }>;
 type SearchParams = Promise<Record<string, string | undefined>>;
 
+const PAGE_SIZE = 50;
+
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("qna"))("title") };
 }
@@ -24,12 +26,15 @@ export default async function ProjectQnaPage({
 }: Readonly<{ params: Params; searchParams: SearchParams }>) {
   await requireAccess("qna");
   const { id } = await params;
-  const { status, q, question, request, finding, document } = await searchParams;
-  let project, questions, workstreams;
+  const { status, q, question, request, finding, document, p } = await searchParams;
+  const filters = { status, q };
+  let project, questions, summary, workstreams;
   try {
-    [project, questions, workstreams] = await Promise.all([
+    // The log is paged and counted by the backend (issue #58).
+    [project, questions, summary, workstreams] = await Promise.all([
       projectsApi.get(id),
-      qnaApi.list(id, { status, q }),
+      qnaApi.page(id, { ...filters, page: Number(p ?? 0) || 0, size: PAGE_SIZE }),
+      qnaApi.summary(id, filters),
       projectsApi.workstreams(id),
     ]);
   } catch (error) {
@@ -49,10 +54,11 @@ export default async function ProjectQnaPage({
     <QnaView
       project={project}
       questions={questions}
+      summary={summary}
       workstreams={workstreams}
       targetMembers={targetMembers}
       permissions={permissions}
-      filters={{ status, q }}
+      filters={filters}
       selectedId={question ?? null}
       source={source}
     />

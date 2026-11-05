@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isOverdue, nextStatuses, requestPermissions, unreleasedByWave, waves } from "./types";
+import { isOverdue, nextStatuses, requestPermissions, unreleasedCount, unreleasedWaves } from "./types";
 
 describe("request list permissions", () => {
   it("follows the project roles", () => {
@@ -44,17 +44,20 @@ describe("list helpers", () => {
     expect(isOverdue({ status: "REJECTED", dueDate: null }, "2026-11-02")).toBe(false);
   });
 
-  it("groups waves", () => {
-    const items = [
-      { wave: 2, status: "NOT_REQUESTED" as const },
-      { wave: 1, status: "REQUESTED" as const },
-      { wave: 2, status: "NOT_REQUESTED" as const },
-      { wave: 3, status: "NOT_REQUESTED" as const },
-    ];
-    expect(waves(items)).toEqual([1, 2, 3]);
-    expect([...unreleasedByWave(items).entries()]).toEqual([
+  it("groups the unreleased items of the backend summary", () => {
+    const summary = {
+      unreleased: [
+        { wave: 3, workstreamId: "legal", count: 1 },
+        { wave: 2, workstreamId: "legal", count: 1 },
+        { wave: 2, workstreamId: "tax", count: 1 },
+      ],
+    };
+    expect([...unreleasedWaves(summary).entries()]).toEqual([
       [2, 2],
       [3, 1],
     ]);
+    expect(unreleasedCount(summary, 2)).toBe(2);
+    expect(unreleasedCount(summary, 2, "tax")).toBe(1);
+    expect(unreleasedCount(summary, undefined)).toBe(0);
   });
 });

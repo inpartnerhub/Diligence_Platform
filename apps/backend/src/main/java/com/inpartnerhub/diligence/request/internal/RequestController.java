@@ -27,6 +27,7 @@ import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory.DocumentSummary;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
+import com.inpartnerhub.diligence.shared.web.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -106,7 +107,33 @@ class RequestController {
     List<ItemResponse> list(@PathVariable UUID projectId, @RequestParam(required = false) RequestStatus status,
             @RequestParam(required = false) UUID workstreamId, @RequestParam(required = false) Integer wave,
             @RequestParam(required = false) String q) {
-        var items = requests.list(projectId, new RequestService.ItemFilter(status, workstreamId, wave, q));
+        var filter = new RequestService.ItemFilter(status, workstreamId, wave, q);
+        return items(projectId, requests.list(projectId, filter));
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "One page of the request items visible to the caller, with the same filters as the list, "
+            + "ordered by number — REQ-01, REQ-02")
+    PageResponse<ItemResponse> page(@PathVariable UUID projectId, @RequestParam(required = false) RequestStatus status,
+            @RequestParam(required = false) UUID workstreamId, @RequestParam(required = false) Integer wave,
+            @RequestParam(required = false) String q, @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        var filter = new RequestService.ItemFilter(status, workstreamId, wave, q);
+        var result = requests.page(projectId, filter, page, size);
+        return new PageResponse<>(items(projectId, result.getContent()), result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages());
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "Overdue items of the filtered list, waves and unreleased items per wave and workstream in "
+            + "the caller's scope — REQ-04, REQ-06")
+    RequestQueries.Summary summary(@PathVariable UUID projectId, @RequestParam(required = false) RequestStatus status,
+            @RequestParam(required = false) UUID workstreamId, @RequestParam(required = false) Integer wave,
+            @RequestParam(required = false) String q, @RequestParam(required = false) LocalDate today) {
+        return requests.summary(projectId, new RequestService.ItemFilter(status, workstreamId, wave, q), today);
+    }
+
+    private List<ItemResponse> items(UUID projectId, List<RequestItem> items) {
         var counts = requests.documentCounts(projectId);
         var types = access.workstreams(projectId);
         var names = names(items.stream().map(RequestItem::getAssigneeUserId).toList());

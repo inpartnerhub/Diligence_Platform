@@ -19,8 +19,9 @@ export function useUrlQuery() {
           next.set(key, String(value));
         }
       }
-      if (resetPage && !("page" in changes)) {
+      if (resetPage && !("page" in changes) && !("p" in changes)) {
         next.delete("page");
+        next.delete("p"); // list page of the registers (findings use "page" for a document page reference)
       }
       router.push(`${pathname}?${next.toString()}`);
     },

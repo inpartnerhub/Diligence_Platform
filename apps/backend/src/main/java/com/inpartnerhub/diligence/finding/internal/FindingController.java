@@ -37,6 +37,7 @@ import com.inpartnerhub.diligence.finding.SpaProtectionType;
 import com.inpartnerhub.diligence.project.ProjectDirectory;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
+import com.inpartnerhub.diligence.shared.web.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -144,7 +145,36 @@ class FindingController {
     List<FindingResponse> list(@PathVariable UUID projectId, @RequestParam(required = false) FindingStatus status,
             @RequestParam(required = false) UUID workstreamId, @RequestParam(required = false) RiskLevel level,
             @RequestParam(required = false) String q) {
-        var list = findings.list(projectId, new FindingService.FindingFilter(status, workstreamId, level, q));
+        return responses(projectId, findings.list(projectId,
+                new FindingService.FindingFilter(status, workstreamId, level, q)));
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "One page of the findings visible to the caller, with the same filters as the list, "
+            + "ordered by number — FND-01")
+    PageResponse<FindingResponse> page(@PathVariable UUID projectId,
+            @RequestParam(required = false) FindingStatus status,
+            @RequestParam(required = false) UUID workstreamId, @RequestParam(required = false) RiskLevel level,
+            @RequestParam(required = false) String q, @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
+        var result = findings.page(projectId, new FindingService.FindingFilter(status, workstreamId, level, q),
+                page, size);
+        var items = responses(projectId, result.getContent());
+        return new PageResponse<>(items, result.getNumber(), result.getSize(), result.getTotalElements(),
+                result.getTotalPages());
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "Heat map, findings per risk level and share linked to a source document of the filtered "
+            + "register (archived findings excluded) — FND-03, PRD Bab 2.3")
+    FindingQueries.Summary summary(@PathVariable UUID projectId,
+            @RequestParam(required = false) FindingStatus status,
+            @RequestParam(required = false) UUID workstreamId, @RequestParam(required = false) RiskLevel level,
+            @RequestParam(required = false) String q) {
+        return findings.summary(projectId, new FindingService.FindingFilter(status, workstreamId, level, q));
+    }
+
+    private List<FindingResponse> responses(UUID projectId, List<Finding> list) {
         var counts = findings.documentCounts(projectId);
         var types = access.workstreams(projectId);
         var users = new HashSet<UUID>();

@@ -153,6 +153,31 @@ class RequestIntegrationTest {
         signIn(taxTarget, Role.TARGET);
         assertThat(requests.list(projectId, RequestService.ItemFilter.ALL)).extracting(RequestItem::getNumber)
                 .containsExactly("TAX-001");
+        assertThat(requests.page(projectId, RequestService.ItemFilter.ALL, 0, 50).getTotalElements()).isEqualTo(1);
+
+        // The list runs in SQL (issue #58): filters, paging and the list-page figures.
+        signIn(pm, Role.PROJECT_MANAGER);
+        assertThat(requests.list(projectId, new RequestService.ItemFilter(null, null, null, "deed")))
+                .extracting(RequestItem::getNumber).containsExactly("LEG-001");
+        assertThat(requests.list(projectId, new RequestService.ItemFilter(null, null, 2, null)))
+                .extracting(RequestItem::getNumber).containsExactly("LEG-002");
+        assertThat(requests.list(projectId, new RequestService.ItemFilter(null, null, null, "_"))).isEmpty();
+        var page = requests.page(projectId, RequestService.ItemFilter.ALL, 1, 2);
+        assertThat(page.getTotalElements()).isEqualTo(3);
+        assertThat(page.getContent()).extracting(RequestItem::getNumber).containsExactly("TAX-001");
+        jdbc.update("update req.request_item set due_date = ? where id = ?", LocalDate.now().minusDays(2),
+                taxReturns.getId());
+        var figures = requests.summary(projectId, RequestService.ItemFilter.ALL, LocalDate.now());
+        assertThat(figures.overdue()).isEqualTo(1);
+        assertThat(figures.statuses()).containsEntry(RequestStatus.NOT_REQUESTED, 1L)
+                .containsEntry(RequestStatus.REQUESTED, 1L).containsEntry(RequestStatus.RECEIVED, 1L);
+        assertThat(figures.waves()).containsExactly(1, 2);
+        assertThat(figures.unreleased()).singleElement().satisfies(u -> {
+            assertThat(u.wave()).isEqualTo(2);
+            assertThat(u.workstreamId()).isEqualTo(contracts.getWorkstreamId());
+            assertThat(u.count()).isEqualTo(1);
+        });
+        jdbc.update("update req.request_item set due_date = null where id = ?", taxReturns.getId());
 
         signIn(pm, Role.PROJECT_MANAGER);
         requests.changeStatus(projectId, deed.getId(), RequestStatus.REJECTED, "The copy is not signed");

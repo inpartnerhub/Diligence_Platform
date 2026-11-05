@@ -10,6 +10,8 @@ import { ApiError } from "@/lib/api/client";
 import { requireAccess } from "@/lib/auth/session";
 
 type Params = Promise<{ id: string }>;
+
+const PAGE_SIZE = 50;
 type SearchParams = Promise<Record<string, string | undefined>>;
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,12 +25,15 @@ export default async function ProjectFindingsPage({
 }: Readonly<{ params: Params; searchParams: SearchParams }>) {
   const session = await requireAccess("findings");
   const { id } = await params;
-  const { status, workstreamId, level, q, finding, document, page } = await searchParams;
-  let project, findings, workstreams, categories, matrix;
+  const { status, workstreamId, level, q, finding, document, page, p } = await searchParams;
+  const filters = { status, workstreamId, level, q };
+  let project, findings, summary, workstreams, categories, matrix;
   try {
-    [project, findings, workstreams, categories, matrix] = await Promise.all([
+    // The register is paged and summarised by the backend (issue #58); "page" is a cited document page here.
+    [project, findings, summary, workstreams, categories, matrix] = await Promise.all([
       projectsApi.get(id),
-      findingsApi.list(id, { status, workstreamId, level, q }),
+      findingsApi.page(id, { ...filters, page: Number(p ?? 0) || 0, size: PAGE_SIZE }),
+      findingsApi.summary(id, filters),
       projectsApi.workstreams(id),
       findingsApi.categories(id),
       findingsApi.matrix(),
@@ -46,7 +51,8 @@ export default async function ProjectFindingsPage({
       matrix={matrix}
       permissions={findingPermissions(project.myRoles, project.status === "ACTIVE")}
       userId={session.user.id}
-      filters={{ status, workstreamId, level, q }}
+      summary={summary}
+      filters={filters}
       selectedId={finding ?? null}
       source={document ? { documentId: document, page } : null}
     />

@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useMemo, useState, useTransition } from "react";
 
+import type { Page } from "@/features/admin/types";
 import type { Project, Workstream } from "@/features/projects/types";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 import { riskColors } from "@/theme/themeConfig";
@@ -41,14 +42,14 @@ import {
   LEVELS,
   REMEDIATION_STATUS_COLORS,
   STATUS_COLORS,
-  heatMap,
+  heatMapFromSummary,
   levelFor,
-  sourcedPercent,
   type Finding,
   type FindingCategory,
   type FindingInput,
   type FindingPermissions,
   type FindingStatus,
+  type FindingSummary,
   type RemediationStatus,
   type RiskLevel,
   type RiskMatrix,
@@ -57,7 +58,10 @@ import {
 
 export interface FindingListViewProps {
   project: Project;
-  findings: Finding[];
+  /** One page of the filtered register. */
+  findings: Page<Finding>;
+  /** Heat map, counts per level and sourced share of the whole filtered register. */
+  summary: FindingSummary;
   workstreams: Workstream[];
   categories: FindingCategory[];
   matrix: RiskMatrix;
@@ -73,6 +77,7 @@ export interface FindingListViewProps {
 export function FindingListView({
   project,
   findings,
+  summary,
   workstreams,
   categories,
   matrix,
@@ -88,7 +93,7 @@ export function FindingListView({
   const [editing, setEditing] = useState<Finding | "new" | null>(source && permissions.edit ? "new" : null);
   const [showLibrary, setShowLibrary] = useState(false);
   const internal = permissions.edit || project.myRoles.includes("OBSERVER");
-  const sourced = sourcedPercent(findings);
+  const sourced = summary.sourcedPercent;
 
   const columns: TableColumnsType<Finding> = [
     { title: t("number"), dataIndex: "number", width: 110 },
@@ -179,7 +184,7 @@ export function FindingListView({
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} lg={10}>
           <Card title={t("heatMap")} size="small">
-            <HeatMap findings={findings} matrix={matrix} />
+            <HeatMap summary={summary} matrix={matrix} />
           </Card>
         </Col>
         <Col xs={24} lg={14}>
@@ -189,7 +194,7 @@ export function FindingListView({
                 <Statistic
                   key={level}
                   title={<Tag color={riskColors[level]}>{t(`levels.${level}`)}</Tag>}
-                  value={findings.filter((f) => f.riskLevel === level && f.status !== "ARCHIVED").length}
+                  value={summary.levels[level] ?? 0}
                 />
               ))}
               {internal && sourced !== null && (
@@ -242,9 +247,16 @@ export function FindingListView({
           rowKey="id"
           size="middle"
           columns={columns}
-          dataSource={findings}
+          dataSource={findings.items}
           scroll={{ x: 900 }}
-          pagination={{ pageSize: 50, hideOnSinglePage: true, showSizeChanger: false }}
+          pagination={{
+            current: findings.page + 1,
+            pageSize: findings.size,
+            total: findings.totalElements,
+            hideOnSinglePage: true,
+            showSizeChanger: false,
+            onChange: (page) => update({ p: page - 1 }, false),
+          }}
           locale={{ emptyText: internal ? t("empty") : t("emptyClient") }}
           onRow={(f) => ({ onClick: () => update({ finding: f.id }, false), style: { cursor: "pointer" } })}
         />
@@ -286,9 +298,9 @@ export function FindingListView({
 }
 
 /** 5 × 5 impact (rows, 5 at the top) × likelihood (columns) grid coloured by the configured thresholds. */
-function HeatMap({ findings, matrix }: Readonly<{ findings: Finding[]; matrix: RiskMatrix }>) {
+function HeatMap({ summary, matrix }: Readonly<{ summary: FindingSummary; matrix: RiskMatrix }>) {
   const t = useTranslations("findings");
-  const cells = useMemo(() => heatMap(findings), [findings]);
+  const cells = useMemo(() => heatMapFromSummary(summary), [summary]);
   const scale = [1, 2, 3, 4, 5];
   return (
     <Flex gap={8} align="stretch">

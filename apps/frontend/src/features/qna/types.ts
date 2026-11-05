@@ -121,3 +121,10 @@ export function moveKey(from: QuestionStatus, to: QuestionStatus): string {
   if (from === "PENDING_APPROVAL" && to === "DRAFT") return "return";
   return to;
 }
+
+/** Figures of the Q&A log computed by the backend for the current filters. */
+export interface QuestionSummary {
+  total: number;
+  /** Questions waiting for PM/partner approval (QNA-02). */
+  pendingApproval: number;
+}

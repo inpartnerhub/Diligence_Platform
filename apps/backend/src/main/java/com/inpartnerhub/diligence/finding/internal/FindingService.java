@@ -14,6 +14,8 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,22 +54,10 @@ class FindingService {
     record Rating(Integer impact, Integer likelihood) {
     }
 
+    /** Register filters; the query matches number, title or category (case-insensitive), evaluated in SQL. */
     record FindingFilter(FindingStatus status, UUID workstreamId, RiskLevel level, String query) {
 
         static final FindingFilter ALL = new FindingFilter(null, null, null, null);
-
-        boolean matches(Finding finding) {
-            return (status == null || finding.getStatus() == status)
-                    && (workstreamId == null || workstreamId.equals(finding.getWorkstreamId()))
-                    && (level == null || level == finding.getRiskLevel())
-                    && (query == null || query.isBlank() || contains(finding, query.strip().toLowerCase(Locale.ROOT)));
-        }
-
-        private static boolean contains(Finding finding, String needle) {
-            return finding.getNumber().toLowerCase(Locale.ROOT).contains(needle)
-                    || finding.getTitle().toLowerCase(Locale.ROOT).contains(needle)
-                    || finding.getCategory().toLowerCase(Locale.ROOT).contains(needle);
-        }
     }
 
     record LinkedDocument(DocumentSummary document, String pageReference, String note, UUID linkedBy,
@@ -79,6 +69,7 @@ class FindingService {
     }
 
     private final FindingRepository findings;
+    private final FindingQueries queries;
     private final FindingDocumentRepository links;
     private final FindingStatusChangeRepository history;
     private final FindingCommentRepository comments;
@@ -90,18 +81,20 @@ class FindingService {
     private final Clock clock;
 
     @Autowired
-    FindingService(FindingRepository findings, FindingDocumentRepository links, FindingStatusChangeRepository history,
-            FindingCommentRepository comments, FindingAccess access, RiskMatrixService matrix,
-            DocumentDirectory documents, CurrentUserProvider currentUser, ApplicationEventPublisher events) {
-        this(findings, links, history, comments, access, matrix, documents, currentUser, events,
+    FindingService(FindingRepository findings, FindingQueries queries, FindingDocumentRepository links,
+            FindingStatusChangeRepository history, FindingCommentRepository comments, FindingAccess access,
+            RiskMatrixService matrix, DocumentDirectory documents, CurrentUserProvider currentUser,
+            ApplicationEventPublisher events) {
+        this(findings, queries, links, history, comments, access, matrix, documents, currentUser, events,
                 Clock.systemDefaultZone());
     }
 
-    FindingService(FindingRepository findings, FindingDocumentRepository links, FindingStatusChangeRepository history,
-            FindingCommentRepository comments, FindingAccess access, RiskMatrixService matrix,
-            DocumentDirectory documents, CurrentUserProvider currentUser, ApplicationEventPublisher events,
-            Clock clock) {
+    FindingService(FindingRepository findings, FindingQueries queries, FindingDocumentRepository links,
+            FindingStatusChangeRepository history, FindingCommentRepository comments, FindingAccess access,
+            RiskMatrixService matrix, DocumentDirectory documents, CurrentUserProvider currentUser,
+            ApplicationEventPublisher events, Clock clock) {
         this.findings = findings;
+        this.queries = queries;
         this.links = links;
         this.history = history;
         this.comments = comments;
@@ -119,10 +112,22 @@ class FindingService {
     @Transactional(readOnly = true)
     List<Finding> list(UUID projectId, FindingFilter filter) {
         var context = access.project(projectId);
-        return findings.findByProjectIdOrderByNumber(projectId).stream()
-                .filter(f -> !FindingAccess.isInternal(context) || context.coversWorkstream(f.getWorkstreamId()))
-                .filter(filter::matches)
-                .toList();
+        return findings.findAll(FindingQueries.specification(projectId, context, filter), FindingQueries.BY_NUMBER);
+    }
+
+    /** One page of the register, filtered and ordered by number in SQL (issue #58). */
+    @Transactional(readOnly = true)
+    Page<Finding> page(UUID projectId, FindingFilter filter, int page, int size) {
+        var context = access.project(projectId);
+        return findings.findAll(FindingQueries.specification(projectId, context, filter),
+                PageRequest.of(page, size, FindingQueries.BY_NUMBER));
+    }
+
+    /** Heat map, counts per risk level and sourced share of the filtered register (PRD Bab 11.1, KPI Bab 2.3). */
+    @Transactional(readOnly = true)
+    FindingQueries.Summary summary(UUID projectId, FindingFilter filter) {
+        var context = access.project(projectId);
+        return queries.summarize(FindingQueries.specification(projectId, context, filter));
     }
 
     @Transactional(readOnly = true)

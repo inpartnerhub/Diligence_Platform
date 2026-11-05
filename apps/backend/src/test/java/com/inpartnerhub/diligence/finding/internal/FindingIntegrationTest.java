@@ -166,6 +166,27 @@ class FindingIntegrationTest {
         assertThat(matrix.update(4, 8, 15)).isEqualTo(1);
         assertThat(level(open.getId())).isEqualTo("HIGH");
         assertThat(level(finding.getId())).isEqualTo(RiskLevel.HIGH.name());
+
+        // The register runs in SQL (issue #58): filters, escaping, paging and the heat-map summary.
+        signIn(pm, Role.PROJECT_MANAGER);
+        assertThat(findings.list(projectId, new FindingService.FindingFilter(null, null, null, "UNREGISTERED")))
+                .extracting(Finding::getNumber).containsExactly("F-LEG-001", "F-LEG-002");
+        assertThat(findings.list(projectId, new FindingService.FindingFilter(FindingStatus.RELEASED, legal,
+                RiskLevel.HIGH, "f-leg"))).extracting(Finding::getNumber).containsExactly("F-LEG-001");
+        assertThat(findings.list(projectId, new FindingService.FindingFilter(null, null, null, "100%"))).isEmpty();
+        var firstPage = findings.page(projectId, FindingService.FindingFilter.ALL, 0, 1);
+        assertThat(firstPage.getTotalElements()).isEqualTo(2);
+        assertThat(firstPage.getContent()).extracting(Finding::getNumber).containsExactly("F-LEG-001");
+        assertThat(findings.page(projectId, FindingService.FindingFilter.ALL, 1, 1).getContent())
+                .extracting(Finding::getNumber).containsExactly("F-LEG-002");
+        var summary = findings.summary(projectId, FindingService.FindingFilter.ALL);
+        assertThat(summary.total()).isEqualTo(2);
+        assertThat(summary.levels()).containsEntry(RiskLevel.HIGH, 2L);
+        assertThat(summary.cells()).containsExactlyInAnyOrder(new FindingQueries.HeatCell(4, 4, 1),
+                new FindingQueries.HeatCell(3, 3, 1));
+        assertThat(summary.sourcedPercent()).isEqualTo(50);
+        signIn(client, Role.CLIENT);
+        assertThat(findings.summary(projectId, FindingService.FindingFilter.ALL).total()).isEqualTo(1);
         await(() -> jdbc.queryForObject("select count(*) from audit.audit_log where action = 'risk-matrix.updated'",
                 Integer.class) >= 1);
     }

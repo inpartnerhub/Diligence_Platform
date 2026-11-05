@@ -7,9 +7,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
-interface RequestItemRepository extends JpaRepository<RequestItem, UUID> {
+interface RequestItemRepository extends JpaRepository<RequestItem, UUID>, JpaSpecificationExecutor<RequestItem> {
 
     List<RequestItem> findByProjectIdOrderByNumber(UUID projectId);
 

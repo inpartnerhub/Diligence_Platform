@@ -6,12 +6,13 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.context.event.EventListener;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -47,22 +48,10 @@ class RequestService {
             RequestPriority priority, LocalDate dueDate, Integer wave, UUID assigneeUserId) {
     }
 
+    /** List filters; the query matches number, category or description (case-insensitive), evaluated in SQL. */
     record ItemFilter(RequestStatus status, UUID workstreamId, Integer wave, String query) {
 
         static final ItemFilter ALL = new ItemFilter(null, null, null, null);
-
-        boolean matches(RequestItem item) {
-            return (status == null || item.getStatus() == status)
-                    && (workstreamId == null || workstreamId.equals(item.getWorkstreamId()))
-                    && (wave == null || wave == item.getWave())
-                    && (query == null || query.isBlank() || contains(item, query.strip().toLowerCase(Locale.ROOT)));
-        }
-
-        private static boolean contains(RequestItem item, String needle) {
-            return item.getNumber().toLowerCase(Locale.ROOT).contains(needle)
-                    || item.getCategory().toLowerCase(Locale.ROOT).contains(needle)
-                    || item.getDescription().toLowerCase(Locale.ROOT).contains(needle);
-        }
     }
 
     record LinkedDocument(DocumentSummary document, String comment, UUID linkedBy, Instant linkedAt) {
@@ -73,6 +62,7 @@ class RequestService {
     }
 
     private final RequestItemRepository items;
+    private final RequestQueries queries;
     private final RequestItemDocumentRepository links;
     private final RequestStatusChangeRepository history;
     private final RequestCommentRepository comments;
@@ -84,19 +74,20 @@ class RequestService {
     private final Clock clock;
 
     @Autowired
-    RequestService(RequestItemRepository items, RequestItemDocumentRepository links,
+    RequestService(RequestItemRepository items, RequestQueries queries, RequestItemDocumentRepository links,
             RequestStatusChangeRepository history, RequestCommentRepository comments, RequestAccess access,
             ProjectDirectory projects, DocumentDirectory documents, CurrentUserProvider currentUser,
             ApplicationEventPublisher events) {
-        this(items, links, history, comments, access, projects, documents, currentUser, events,
+        this(items, queries, links, history, comments, access, projects, documents, currentUser, events,
                 Clock.systemDefaultZone());
     }
 
-    RequestService(RequestItemRepository items, RequestItemDocumentRepository links,
+    RequestService(RequestItemRepository items, RequestQueries queries, RequestItemDocumentRepository links,
             RequestStatusChangeRepository history, RequestCommentRepository comments, RequestAccess access,
             ProjectDirectory projects, DocumentDirectory documents, CurrentUserProvider currentUser,
             ApplicationEventPublisher events, Clock clock) {
         this.items = items;
+        this.queries = queries;
         this.links = links;
         this.history = history;
         this.comments = comments;
@@ -114,10 +105,24 @@ class RequestService {
     @Transactional(readOnly = true)
     List<RequestItem> list(UUID projectId, ItemFilter filter) {
         var context = access.project(projectId);
-        return items.findByProjectIdOrderByNumber(projectId).stream()
-                .filter(i -> context.coversWorkstream(i.getWorkstreamId()))
-                .filter(filter::matches)
-                .toList();
+        return items.findAll(RequestQueries.specification(projectId, context, filter), RequestQueries.BY_NUMBER);
+    }
+
+    /** One page of the request list, filtered and ordered by number in SQL (issue #58). */
+    @Transactional(readOnly = true)
+    Page<RequestItem> page(UUID projectId, ItemFilter filter, int page, int size) {
+        var context = access.project(projectId);
+        return items.findAll(RequestQueries.specification(projectId, context, filter),
+                PageRequest.of(page, size, RequestQueries.BY_NUMBER));
+    }
+
+    /** Overdue count of the filtered list, waves and unreleased items in the caller's scope (REQ-04, REQ-06). */
+    @Transactional(readOnly = true)
+    RequestQueries.Summary summary(UUID projectId, ItemFilter filter, LocalDate today) {
+        var context = access.project(projectId);
+        return queries.summarize(RequestQueries.scope(projectId, context),
+                RequestQueries.specification(projectId, context, filter),
+                today != null ? today : LocalDate.now(clock));
     }
 
     @Transactional(readOnly = true)

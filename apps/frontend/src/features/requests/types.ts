@@ -165,17 +165,32 @@ export function isOverdue(item: Pick<RequestItem, "status" | "dueDate">, today: 
   return item.dueDate !== null && OPEN_STATUSES.includes(item.status) && item.dueDate < today;
 }
 
-export function waves(items: readonly Pick<RequestItem, "wave">[]): number[] {
-  return [...new Set(items.map((i) => i.wave))].sort((a, b) => a - b);
+/** Figures of the request list page computed by the backend. */
+export interface RequestSummary {
+  /** Items of the filtered list per status. */
+  statuses: Partial<Record<RequestStatus, number>>;
+  /** Open items of the filtered list past their due date. */
+  overdue: number;
+  /** Waves in the caller's scope (filter options). */
+  waves: number[];
+  /** Not yet requested items per wave and workstream (release dialog, REQ-06). */
+  unreleased: { wave: number; workstreamId: string | null; count: number }[];
 }
 
-/** Unreleased items per wave, for the release dialog. */
-export function unreleasedByWave(
-  items: readonly Pick<RequestItem, "wave" | "status">[],
-): Map<number, number> {
+/** Unreleased items per wave from the backend summary, for the release dialog. */
+export function unreleasedWaves(summary: Pick<RequestSummary, "unreleased">): Map<number, number> {
   const counts = new Map<number, number>();
-  for (const item of items) {
-    if (item.status === "NOT_REQUESTED") counts.set(item.wave, (counts.get(item.wave) ?? 0) + 1);
-  }
+  for (const row of summary.unreleased) counts.set(row.wave, (counts.get(row.wave) ?? 0) + row.count);
   return new Map([...counts.entries()].sort(([a], [b]) => a - b));
+}
+
+/** Unreleased items of one wave, optionally of one workstream. */
+export function unreleasedCount(
+  summary: Pick<RequestSummary, "unreleased">,
+  wave: number | undefined,
+  workstreamId?: string,
+): number {
+  return summary.unreleased
+    .filter((row) => row.wave === wave && (!workstreamId || row.workstreamId === workstreamId))
+    .reduce((sum, row) => sum + row.count, 0);
 }

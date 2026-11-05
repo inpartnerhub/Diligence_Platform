@@ -187,14 +187,23 @@ export function levelFor(score: number, matrix: RiskMatrix): RiskLevel {
 }
 
 /** Finding counts per heat-map cell, keyed "impact:likelihood" (archived findings are left out). */
-export function heatMap(
-  findings: readonly Pick<Finding, "impact" | "likelihood" | "status">[],
-): Map<string, number> {
+/**
+ * Aggregates of the filtered register computed by the backend (archived findings excluded); sourcedPercent is the
+ * share citing at least one source document — PRD KPI target ≥ 95%.
+ */
+export interface FindingSummary {
+  total: number;
+  levels: Partial<Record<RiskLevel, number>>;
+  cells: { impact: number; likelihood: number; count: number }[];
+  sourcedPercent: number | null;
+}
+
+/** Heat-map cells keyed "impact:likelihood", from the backend summary. */
+export function heatMapFromSummary(summary: Pick<FindingSummary, "cells">): Map<string, number> {
   const cells = new Map<string, number>();
-  for (const f of findings) {
-    if (f.impact === null || f.likelihood === null || f.status === "ARCHIVED") continue;
-    const key = `${f.impact}:${f.likelihood}`;
-    cells.set(key, (cells.get(key) ?? 0) + 1);
+  for (const cell of summary.cells) {
+    const key = `${cell.impact}:${cell.likelihood}`;
+    cells.set(key, (cells.get(key) ?? 0) + cell.count);
   }
   return cells;
 }
@@ -220,13 +229,4 @@ export interface FindingLibraryTemplateInput {
   defaultRecommendation?: string | null;
   defaultImpact: number;
   defaultLikelihood: number;
-}
-
-/** Share of findings (excluding archived) citing at least one source document — PRD KPI target ≥ 95%. */
-export function sourcedPercent(
-  findings: readonly Pick<Finding, "documentCount" | "status">[],
-): number | null {
-  const counted = findings.filter((f) => f.status !== "ARCHIVED");
-  if (counted.length === 0) return null;
-  return Math.round((100 * counted.filter((f) => f.documentCount > 0).length) / counted.length);
 }

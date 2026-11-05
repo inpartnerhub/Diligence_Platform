@@ -32,6 +32,9 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -60,6 +63,7 @@ class FindingServiceTest {
     private static final UUID OTHER = UUID.randomUUID();
 
     private final FindingRepository findings = mock(FindingRepository.class);
+    private final FindingQueries queries = mock(FindingQueries.class);
     private final FindingDocumentRepository links = mock(FindingDocumentRepository.class);
     private final FindingStatusChangeRepository history = mock(FindingStatusChangeRepository.class);
     private final FindingCommentRepository comments = mock(FindingCommentRepository.class);
@@ -68,8 +72,8 @@ class FindingServiceTest {
     private final DocumentDirectory documents = mock(DocumentDirectory.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final FindingService service = new FindingService(findings, links, history, comments, access, matrix,
-            documents, currentUser, events, Clock.fixed(Instant.parse("2026-11-10T02:00:00Z"), ZoneOffset.UTC));
+    private final FindingService service = new FindingService(findings, queries, links, history, comments, access,
+            matrix, documents, currentUser, events, Clock.fixed(Instant.parse("2026-11-10T02:00:00Z"), ZoneOffset.UTC));
 
     private final List<FindingStatusChange> changes = new ArrayList<>();
 
@@ -290,21 +294,25 @@ class FindingServiceTest {
     }
 
     @Test
-    void listsWithinScopeAndFilters() {
+    @SuppressWarnings("unchecked")
+    void listsPagesAndSummarisesInSql() {
+        // Filtering and scope are SQL now (FindingQueries); FindingIntegrationTest checks them against PostgreSQL.
         when(access.project(PROJECT)).thenReturn(scoped(ProjectRole.ANALYST, LEGAL));
         var legal = finding(ME);
-        legal.rate(RiskMatrix.DEFAULT.rate(5, 4));
-        var tax = new Finding(PROJECT, "F-TAX-001", content(TAX), ME);
-        when(findings.findByProjectIdOrderByNumber(PROJECT)).thenReturn(List.of(legal, tax));
-
+        when(findings.findAll(any(Specification.class), eq(FindingQueries.BY_NUMBER))).thenReturn(List.of(legal));
         assertThat(service.list(PROJECT, FindingService.FindingFilter.ALL)).containsExactly(legal);
-        assertThat(service.list(PROJECT, new FindingService.FindingFilter(FindingStatus.DRAFT, LEGAL,
-                RiskLevel.CRITICAL, "land"))).containsExactly(legal);
-        assertThat(service.list(PROJECT, new FindingService.FindingFilter(null, null, RiskLevel.LOW, null)))
-                .isEmpty();
 
-        when(access.project(PROJECT)).thenReturn(context(ProjectRole.CLIENT));
-        assertThat(service.list(PROJECT, FindingService.FindingFilter.ALL)).containsExactly(legal, tax);
+        var pageable = ArgumentCaptor.forClass(Pageable.class);
+        when(findings.findAll(any(Specification.class), pageable.capture()))
+                .thenReturn(new PageImpl<>(List.of(legal)));
+        assertThat(service.page(PROJECT, FindingService.FindingFilter.ALL, 2, 25).getContent()).containsExactly(legal);
+        assertThat(pageable.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pageable.getValue().getPageSize()).isEqualTo(25);
+        assertThat(pageable.getValue().getSort()).isEqualTo(FindingQueries.BY_NUMBER);
+
+        var summary = new FindingQueries.Summary(1, Map.of(RiskLevel.HIGH, 1L), List.of(), 100);
+        when(queries.summarize(any())).thenReturn(summary);
+        assertThat(service.summary(PROJECT, FindingService.FindingFilter.ALL)).isEqualTo(summary);
 
         when(links.countsByFinding(PROJECT)).thenReturn(List.<Object[]>of(new Object[] { legal.getId(), 2L }));
         assertThat(service.documentCounts(PROJECT)).isEqualTo(Map.of(legal.getId(), 2L));

@@ -4,9 +4,10 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
-interface FindingRepository extends JpaRepository<Finding, UUID> {
+interface FindingRepository extends JpaRepository<Finding, UUID>, JpaSpecificationExecutor<Finding> {
 
     List<Finding> findByProjectIdOrderByNumber(UUID projectId);
 

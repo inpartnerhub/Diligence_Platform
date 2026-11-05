@@ -21,6 +21,9 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -61,8 +64,9 @@ class QuestionServiceTest {
     private final FindingDirectory findings = mock(FindingDirectory.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final QuestionService service = new QuestionService(questions, answers, answerDocuments, history,
-            access, projects, documents, requestItems, findings, currentUser, events,
+    private final QuestionQueries queries = mock(QuestionQueries.class);
+    private final QuestionService service = new QuestionService(questions, queries, answers, answerDocuments,
+            history, access, projects, documents, requestItems, findings, currentUser, events,
             Clock.fixed(Instant.parse("2026-11-20T03:00:00Z"), ZoneOffset.UTC));
 
     private final List<QuestionStatusChange> changes = new ArrayList<>();
@@ -249,19 +253,23 @@ class QuestionServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void listDetailAndReferencesRespectTheBarrier() {
         var context = as(ProjectRole.TARGET);
         var q = existing(QuestionStatus.SENT, ME);
         var finding = UUID.randomUUID();
         q.write(q.getBody(), new Question.Links(LEGAL, null, null, finding), null, null);
-        when(questions.findByProjectIdOrderByNumber(PROJECT)).thenReturn(List.of(q));
+        when(questions.findAll(any(Specification.class), eq(QuestionQueries.BY_NUMBER))).thenReturn(List.of(q));
         when(answers.findByQuestionIdIn(anyCollection())).thenReturn(List.of());
         when(documents.findAll(eq(PROJECT), anyCollection())).thenReturn(List.of());
 
+        // Filtering is SQL now (QuestionQueries); QnaAndReportIntegrationTest checks it against PostgreSQL.
         assertThat(service.list(PROJECT, new QuestionService.QuestionFilter(QuestionStatus.SENT, LEGAL, "land")))
                 .containsExactly(q);
-        assertThat(service.list(PROJECT, new QuestionService.QuestionFilter(QuestionStatus.CLOSED, null, null)))
-                .isEmpty();
+        when(questions.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(q)));
+        assertThat(service.page(PROJECT, QuestionService.QuestionFilter.ALL, 0, 50).getContent()).containsExactly(q);
+        when(queries.summarize(any())).thenReturn(new QuestionQueries.Summary(1, 0));
+        assertThat(service.summary(PROJECT, QuestionService.QuestionFilter.ALL).total()).isEqualTo(1);
         assertThat(service.answers(List.of(q))).isEmpty();
         var detail = service.detail(PROJECT, q.getId());
         assertThat(detail.references().findingNumber()).isNull();

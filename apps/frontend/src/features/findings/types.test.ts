@@ -5,11 +5,10 @@ import {
   REMEDIATION_STATUSES,
   SPA_PROTECTION_TYPES,
   findingPermissions,
-  heatMap,
+  heatMapFromSummary,
   levelFor,
   needsReason,
   nextStatuses,
-  sourcedPercent,
 } from "./types";
 
 const analyst = findingPermissions(["ANALYST"], true);
@@ -62,16 +61,19 @@ describe("risk helpers", () => {
     expect(levelFor(25, matrix)).toBe("CRITICAL");
   });
 
-  it("counts heat-map cells and sourced findings", () => {
-    const findings = [
-      { impact: 4, likelihood: 4, status: "DRAFT" as const, documentCount: 1 },
-      { impact: 4, likelihood: 4, status: "RELEASED" as const, documentCount: 0 },
-      { impact: 5, likelihood: 1, status: "ARCHIVED" as const, documentCount: 0 },
-      { impact: null, likelihood: null, status: "DRAFT" as const, documentCount: 2 },
-    ];
-    expect([...heatMap(findings).entries()]).toEqual([["4:4", 2]]);
-    expect(sourcedPercent(findings)).toBe(67);
-    expect(sourcedPercent([])).toBeNull();
+  it("keys the backend heat-map cells by impact and likelihood", () => {
+    const cells = heatMapFromSummary({
+      cells: [
+        { impact: 4, likelihood: 4, count: 1 },
+        { impact: 4, likelihood: 4, count: 1 }, // one row per risk level from the backend
+        { impact: 5, likelihood: 1, count: 3 },
+      ],
+    });
+    expect([...cells.entries()]).toEqual([
+      ["4:4", 2],
+      ["5:1", 3],
+    ]);
+    expect(heatMapFromSummary({ cells: [] }).size).toBe(0);
   });
 
   it("exposes expected SPA and remediation constants", () => {

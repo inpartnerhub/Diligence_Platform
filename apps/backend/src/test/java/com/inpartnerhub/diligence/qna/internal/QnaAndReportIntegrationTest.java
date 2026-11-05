@@ -133,6 +133,17 @@ class QnaAndReportIntegrationTest {
                 .containsExactly("Q-002");
         await(() -> notifications(pm, "QUESTION_PENDING_APPROVAL") == 1);
 
+        // The log runs in SQL (issue #58): text filter, paging and the approval count.
+        signIn(pm, Role.PROJECT_MANAGER);
+        assertThat(questions.list(projectId, new QuestionService.QuestionFilter(null, null, "TAX AUDITS")))
+                .extracting(Question::getNumber).containsExactly("Q-002");
+        var page = questions.page(projectId, QuestionService.QuestionFilter.ALL, 0, 1);
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getContent()).extracting(Question::getNumber).containsExactly("Q-001");
+        var figures = questions.summary(projectId, QuestionService.QuestionFilter.ALL);
+        assertThat(figures.total()).isEqualTo(2);
+        assertThat(figures.pendingApproval()).isEqualTo(1);
+
         // The PM approves; the target sees and answers it.
         signIn(pm, Role.PROJECT_MANAGER);
         questions.changeStatus(projectId, asked.getId(), QuestionStatus.SENT, null);

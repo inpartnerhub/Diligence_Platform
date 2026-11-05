@@ -33,8 +33,9 @@ import dayjs, { type Dayjs } from "dayjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
+import type { Page } from "@/features/admin/types";
 import type { Member, Project, Workstream } from "@/features/projects/types";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
@@ -46,18 +47,22 @@ import {
   REQUEST_STATUSES,
   STATUS_COLORS,
   isOverdue,
-  unreleasedByWave,
-  waves,
+  unreleasedCount,
+  unreleasedWaves,
   type ImportResult,
   type ItemInput,
   type RequestItem,
   type RequestPermissions,
   type RequestStatus,
+  type RequestSummary,
 } from "./types";
 
 export interface RequestListViewProps {
   project: Project;
-  items: RequestItem[];
+  /** One page of the filtered list. */
+  items: Page<RequestItem>;
+  /** Status counts, overdue figure, waves and unreleased items computed by the backend. */
+  summary: RequestSummary;
   workstreams: Workstream[];
   targetMembers: Member[];
   permissions: RequestPermissions;
@@ -70,6 +75,7 @@ export interface RequestListViewProps {
 export function RequestListView({
   project,
   items,
+  summary,
   workstreams,
   targetMembers,
   permissions,
@@ -85,12 +91,9 @@ export function RequestListView({
   const [releasing, setReleasing] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  const counts = useMemo(() => {
-    const result = Object.fromEntries(REQUEST_STATUSES.map((s) => [s, 0])) as Record<RequestStatus, number>;
-    for (const item of items) result[item.status] += 1;
-    return result;
-  }, [items]);
-  const overdue = items.filter((i) => isOverdue(i, today)).length;
+  const counts = summary.statuses;
+  const overdue = summary.overdue;
+  const unreleased = unreleasedWaves(summary).size > 0;
   const filtered = Boolean(filters.status || filters.workstreamId || filters.wave || filters.q);
 
   const columns: TableColumnsType<RequestItem> = [
@@ -157,11 +160,7 @@ export function RequestListView({
             </Button>
           )}
           {permissions.release && (
-            <Button
-              icon={<SendOutlined />}
-              onClick={() => setReleasing(true)}
-              disabled={counts.NOT_REQUESTED === 0}
-            >
+            <Button icon={<SendOutlined />} onClick={() => setReleasing(true)} disabled={!unreleased}>
               {t("release")}
             </Button>
           )}
@@ -201,7 +200,7 @@ export function RequestListView({
 
       <Card>
         <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          {REQUEST_STATUSES.filter((s) => counts[s] > 0).map((s) => (
+          {REQUEST_STATUSES.filter((s) => (counts[s] ?? 0) > 0).map((s) => (
             <Tag key={s} color={STATUS_COLORS[s]}>
               {t(`statusValues.${s}`)}: {counts[s]}
             </Tag>
@@ -237,7 +236,7 @@ export function RequestListView({
             placeholder={t("wave")}
             value={filters.wave}
             style={{ width: 120 }}
-            options={waves(items).map((w) => ({ value: String(w), label: t("waveN", { wave: w }) }))}
+            options={summary.waves.map((w) => ({ value: String(w), label: t("waveN", { wave: w }) }))}
             onChange={(wave?: string) => update({ wave })}
           />
         </Flex>
@@ -245,9 +244,16 @@ export function RequestListView({
           rowKey="id"
           size="middle"
           columns={columns}
-          dataSource={items}
+          dataSource={items.items}
           scroll={{ x: 1200 }}
-          pagination={{ pageSize: 50, hideOnSinglePage: true, showSizeChanger: false }}
+          pagination={{
+            current: items.page + 1,
+            pageSize: items.size,
+            total: items.totalElements,
+            hideOnSinglePage: true,
+            showSizeChanger: false,
+            onChange: (page) => update({ p: page - 1 }, false),
+          }}
           locale={{
             emptyText: filtered ? t("noMatches") : permissions.deliver ? t("emptyTarget") : t("empty"),
           }}
@@ -277,7 +283,7 @@ export function RequestListView({
       {releasing && (
         <ReleaseModal
           projectId={project.id}
-          items={items}
+          summary={summary}
           workstreams={workstreams}
           onClose={() => setReleasing(false)}
         />
@@ -408,22 +414,19 @@ function ItemFormModal({
 
 function ReleaseModal({
   projectId,
-  items,
+  summary,
   workstreams,
   onClose,
-}: Readonly<{ projectId: string; items: RequestItem[]; workstreams: Workstream[]; onClose: () => void }>) {
+}: Readonly<{ projectId: string; summary: RequestSummary; workstreams: Workstream[]; onClose: () => void }>) {
   const t = useTranslations("requests");
   const tw = useTranslations("workstreams");
   const { message } = App.useApp();
   const router = useRouter();
-  const pending = unreleasedByWave(items);
+  const pending = unreleasedWaves(summary);
   const [wave, setWave] = useState<number | undefined>(pending.keys().next().value);
   const [workstreamId, setWorkstreamId] = useState<string | undefined>();
   const [busy, startTransition] = useTransition();
-  const count = items.filter(
-    (i) =>
-      i.status === "NOT_REQUESTED" && i.wave === wave && (!workstreamId || i.workstreamId === workstreamId),
-  ).length;
+  const count = unreleasedCount(summary, wave, workstreamId);
 
   const release = () =>
     startTransition(async () => {
