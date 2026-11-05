@@ -127,7 +127,10 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     depends_on: [mailpit]
     ports: ["127.0.0.1:8180:8180"]
-    volumes: ["./infrastructure/docker/keycloak/diligence-realm.json:/opt/keycloak/data/import/diligence-realm.json:ro"]
+    volumes:
+      - ./infrastructure/docker/keycloak/diligence-realm.json:/opt/keycloak/data/import/diligence-realm.json:ro
+      # Breached/common passwords rejected by the realm policy (ADM-02, #65)
+      - ./infrastructure/docker/keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
     healthcheck: { <<: *healthcheck, start_period: 60s, test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"] }
 
   kong:

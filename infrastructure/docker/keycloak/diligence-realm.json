@@ -14,7 +14,7 @@
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-  "passwordPolicy": "length(12) and notUsername and notEmail and passwordHistory(5)",
+  "passwordPolicy": "length(12) and notUsername and notEmail and passwordHistory(5) and passwordBlacklist(common-passwords.txt)",
   "otpPolicyType": "totp",
   "otpPolicyAlgorithm": "HmacSHA1",
   "otpPolicyDigits": 6,
