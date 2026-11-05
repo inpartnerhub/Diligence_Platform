@@ -12,6 +12,8 @@ public final class ProblemTypes {
     public static final URI FORBIDDEN = URI.create("urn:diligence:problem:forbidden");
     public static final URI UNAUTHORIZED = URI.create("urn:diligence:problem:unauthorized");
     public static final URI UPSTREAM_FAILURE = URI.create("urn:diligence:problem:upstream-failure");
+    /** The caller must sign in again (password + MFA) before this action; see {@link StepUpRequiredException}. */
+    public static final URI STEP_UP_REQUIRED = URI.create("urn:diligence:problem:step-up-required");
 
     private ProblemTypes() {
     }

@@ -48,6 +48,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, ProblemTypes.FORBIDDEN, "Access denied.");
     }
 
+    @ExceptionHandler(StepUpRequiredException.class)
+    ProblemDetail handleStepUp(StepUpRequiredException ex) {
+        var problem = problem(HttpStatus.FORBIDDEN, ProblemTypes.STEP_UP_REQUIRED, ex.getMessage());
+        problem.setProperty("maxAgeSeconds", ex.maxAge().toSeconds());
+        return problem;
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     ProblemDetail handleUnauthenticated(AuthenticationException ex) {
         return problem(HttpStatus.UNAUTHORIZED, ProblemTypes.UNAUTHORIZED, "Authentication required.");

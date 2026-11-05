@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
@@ -49,6 +51,8 @@ import com.inpartnerhub.diligence.shared.web.UpstreamServiceException;
 @Service
 @Transactional
 class DocumentViewService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentViewService.class);
 
     enum Format {
         /** Watermarked PDF: the original PDF or the rendition of an Office/image file. */
@@ -80,18 +84,20 @@ class DocumentViewService {
     private final ApplicationEventPublisher events;
     private final DataRoomProperties properties;
     private final PreviewPageCache pages;
+    private final MassDownloadGuard massDownloads;
     private final Clock clock;
 
     @Autowired
     DocumentViewService(DocumentRepository documents, DocumentVersionRepository versions, DataRoomAccess access,
             DocumentStorage storage, CurrentUserProvider currentUser, ApplicationEventPublisher events,
-            DataRoomProperties properties, PreviewPageCache pages) {
-        this(documents, versions, access, storage, currentUser, events, properties, pages, Clock.systemUTC());
+            DataRoomProperties properties, PreviewPageCache pages, MassDownloadGuard massDownloads) {
+        this(documents, versions, access, storage, currentUser, events, properties, pages, massDownloads,
+                Clock.systemUTC());
     }
 
     DocumentViewService(DocumentRepository documents, DocumentVersionRepository versions, DataRoomAccess access,
             DocumentStorage storage, CurrentUserProvider currentUser, ApplicationEventPublisher events,
-            DataRoomProperties properties, PreviewPageCache pages, Clock clock) {
+            DataRoomProperties properties, PreviewPageCache pages, MassDownloadGuard massDownloads, Clock clock) {
         this.documents = documents;
         this.versions = versions;
         this.access = access;
@@ -100,6 +106,7 @@ class DocumentViewService {
         this.events = events;
         this.properties = properties;
         this.pages = pages;
+        this.massDownloads = massDownloads;
         this.clock = clock;
     }
 
@@ -145,6 +152,7 @@ class DocumentViewService {
         var version = viewable.version();
         events.publishEvent(new DocumentDownloaded(projectId, documentId, version.getId(),
                 format.name().toLowerCase(Locale.ROOT), RequestMetadata.capture()));
+        massDownloads.record(projectId, 1);
         if (format == Format.ORIGINAL) {
             var key = version.getObjectKey();
             return new Download(version.getFileName(), contentType(version), format, out -> {
@@ -165,6 +173,14 @@ class DocumentViewService {
      * maintaining folder hierarchy inside a watermarked ZIP archive (PRD DOC-05).
      */
     BulkDownload bulkDownload(UUID projectId, UUID folderId, Format requested) {
+        return bulkDownload(projectId, folderId, requested, false);
+    }
+
+    /**
+     * @param preflight only check access, limits and step-up (the web app's pre-flight); nothing is logged and the
+     *                  returned writer must not be used
+     */
+    BulkDownload bulkDownload(UUID projectId, UUID folderId, Format requested, boolean preflight) {
         var context = access.project(projectId);
         var allFolders = access.visibleFolders(context);
         var foldersById = allFolders.stream().collect(Collectors.toMap(Folder::getId, f -> f));
@@ -235,6 +251,14 @@ class DocumentViewService {
             plannedBytes += version.getSizeBytes();
         }
         checkBulkLimits(entries.size(), plannedBytes);
+        massDownloads.requireRecentSignIn(entries.size());
+        if (!preflight) {
+            // Logged here, inside the request's transaction: the archive is streamed after it has ended, and audit
+            // listeners only receive events published in a transaction (an event from the stream was lost).
+            events.publishEvent(new BulkDocumentDownloaded(projectId, folderId, entries.size(), plannedBytes,
+                    RequestMetadata.capture()));
+            massDownloads.record(projectId, entries.size());
+        }
 
         String zipFileName;
         if (targetRoot != null) {
@@ -294,8 +318,7 @@ class DocumentViewService {
                 zipOut.finish();
             }
 
-            events.publishEvent(new BulkDocumentDownloaded(projectId, folderId, count, totalBytes,
-                    RequestMetadata.capture()));
+            log.debug("Bulk download of project {} streamed {} documents, {} bytes", projectId, count, totalBytes);
         });
     }
 

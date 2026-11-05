@@ -1,7 +1,7 @@
 # Suspicious logins and access attempts
 
 **Alerts:** `DiligenceLoginFailureSpike`, `DiligenceAccountLockouts`, `DiligenceProjectAccessBlocked`,
-`DiligenceForbiddenSpike`. PRD Bab 7 (alerts for suspicious login attempts) and Bab 10.1 (anomalous login
+`DiligenceForbiddenSpike`, `DiligenceMassDownload`. PRD Bab 7 (alerts for suspicious login attempts) and Bab 10.1 (anomalous login
 detection, IP restriction per project).
 
 ## Check
@@ -12,7 +12,12 @@ detection, IP restriction per project).
    Brute force status*.
 3. **Blocked project access:** audit log (`/admin/audit`) filter action `project.access-blocked` — shows the
    project, user and IP refused by the project's IP allow-list.
-4. **403/404 spike:** audit and application logs by user — many different project or document IDs from one account
+4. **Mass download:** audit log (`/admin/audit`) filter action `document.mass-download-detected` — user, project
+   and number of documents within the window (`MASS_DOWNLOAD_ALERT_DOCUMENTS` in `MASS_DOWNLOAD_ALERT_WINDOW`,
+   default 200 in 15 min). The user's `document.downloaded` / `document.bulk_downloaded` entries show what was taken.
+   Bulk downloads of 50+ documents already required a fresh sign-in with MFA (step-up), so a stolen session alone
+   cannot trigger this; a stolen password + second factor, or an insider, can.
+5. **403/404 spike:** audit and application logs by user — many different project or document IDs from one account
    suggests ID probing (IDOR). Row-level security blocks the data; the pattern is still a sign of a compromised or
    malicious account.
 
@@ -23,4 +28,6 @@ detection, IP restriction per project).
   re-enrol TOTP.
 - For a blocked external user from a legitimate new location, the project manager adds that network to the
   project's IP allow-list after confirming with the client/target.
+- Mass download that the user cannot explain: disable the account, sign out its sessions and treat it as a possible
+  leak (SEV-1, [incident-response.md](incident-response.md)); the watermarks name the user on every page taken.
 - If an account accessed documents it should not have: treat as SEV-1 ([incident-response.md](incident-response.md)).

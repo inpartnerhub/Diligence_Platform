@@ -71,7 +71,7 @@ class FolderController {
             @PathVariable UUID projectId,
             @RequestParam(required = false) DocumentViewService.Format format,
             @RequestParam(defaultValue = "false") boolean check) {
-        var download = views.bulkDownload(projectId, null, format);
+        var download = views.bulkDownload(projectId, null, format, check);
         if (check) {
             return ResponseEntity.noContent().build(); // pre-flight: access and size limits pass, nothing is sent
         }
@@ -90,7 +90,7 @@ class FolderController {
             @PathVariable UUID folderId,
             @RequestParam(required = false) DocumentViewService.Format format,
             @RequestParam(defaultValue = "false") boolean check) {
-        var download = views.bulkDownload(projectId, folderId, format);
+        var download = views.bulkDownload(projectId, folderId, format, check);
         if (check) {
             return ResponseEntity.noContent().build(); // pre-flight: access and size limits pass, nothing is sent
         }

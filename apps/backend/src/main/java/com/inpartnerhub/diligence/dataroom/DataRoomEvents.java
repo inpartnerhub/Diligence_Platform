@@ -112,6 +112,35 @@ public final class DataRoomEvents {
         }
     }
 
+    /**
+     * One user downloaded more documents within the detection window than the configured threshold (issue #62,
+     * PRD Bab 10.1): logged for the incident register and counted for the mass-download alert.
+     */
+    public record MassDownloadDetected(UUID projectId, UUID userId, long documents, long windowMinutes,
+            RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "document.mass-download-detected";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "user";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return userId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("projectId", projectId.toString(), "documents", String.valueOf(documents),
+                    "windowMinutes", String.valueOf(windowMinutes));
+        }
+    }
+
     /** Bulk download of documents from a folder or workstream as a watermarked ZIP archive (PRD DOC-05). */
     public record BulkDocumentDownloaded(UUID projectId, UUID folderId, int documentCount,
             long totalBytes, RequestMetadata requestMetadata) implements AuditableEvent {

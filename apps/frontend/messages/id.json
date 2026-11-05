@@ -420,7 +420,10 @@
         "LIMITATION_OF_LIABILITY": "Batasan Tanggung Jawab"
       }
     },
-    "bulkDownloadFailed": "Unduhan ZIP tidak dapat dimulai."
+    "bulkDownloadFailed": "Unduhan ZIP tidak dapat dimulai.",
+    "stepUpTitle": "Konfirmasi identitas Anda",
+    "stepUpBody": "Mengunduh dokumen sebanyak ini sekaligus memerlukan login terbaru. Masuk kembali dengan kata sandi dan kode autentikasi Anda, lalu mulai unduhan lagi.",
+    "stepUpConfirm": "Masuk kembali"
   },
   "documentSource": {
     "chooseFolder": "Folder data room",

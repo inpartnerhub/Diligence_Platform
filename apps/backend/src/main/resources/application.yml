@@ -120,6 +120,13 @@ diligence:
     bulk-download-max-files: ${BULK_DOWNLOAD_MAX_FILES:500}
     bulk-download-max-size: ${BULK_DOWNLOAD_MAX_SIZE:2GB}
     # Unwatermarked preview pages kept in memory per instance, and pages prefetched ahead of the viewer (DOC-03).
+    # Mass-download controls (#62): large bulk downloads need a recent sign-in with MFA, and users downloading more
+    # than alert-documents within alert-window are audited and alerted on.
+    mass-download:
+      step-up-files: ${MASS_DOWNLOAD_STEP_UP_FILES:50}
+      step-up-max-age: ${MASS_DOWNLOAD_STEP_UP_MAX_AGE:10m}
+      alert-documents: ${MASS_DOWNLOAD_ALERT_DOCUMENTS:200}
+      alert-window: ${MASS_DOWNLOAD_ALERT_WINDOW:15m}
     preview-cache:
       max-size: ${PREVIEW_CACHE_MAX_SIZE:64MB}
       ttl: ${PREVIEW_CACHE_TTL:30m}

@@ -9,7 +9,11 @@ import { safeReturnTo } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-/** Starts Authorization Code + PKCE. The verifier and state live in a short-lived sealed cookie. */
+/**
+ * Starts Authorization Code + PKCE. The verifier and state live in a short-lived sealed cookie. With `stepUp=1` the
+ * identity provider must authenticate the user again (password + MFA) instead of reusing the SSO session, which gives
+ * the new tokens a fresh `auth_time` for step-up checks (#62).
+ */
 export async function GET(request: NextRequest) {
   const codeVerifier = client.randomPKCECodeVerifier();
   const state = client.randomState();
@@ -27,6 +31,7 @@ export async function GET(request: NextRequest) {
     code_challenge_method: "S256",
     state,
     ui_locales: toLocale(store.get(LOCALE_COOKIE)?.value),
+    ...(request.nextUrl.searchParams.get("stepUp") === "1" ? { prompt: "login", max_age: "0" } : {}),
   });
   return NextResponse.redirect(authorizationUrl);
 }

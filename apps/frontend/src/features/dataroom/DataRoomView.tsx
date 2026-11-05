@@ -86,6 +86,14 @@ const STATUS_COLORS: Record<ScanStatus, string> = {
 };
 const REFRESH_WHILE_SCANNING_MS = 4000;
 
+/** Problem type the backend returns when an action needs a fresh sign-in with MFA (step-up, #62). */
+const STEP_UP_REQUIRED = "urn:diligence:problem:step-up-required";
+
+/** Signs in again (password + MFA, no SSO reuse) and comes back to this page. */
+function stepUpLoginUrl(): string {
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  return `/auth/login?stepUp=1&returnTo=${encodeURIComponent(returnTo)}`;
+}
 export interface DataRoomViewProps {
   project: Project;
   folders: Folder[];
@@ -103,17 +111,26 @@ export function DataRoomView({
 }: Readonly<DataRoomViewProps>) {
   const t = useTranslations("dataRoom");
   const router = useRouter();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { update } = useUrlQuery();
   const tree = useMemo(() => buildTree(folders), [folders]);
 
   // Bulk ZIP downloads are limited in size (DOC-05). A pre-flight check shows the reason in the page instead of
-  // letting the browser save an error response as the "download".
+  // letting the browser save an error response as the "download". Large ones need a recent sign-in (#62).
   const bulkDownload = async (href: string) => {
     try {
       const check = await fetch(`${href}?check=true`, { cache: "no-store" });
       if (!check.ok) {
-        const problem = (await check.json().catch(() => null)) as { detail?: string } | null;
+        const problem = (await check.json().catch(() => null)) as { type?: string; detail?: string } | null;
+        if (problem?.type === STEP_UP_REQUIRED) {
+          modal.confirm({
+            title: t("stepUpTitle"),
+            content: t("stepUpBody"),
+            okText: t("stepUpConfirm"),
+            onOk: () => window.location.assign(stepUpLoginUrl()),
+          });
+          return;
+        }
         message.error(problem?.detail || t("bulkDownloadFailed"));
         return;
       }

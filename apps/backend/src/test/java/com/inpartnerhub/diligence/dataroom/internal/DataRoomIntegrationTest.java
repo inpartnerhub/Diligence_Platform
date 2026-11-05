@@ -171,6 +171,18 @@ class DataRoomIntegrationTest {
         assertThat(viewable.downloadAllowed()).isFalse();
         assertThat(viewable.version().getPreviewStatus()).isEqualTo(PreviewState.FAILED); // not a real PDF
 
+        // A bulk ZIP download is audited (DOC-05, ADM-03) with who downloaded, even though the archive is streamed
+        // after the request's transaction has ended.
+        signIn(pm, Role.PROJECT_MANAGER);
+        var zip = views.bulkDownload(projectId, inbox.getId(), DocumentViewService.Format.ORIGINAL);
+        try {
+            zip.writer().writeTo(new java.io.ByteArrayOutputStream());
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+        assertThat(awaitCount("select count(*) from audit.audit_log where action = 'document.bulk_downloaded' "
+                + "and user_id = '" + pm + "'")).isEqualTo(1);
+
         // Same name again: new version; identical content: recognised as unchanged.
         signIn(target, Role.TARGET);
         var again = documents.upload(projectId, inbox.getId(), command("Kontrak/2025/Perjanjian.pdf", "contract text"),
@@ -213,6 +225,20 @@ class DataRoomIntegrationTest {
             current = status.get();
         }
         return current;
+    }
+
+    private int awaitCount(String sql) {
+        var deadline = Instant.now().plus(Duration.ofSeconds(15));
+        var count = jdbc.queryForObject(sql, Integer.class);
+        while (count == 0 && Instant.now().isBefore(deadline)) {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+            count = jdbc.queryForObject(sql, Integer.class);
+        }
+        return count;
     }
 
     private static Folder byName(List<Folder> folders, String name) {

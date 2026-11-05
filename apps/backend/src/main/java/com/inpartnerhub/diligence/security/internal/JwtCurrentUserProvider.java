@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.security.internal;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -22,6 +23,14 @@ class JwtCurrentUserProvider implements CurrentUserProvider {
             return Optional.empty();
         }
         return Optional.of(toUser(token));
+    }
+
+    @Override
+    public Optional<Instant> authenticatedAt() {
+        if (!(SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken token)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(token.getToken().getClaimAsInstant("auth_time"));
     }
 
     static AuthenticatedUser toUser(JwtAuthenticationToken token) {

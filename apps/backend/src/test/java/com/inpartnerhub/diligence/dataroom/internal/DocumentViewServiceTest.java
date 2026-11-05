@@ -63,10 +63,12 @@ class DocumentViewServiceTest {
     private final DocumentStorage storage = mock(DocumentStorage.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final MassDownloadGuard massDownloads = mock(MassDownloadGuard.class);
     private final DocumentViewService service = new DocumentViewService(documents, versions, access, storage,
             currentUser, events, new DataRoomProperties(ZoneId.of("Asia/Jakarta"), 2, DataSize.ofKilobytes(1)),
             new PreviewPageCache(storage, new PreviewCacheProperties(null, null, null), new SimpleMeterRegistry(),
                     Runnable::run, Clock.systemUTC()),
+            massDownloads,
             Clock.fixed(Instant.parse("2026-11-03T02:00:00Z"), ZoneOffset.UTC));
 
     private final Folder folder = new Folder(PROJECT, null, "Legal", null);
@@ -206,6 +208,10 @@ class DocumentViewServiceTest {
 
         var download = service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF);
         assertThat(download.fileName()).isEqualTo("Legal.zip");
+        // Audited and counted before streaming, inside the request (#62): the stream runs outside the transaction.
+        verify(events).publishEvent(any(BulkDocumentDownloaded.class));
+        verify(massDownloads).requireRecentSignIn(2);
+        verify(massDownloads).record(PROJECT, 2);
 
         var out = new ByteArrayOutputStream();
         download.writer().writeTo(out);
@@ -225,7 +231,13 @@ class DocumentViewServiceTest {
         }
 
         assertThat(entries).containsExactlyInAnyOrder("Legal/Kontrak.pdf", "Legal/Minutes/AGM.pdf");
+        verify(events).publishEvent(any(BulkDocumentDownloaded.class)); // once, not again from the stream
+
+        // The web app's pre-flight checks the same rules but logs nothing.
+        service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF, true);
         verify(events).publishEvent(any(BulkDocumentDownloaded.class));
+        verify(massDownloads).record(PROJECT, 2);
+        verify(massDownloads, org.mockito.Mockito.times(2)).requireRecentSignIn(2);
     }
 
     @Test

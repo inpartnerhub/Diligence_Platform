@@ -64,6 +64,13 @@ groups:
         annotations:
           summary: External users tried to open a project from outside its IP allow-list
           runbook: docs/runbooks/suspicious-login.md
+      - alert: DiligenceMassDownload
+        # A user downloaded more documents within the window than diligence.dataroom.mass-download.alert-documents.
+        expr: sum(increase(diligence_dataroom_mass_download_total[15m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: A user downloaded an unusually large number of documents — possible data exfiltration
+          runbook: docs/runbooks/suspicious-login.md
       - alert: DiligenceForbiddenSpike
         # Many 403/404 answers from one service can mean someone probes other projects' IDs (IDOR).
         expr: sum(rate(http_server_requests_seconds_count{job="diligence-backend",status=~"403|404"}[5m])) * 300 > 200

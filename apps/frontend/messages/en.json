@@ -420,7 +420,10 @@
         "LIMITATION_OF_LIABILITY": "Limitation of Liability"
       }
     },
-    "bulkDownloadFailed": "The ZIP download could not be started."
+    "bulkDownloadFailed": "The ZIP download could not be started.",
+    "stepUpTitle": "Confirm it is you",
+    "stepUpBody": "Downloading this many documents at once needs a recent sign-in. Sign in again with your password and authentication code, then start the download again.",
+    "stepUpConfirm": "Sign in again"
   },
   "documentSource": {
     "chooseFolder": "Data-room folder",
