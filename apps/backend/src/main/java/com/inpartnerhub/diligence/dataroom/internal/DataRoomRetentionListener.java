@@ -25,16 +25,18 @@ class DataRoomRetentionListener {
     private final FolderRepository folders;
     private final DocumentStorage storage;
     private final SearchIndex searchIndex;
+    private final PreviewPageCache previewPages;
     private final ApplicationEventPublisher events;
 
     DataRoomRetentionListener(DocumentRepository documents, DocumentVersionRepository versions,
             FolderRepository folders, DocumentStorage storage, SearchIndex searchIndex,
-            ApplicationEventPublisher events) {
+            PreviewPageCache previewPages, ApplicationEventPublisher events) {
         this.documents = documents;
         this.versions = versions;
         this.folders = folders;
         this.storage = storage;
         this.searchIndex = searchIndex;
+        this.previewPages = previewPages;
         this.events = events;
     }
 
@@ -66,6 +68,9 @@ class DataRoomRetentionListener {
         } catch (Exception ex) {
             log.warn("Failed to delete S3 objects for project {}: {}", projectId, ex.getMessage());
         }
+
+        // Purged pages must not linger in memory either.
+        previewPages.evictProject(projectId);
 
         // 4. Delete documents (cascades versions and annotations) and folders (cascades folder accesses)
         documents.deleteByProjectId(projectId);

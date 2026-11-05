@@ -51,6 +51,8 @@ import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 class DocumentViewServiceTest {
 
     private static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -63,6 +65,8 @@ class DocumentViewServiceTest {
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final DocumentViewService service = new DocumentViewService(documents, versions, access, storage,
             currentUser, events, new DataRoomProperties(ZoneId.of("Asia/Jakarta"), 2, DataSize.ofKilobytes(1)),
+            new PreviewPageCache(storage, new PreviewCacheProperties(null, null, null), new SimpleMeterRegistry(),
+                    Runnable::run, Clock.systemUTC()),
             Clock.fixed(Instant.parse("2026-11-03T02:00:00Z"), ZoneOffset.UTC));
 
     private final Folder folder = new Folder(PROJECT, null, "Legal", null);

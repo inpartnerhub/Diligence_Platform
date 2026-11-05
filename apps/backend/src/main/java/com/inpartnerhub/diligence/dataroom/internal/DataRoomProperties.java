@@ -2,9 +2,8 @@ package com.inpartnerhub.diligence.dataroom.internal;
 
 import java.time.ZoneId;
 
-import org.springframework.util.unit.DataSize;
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 /**
  * @param watermarkZone          time zone of the timestamp stamped on viewed and downloaded documents

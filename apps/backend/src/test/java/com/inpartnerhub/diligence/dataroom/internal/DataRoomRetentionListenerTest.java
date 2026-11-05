@@ -26,9 +26,10 @@ class DataRoomRetentionListenerTest {
     private final DocumentStorage storage = mock(DocumentStorage.class);
     private final SearchIndex searchIndex = mock(SearchIndex.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final PreviewPageCache previewPages = mock(PreviewPageCache.class);
 
     private final DataRoomRetentionListener listener = new DataRoomRetentionListener(
-            documents, versions, folders, storage, searchIndex, events);
+            documents, versions, folders, storage, searchIndex, previewPages, events);
 
     @Test
     void purgesDataroomAndPublishesPurgedEvent() {
@@ -48,6 +49,7 @@ class DataRoomRetentionListenerTest {
 
         verify(searchIndex).remove(doc.getId());
         verify(storage).deletePrefix("projects/" + projectId + "/");
+        verify(previewPages).evictProject(projectId);
         verify(documents).deleteByProjectId(projectId);
         verify(folders).deleteByProjectId(projectId);
 

@@ -119,6 +119,11 @@ diligence:
     # Largest bulk ZIP download (DOC-05): bounds memory, disk and request time, and limits mass exfiltration.
     bulk-download-max-files: ${BULK_DOWNLOAD_MAX_FILES:500}
     bulk-download-max-size: ${BULK_DOWNLOAD_MAX_SIZE:2GB}
+    # Unwatermarked preview pages kept in memory per instance, and pages prefetched ahead of the viewer (DOC-03).
+    preview-cache:
+      max-size: ${PREVIEW_CACHE_MAX_SIZE:64MB}
+      ttl: ${PREVIEW_CACHE_TTL:30m}
+      prefetch-pages: ${PREVIEW_CACHE_PREFETCH_PAGES:2}
   request:
     # PRD REQ-04: daily reminders for open items due within these days (and overdue ones), in this time zone.
     reminder-cron: ${REQUEST_REMINDER_CRON:0 0 8 * * MON-FRI}

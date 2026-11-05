@@ -79,18 +79,19 @@ class DocumentViewService {
     private final CurrentUserProvider currentUser;
     private final ApplicationEventPublisher events;
     private final DataRoomProperties properties;
+    private final PreviewPageCache pages;
     private final Clock clock;
 
     @Autowired
     DocumentViewService(DocumentRepository documents, DocumentVersionRepository versions, DataRoomAccess access,
             DocumentStorage storage, CurrentUserProvider currentUser, ApplicationEventPublisher events,
-            DataRoomProperties properties) {
-        this(documents, versions, access, storage, currentUser, events, properties, Clock.systemUTC());
+            DataRoomProperties properties, PreviewPageCache pages) {
+        this(documents, versions, access, storage, currentUser, events, properties, pages, Clock.systemUTC());
     }
 
     DocumentViewService(DocumentRepository documents, DocumentVersionRepository versions, DataRoomAccess access,
             DocumentStorage storage, CurrentUserProvider currentUser, ApplicationEventPublisher events,
-            DataRoomProperties properties, Clock clock) {
+            DataRoomProperties properties, PreviewPageCache pages, Clock clock) {
         this.documents = documents;
         this.versions = versions;
         this.access = access;
@@ -98,6 +99,7 @@ class DocumentViewService {
         this.currentUser = currentUser;
         this.events = events;
         this.properties = properties;
+        this.pages = pages;
         this.clock = clock;
     }
 
@@ -109,7 +111,7 @@ class DocumentViewService {
         return viewable;
     }
 
-    /** One preview page as PNG with the viewer's watermark. */
+    /** One preview page as PNG with the viewer's watermark; the unwatermarked image comes from the page cache. */
     @Transactional(readOnly = true)
     byte[] page(UUID projectId, UUID documentId, UUID versionId, int pageNumber) {
         var version = viewable(projectId, documentId, versionId).version();
@@ -119,8 +121,9 @@ class DocumentViewService {
         if (pageNumber < 1 || pageNumber > version.getPageCount()) {
             throw new ResourceNotFoundException("Page", pageNumber);
         }
-        try (var png = storage.get(RenditionKeys.page(projectId, version.getId(), pageNumber))) {
-            return Watermarker.stampPng(png.readAllBytes(), stamp());
+        try {
+            var png = pages.page(projectId, version.getId(), pageNumber, version.getPageCount());
+            return Watermarker.stampPng(png, stamp());
         } catch (IOException | RuntimeException ex) {
             throw new UpstreamServiceException("The preview page could not be loaded", ex);
         }

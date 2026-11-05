@@ -45,6 +45,9 @@ import {
 } from "./actions";
 import type { DocumentAnnotation, DocumentClause, PreviewInfo } from "./types";
 
+/** Preview pages requested immediately when the viewer opens (DOC-03: preview ≤ 3 s). */
+const EAGER_PAGES = 2;
+
 export interface ViewerTarget {
   documentId: string;
   versionId?: string;
@@ -457,7 +460,10 @@ export function DocumentViewer({
                     <img
                       src={`${base}/versions/${encodeURIComponent(info.versionId)}/pages/${page}`}
                       alt={t("page", { number: page })}
-                      loading={printing ? "eager" : "lazy"}
+                      // The first pages load at once; later ones lazily (the backend prefetches ahead, #59).
+                      loading={printing || page <= EAGER_PAGES ? "eager" : "lazy"}
+                      fetchPriority={page === 1 ? "high" : "auto"}
+                      decoding="async"
                       draggable={false}
                       style={{
                         display: "block",
