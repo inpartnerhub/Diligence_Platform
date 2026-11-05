@@ -419,7 +419,8 @@
         "GOVERNING_LAW": "Governing Law",
         "LIMITATION_OF_LIABILITY": "Limitation of Liability"
       }
-    }
+    },
+    "bulkDownloadFailed": "The ZIP download could not be started."
   },
   "documentSource": {
     "chooseFolder": "Data-room folder",

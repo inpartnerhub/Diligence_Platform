@@ -66,11 +66,15 @@ class FolderController {
     }
 
     @GetMapping("/download")
-    @Operation(summary = "Bulk download the whole data room (visible, allowed folders) as a watermarked ZIP archive — DOC-05")
+    @Operation(summary = "Bulk download the whole data room (visible, allowed folders) as a watermarked ZIP archive; check=true only validates access and size limits — DOC-05")
     ResponseEntity<StreamingResponseBody> downloadAll(
             @PathVariable UUID projectId,
-            @RequestParam(required = false) DocumentViewService.Format format) {
+            @RequestParam(required = false) DocumentViewService.Format format,
+            @RequestParam(defaultValue = "false") boolean check) {
         var download = views.bulkDownload(projectId, null, format);
+        if (check) {
+            return ResponseEntity.noContent().build(); // pre-flight: access and size limits pass, nothing is sent
+        }
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
@@ -80,12 +84,16 @@ class FolderController {
     }
 
     @GetMapping("/{folderId}/download")
-    @Operation(summary = "Bulk download a folder and its subfolders as a watermarked ZIP archive — DOC-05")
+    @Operation(summary = "Bulk download a folder and its subfolders as a watermarked ZIP archive; check=true only validates access and size limits — DOC-05")
     ResponseEntity<StreamingResponseBody> downloadFolder(
             @PathVariable UUID projectId,
             @PathVariable UUID folderId,
-            @RequestParam(required = false) DocumentViewService.Format format) {
+            @RequestParam(required = false) DocumentViewService.Format format,
+            @RequestParam(defaultValue = "false") boolean check) {
         var download = views.bulkDownload(projectId, folderId, format);
+        if (check) {
+            return ResponseEntity.noContent().build(); // pre-flight: access and size limits pass, nothing is sent
+        }
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()

@@ -103,8 +103,26 @@ export function DataRoomView({
 }: Readonly<DataRoomViewProps>) {
   const t = useTranslations("dataRoom");
   const router = useRouter();
+  const { message } = App.useApp();
   const { update } = useUrlQuery();
   const tree = useMemo(() => buildTree(folders), [folders]);
+
+  // Bulk ZIP downloads are limited in size (DOC-05). A pre-flight check shows the reason in the page instead of
+  // letting the browser save an error response as the "download".
+  const bulkDownload = async (href: string) => {
+    try {
+      const check = await fetch(`${href}?check=true`, { cache: "no-store" });
+      if (!check.ok) {
+        const problem = (await check.json().catch(() => null)) as { detail?: string } | null;
+        message.error(problem?.detail || t("bulkDownloadFailed"));
+        return;
+      }
+    } catch {
+      message.error(t("bulkDownloadFailed"));
+      return;
+    }
+    window.location.assign(href);
+  };
   const [versionsOf, setVersionsOf] = useState<DataRoomDocument | null>(null);
   const [viewing, setViewing] = useState<ViewerTarget | null>(null);
   const [search, setSearch] = useState<{
@@ -139,8 +157,9 @@ export function DataRoomView({
             <Tooltip title={t("downloadAllZipHelp")}>
               <Button
                 icon={<CloudDownloadOutlined />}
-                href={`/api/projects/${encodeURIComponent(project.id)}/folders/download`}
-                download
+                onClick={() =>
+                  bulkDownload(`/api/projects/${encodeURIComponent(project.id)}/folders/download`)
+                }
               >
                 {t("downloadAllZip")}
               </Button>
@@ -179,8 +198,11 @@ export function DataRoomView({
                       <Button
                         size="small"
                         icon={<DownloadOutlined />}
-                        href={`/api/projects/${encodeURIComponent(project.id)}/folders/${encodeURIComponent(selected.id)}/download`}
-                        download
+                        onClick={() =>
+                          bulkDownload(
+                            `/api/projects/${encodeURIComponent(project.id)}/folders/${encodeURIComponent(selected.id)}/download`,
+                          )
+                        }
                       >
                         {t("downloadFolderZip")}
                       </Button>

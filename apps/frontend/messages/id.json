@@ -419,7 +419,8 @@
         "GOVERNING_LAW": "Hukum yang Mengatur",
         "LIMITATION_OF_LIABILITY": "Batasan Tanggung Jawab"
       }
-    }
+    },
+    "bulkDownloadFailed": "Unduhan ZIP tidak dapat dimulai."
   },
   "documentSource": {
     "chooseFolder": "Folder data room",

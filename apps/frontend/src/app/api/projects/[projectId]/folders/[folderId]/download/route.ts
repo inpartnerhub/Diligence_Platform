@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, { params }: Readonly<{ params: P
   const query = new URLSearchParams();
   const format = request.nextUrl.searchParams.get("format");
   if (format) query.set("format", format);
+  if (request.nextUrl.searchParams.get("check") === "true") query.set("check", "true");
   return proxyGet(
     `/api/v1/projects/${segment(projectId)}/folders/${segment(folderId)}/download`,
     query.size > 0 ? `?${query}` : "",

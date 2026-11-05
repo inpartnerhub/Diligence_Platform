@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.awt.image.BufferedImage;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.util.unit.DataSize;
 
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.BulkDocumentDownloaded;
 import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentDownloaded;
@@ -60,7 +62,7 @@ class DocumentViewServiceTest {
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final DocumentViewService service = new DocumentViewService(documents, versions, access, storage,
-            currentUser, events, new DataRoomProperties(ZoneId.of("Asia/Jakarta")),
+            currentUser, events, new DataRoomProperties(ZoneId.of("Asia/Jakarta"), 2, DataSize.ofKilobytes(1)),
             Clock.fixed(Instant.parse("2026-11-03T02:00:00Z"), ZoneOffset.UTC));
 
     private final Folder folder = new Folder(PROJECT, null, "Legal", null);
@@ -220,6 +222,50 @@ class DocumentViewServiceTest {
 
         assertThat(entries).containsExactlyInAnyOrder("Legal/Kontrak.pdf", "Legal/Minutes/AGM.pdf");
         verify(events).publishEvent(any(BulkDocumentDownloaded.class));
+    }
+
+    @Test
+    void bulkDownloadRejectsSelectionsAboveTheLimitsBeforeStreaming() {
+        folder.changePolicy(true, true);
+        var context = context(ProjectRole.PARTNER);
+        when(access.project(PROJECT)).thenReturn(context);
+        when(access.folder(context, folder.getId())).thenReturn(folder);
+        when(access.visibleFolders(context)).thenReturn(List.of(folder));
+
+        // three documents against a limit of two
+        var docs = new java.util.ArrayList<Document>();
+        var vers = new java.util.ArrayList<DocumentVersion>();
+        for (var i = 0; i < 3; i++) {
+            var doc = new Document(PROJECT, folder.getId(), "D" + i + ".pdf", UUID.randomUUID());
+            var ver = new DocumentVersion(UUID.randomUUID(), doc.getId(), PROJECT, 1, "projects/d" + i + ".pdf",
+                    "D" + i + ".pdf", "application/pdf", 10, "h" + i, UUID.randomUUID());
+            ver.recordScan(ScanStatus.CLEAN, "application/pdf", null, Instant.now());
+            ver.recordRendition(new Rendition(PreviewStatus.READY, 1, false, false));
+            doc.useVersion(ver);
+            docs.add(doc);
+            vers.add(ver);
+        }
+        when(documents.findByFolderIdIn(any())).thenReturn(docs);
+        when(versions.findAllById(any())).thenReturn(vers);
+
+        assertThatThrownBy(() -> service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF))
+                .isInstanceOf(ResourceConflictException.class)
+                .hasMessageContaining("3 documents")
+                .hasMessageContaining("at most 2 documents");
+        verifyNoInteractions(storage);
+
+        // two documents, but larger than the 1 KB size limit
+        var big = new DocumentVersion(UUID.randomUUID(), docs.get(0).getId(), PROJECT, 2, "projects/big.pdf",
+                "Big.pdf", "application/pdf", 4096, "hb", UUID.randomUUID());
+        big.recordScan(ScanStatus.CLEAN, "application/pdf", null, Instant.now());
+        big.recordRendition(new Rendition(PreviewStatus.READY, 1, false, false));
+        docs.get(0).useVersion(big);
+        when(documents.findByFolderIdIn(any())).thenReturn(docs.subList(0, 2));
+        when(versions.findAllById(any())).thenReturn(List.of(big, vers.get(1)));
+
+        assertThatThrownBy(() -> service.bulkDownload(PROJECT, folder.getId(), DocumentViewService.Format.PDF))
+                .isInstanceOf(ResourceConflictException.class)
+                .hasMessageContaining("MB");
     }
 
     @Test

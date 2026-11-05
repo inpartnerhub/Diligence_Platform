@@ -211,6 +211,28 @@ class DocumentViewService {
         boolean isInternal = internal(context);
         Format format = requested != null ? requested : Format.PDF;
 
+        // Decide every entry first, so the limits are checked before anything is streamed (DOC-05).
+        var entries = new ArrayList<BulkEntry>();
+        long plannedBytes = 0;
+        for (Document doc : docs) {
+            DocumentVersion version = currentVersions.get(doc.getCurrentVersionId());
+            Folder docFolder = version == null ? null : foldersById.get(doc.getFolderId());
+            if (docFolder == null) continue;
+
+            boolean pdfAvailable = version.getPreviewStatus() == PreviewState.READY
+                    || (version.isDetectedPdf() && version.getPreviewStatus() != PreviewState.FAILED);
+            boolean originalAllowed = !pdfAvailable || isInternal;
+
+            Format docFormat = format;
+            if (docFormat == Format.PDF && !pdfAvailable) {
+                if (!originalAllowed) continue;
+                docFormat = Format.ORIGINAL;
+            }
+            entries.add(new BulkEntry(doc, version, docFolder, docFormat));
+            plannedBytes += version.getSizeBytes();
+        }
+        checkBulkLimits(entries.size(), plannedBytes);
+
         String zipFileName;
         if (targetRoot != null) {
             zipFileName = sanitizeZipName(targetRoot.getName()) + ".zip";
@@ -224,22 +246,11 @@ class DocumentViewService {
             Set<String> usedPaths = new HashSet<>();
 
             try (var zipOut = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
-                for (Document doc : docs) {
-                    DocumentVersion version = currentVersions.get(doc.getCurrentVersionId());
-                    if (version == null) continue;
-
-                    Folder docFolder = foldersById.get(doc.getFolderId());
-                    if (docFolder == null) continue;
-
-                    boolean pdfAvailable = version.getPreviewStatus() == PreviewState.READY
-                            || (version.isDetectedPdf() && version.getPreviewStatus() != PreviewState.FAILED);
-                    boolean originalAllowed = !pdfAvailable || isInternal;
-
-                    Format docFormat = format;
-                    if (docFormat == Format.PDF && !pdfAvailable) {
-                        if (!originalAllowed) continue;
-                        docFormat = Format.ORIGINAL;
-                    }
+                for (BulkEntry planned : entries) {
+                    Document doc = planned.document();
+                    DocumentVersion version = planned.version();
+                    Folder docFolder = planned.folder();
+                    Format docFormat = planned.format();
 
                     String folderPath = computeRelativePath(docFolder, foldersById, baseParentId);
                     String baseDocName = docFormat == Format.PDF ? pdfName(doc.getName()) : doc.getName();
@@ -257,18 +268,21 @@ class DocumentViewService {
                     } else {
                         var key = version.isDetectedPdf() ? version.getObjectKey() : RenditionKeys.pdf(projectId, version.getId());
                         boolean printAllowed = managers || docFolder.isPrintAllowed();
+                        // Source and stamped copy live in temporary files, never fully in memory: documents may be
+                        // up to 100 MB each and one archive holds many of them.
                         var tempPdf = Files.createTempFile("bulk-", ".pdf");
+                        var stampedPdf = Files.createTempFile("bulk-stamped-", ".pdf");
                         try {
                             try (InputStream content = storage.get(key)) {
                                 Files.copy(content, tempPdf, StandardCopyOption.REPLACE_EXISTING);
                             }
-                            var baos = new java.io.ByteArrayOutputStream();
-                            Watermarker.stampPdf(tempPdf, stamp, printAllowed, baos);
-                            byte[] stampedBytes = baos.toByteArray();
-                            zipOut.write(stampedBytes);
-                            totalBytes += stampedBytes.length;
+                            try (var stamped = Files.newOutputStream(stampedPdf)) {
+                                Watermarker.stampPdf(tempPdf, stamp, printAllowed, stamped);
+                            }
+                            totalBytes += Files.copy(stampedPdf, zipOut);
                         } finally {
                             Files.deleteIfExists(tempPdf);
+                            Files.deleteIfExists(stampedPdf);
                         }
                     }
                     zipOut.closeEntry();
@@ -280,6 +294,20 @@ class DocumentViewService {
             events.publishEvent(new BulkDocumentDownloaded(projectId, folderId, count, totalBytes,
                     RequestMetadata.capture()));
         });
+    }
+
+    private record BulkEntry(Document document, DocumentVersion version, Folder folder, Format format) {
+    }
+
+    /** Rejects a bulk download that is too large to stream safely (DOC-05); the user narrows the selection. */
+    private void checkBulkLimits(int files, long bytes) {
+        int maxFiles = properties.bulkDownloadMaxFiles();
+        long maxBytes = properties.bulkDownloadMaxSize().toBytes();
+        if (files > maxFiles || bytes > maxBytes) {
+            throw new ResourceConflictException(("The selection has %d documents (%d MB); a bulk download may contain "
+                    + "at most %d documents and %d MB. Download a smaller folder.")
+                    .formatted(files, bytes / (1024 * 1024), maxFiles, maxBytes / (1024 * 1024)));
+        }
     }
 
     static String computeRelativePath(Folder folder, Map<UUID, Folder> foldersById, UUID baseParentId) {
