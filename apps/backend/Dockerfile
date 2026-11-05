@@ -12,9 +12,12 @@ RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon bootJar -x tes
  && java -Djarmode=tools -jar build/libs/app.jar extract --layers --launcher --destination /workspace/extracted
 
 FROM eclipse-temurin:21-jre-noble AS runtime
+# Patch the OS, then drop apt itself: the JVM never installs packages at runtime, and apt's own CVEs
+# (e.g. CVE-2026-109518 in libapt-pkg) would otherwise fail the image scan.
 RUN apt-get update \
  && apt-get upgrade -y \
- && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /var/lib/apt/lists/* /var/cache/apt \
+ && dpkg --purge --force-remove-protected --force-depends apt libapt-pkg6.0t64 \
  && groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
 WORKDIR /app
 COPY --from=build --chown=app:app /workspace/extracted/dependencies/ ./
