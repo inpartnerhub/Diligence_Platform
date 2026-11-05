@@ -119,6 +119,11 @@ diligence:
   webhooks:
     # PRD ADM-07: outbound webhooks may only call public HTTPS endpoints (SSRF protection). Local profile only: true.
     allow-insecure-targets: ${WEBHOOKS_ALLOW_INSECURE_TARGETS:false}
+    # Signing keys are encrypted at rest with AES-256-GCM (#64). Base64 32-byte keys from Vault
+    # (kv/diligence/<env>/backend/application, ADR-0002): openssl rand -base64 32. To rotate, move the current key to
+    # _PREVIOUS and set a new one; restarted pods re-encrypt every signing key, then _PREVIOUS can be removed.
+    key-encryption-key: ${WEBHOOK_KEY_ENCRYPTION_KEY:}
+    previous-key-encryption-key: ${WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS:}
   dataroom:
     # Time zone of the timestamp in viewer watermarks (PRD DOC-04).
     watermark-zone: ${WATERMARK_ZONE:Asia/Jakarta}

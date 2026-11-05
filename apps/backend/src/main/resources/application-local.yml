@@ -13,6 +13,8 @@ diligence:
   webhooks:
     # Developer machines may point webhooks at http://localhost receivers.
     allow-insecure-targets: true
+    # Developer machines only: an all-zero key unless WEBHOOK_KEY_ENCRYPTION_KEY is set. Never use it elsewhere.
+    key-encryption-key: ${WEBHOOK_KEY_ENCRYPTION_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
 springdoc:
   api-docs:
     enabled: true

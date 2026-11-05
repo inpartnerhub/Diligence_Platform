@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -23,6 +24,7 @@ class WebhookSubscription {
     private String targetUrl;
 
     @Column(name = "signing_key", nullable = false)
+    @Convert(converter = SigningKeyConverter.class) // encrypted at rest (#64)
     private String signingKey;
 
     @Column

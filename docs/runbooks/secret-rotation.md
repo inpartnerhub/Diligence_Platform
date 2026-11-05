@@ -18,6 +18,20 @@ Rotating `SESSION_SECRET` signs every user out of the web application; announce 
 `/admin/webhooks` → key button → *Generate new signing key*. The key is shown once; give it to the receiver's owner
 over a secure channel. The old key stops working immediately, so coordinate the switch with the receiver.
 
+## Webhook key-encryption key (#64)
+
+Webhook signing keys are stored encrypted with `WEBHOOK_KEY_ENCRYPTION_KEY` (base64, 32 bytes, in
+`diligence/base/backend/application`). To rotate it:
+
+1. In Vault, copy the current value to `WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS` and set a new
+   `WEBHOOK_KEY_ENCRYPTION_KEY` (`openssl rand -base64 32`).
+2. The operator restarts the backend; at startup every signing key is re-encrypted with the new key
+   ("Encrypted N webhook signing keys" in the log).
+3. Remove `WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS`.
+
+Never delete the current key without a replacement: stored signing keys could no longer be decrypted and every
+webhook would need a new signing key (key button in `/admin/webhooks`).
+
 ## KMS keys
 
 Customer-managed KMS keys (S3, RDS, logs) rotate automatically every year (`modules/kms-key`). No action needed.
