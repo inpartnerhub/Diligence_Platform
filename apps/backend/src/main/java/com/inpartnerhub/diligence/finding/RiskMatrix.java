@@ -1,11 +1,13 @@
 package com.inpartnerhub.diligence.finding;
 
+import java.io.Serializable;
+
 /**
  * Impact × likelihood matrix (both 1–5, PRD FND-03). A score at or above a threshold reaches that level.
  * Thresholds are configurable by administrators; {@link #DEFAULT} implements Appendix A:
  * 1–4 low, 5–9 medium, 10–16 high, 17–25 critical.
  */
-public record RiskMatrix(int mediumFrom, int highFrom, int criticalFrom) {
+public record RiskMatrix(int mediumFrom, int highFrom, int criticalFrom) implements Serializable {
 
     public static final int MIN_SCALE = 1;
     public static final int MAX_SCALE = 5;

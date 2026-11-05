@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.finding.internal;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -29,7 +30,11 @@ class RiskMatrixService {
         this.events = events;
     }
 
+    static final String CACHE = "risk-matrix";
+
+    /** Read on every rating and register page; cached (issue #60) and evicted after a committed change. */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CACHE, key = "'current'")
     RiskMatrix current() {
         return jdbc.query("select medium_from, high_from, critical_from from fnd.risk_matrix_config where id = 1",
                 rs -> rs.next() ? new RiskMatrix(rs.getInt(1), rs.getInt(2), rs.getInt(3)) : RiskMatrix.DEFAULT);

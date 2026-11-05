@@ -41,6 +41,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-cache") // Redis-backed reference-data cache (#60)
     implementation("software.amazon.awssdk:s3")
     implementation(libs.opensearch.java)
     implementation("org.apache.httpcomponents.client5:httpclient5")

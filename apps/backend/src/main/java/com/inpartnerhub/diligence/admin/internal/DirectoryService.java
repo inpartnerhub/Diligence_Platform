@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,7 +26,11 @@ class DirectoryService implements Directory {
         this.users = users;
     }
 
+    static final String ORGANIZATIONS_CACHE = "organizations";
+
+    /** Organization names are resolved for almost every project response; cached (issue #60), evicted on change. */
     @Override
+    @Cacheable(cacheNames = ORGANIZATIONS_CACHE, key = "#id")
     public Optional<OrganizationSummary> findOrganization(UUID id) {
         return organizations.findById(id).map(DirectoryService::summary);
     }

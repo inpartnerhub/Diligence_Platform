@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.admin;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,8 +16,9 @@ public interface Directory {
 
     List<UserSummary> findUsers(List<UUID> ids);
 
+    /** Serializable: cached in Redis by {@code findOrganization} (issue #60). */
     record OrganizationSummary(UUID id, String name, OrganizationType type, boolean active,
-            int defaultRetentionDays) {
+            int defaultRetentionDays) implements Serializable {
 
         public OrganizationSummary(UUID id, String name, OrganizationType type, boolean active) {
             this(id, name, type, active, 365);
