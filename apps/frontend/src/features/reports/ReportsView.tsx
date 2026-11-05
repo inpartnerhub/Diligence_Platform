@@ -43,6 +43,7 @@ import { useState, useTransition } from "react";
 
 import type { Finding } from "@/features/findings/types";
 import type { Project } from "@/features/projects/types";
+import { useStepUp } from "@/lib/auth/useStepUp";
 
 import {
   approveReport,
@@ -77,6 +78,7 @@ export function ReportsView({
   const format = useFormatter();
   const router = useRouter();
   const { message } = App.useApp();
+  const stepUp = useStepUp();
   const [generating, setGenerating] = useState(false);
   const [revisionTarget, setRevisionTarget] = useState<Report | null>(null);
   const [returnTarget, setReturnTarget] = useState<Report | null>(null);
@@ -90,10 +92,11 @@ export function ReportsView({
   const download = (report: Report, fileFormat: "pdf" | "docx" | "pptx" | "xlsx") =>
     `/api/projects/${project.id}/reports/${report.id}/download?format=${fileFormat}`;
 
-  const act = (call: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
+  const act = (call: () => Promise<{ ok: boolean; message?: string; stepUp?: true }>, success: string) =>
     startTransition(async () => {
       const result = await call();
       if (!result.ok) {
+        if (stepUp(result)) return; // release/issue need a recent sign-in (#65)
         message.error(("message" in result && result.message) || t("error"));
         return;
       }

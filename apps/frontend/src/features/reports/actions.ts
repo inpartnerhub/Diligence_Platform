@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { stepUpFlag } from "@/lib/auth/stepUpFlag";
 
 import type { Report, ReportStatusHistoryItem } from "./types";
 
-type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
+type Result<T = undefined> = { ok: true; data?: T } | { ok: false; message: string; stepUp?: true };
 
 const base = (projectId: string, suffix = "") =>
   `/api/v1/projects/${encodeURIComponent(projectId)}/reports${suffix}` as `/api/${string}`;
@@ -18,7 +19,7 @@ async function run<T>(projectId: string, call: () => Promise<T>): Promise<Result
     return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Report action failed", error);
     return { ok: false, message: "" };

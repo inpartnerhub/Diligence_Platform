@@ -52,7 +52,10 @@
     "yes": "Ya",
     "no": "Tidak",
     "days": "hari",
-    "forbidden": "Anda tidak memiliki akses ke halaman ini."
+    "forbidden": "Anda tidak memiliki akses ke halaman ini.",
+    "stepUpTitle": "Konfirmasi identitas Anda",
+    "stepUpBody": "Tindakan ini memerlukan login terbaru. Masuk kembali dengan kata sandi dan kode autentikasi Anda, lalu ulangi tindakan tersebut.",
+    "stepUpConfirm": "Masuk kembali"
   },
   "comingSoon": {
     "title": "{feature} sedang dikembangkan",

@@ -20,6 +20,7 @@ import { useState, useTransition } from "react";
 
 import { PageHeader } from "@/components/PageHeader";
 import { EXTERNAL_ROLES, MFA_ROLES, ROLES, type Role } from "@/lib/auth/roles";
+import { useStepUp } from "@/lib/auth/useStepUp";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
 import { changeUserRole, inviteUser, setUserEnabled } from "./actions";
@@ -41,10 +42,11 @@ export function UsersView({
   const orgNames = new Map(organizations.map((o) => [o.id, o.name]));
   const roleOptions = ROLES.map((role) => ({ value: role, label: t(`roles.${role}`) }));
 
+  const stepUp = useStepUp(); // role changes need a recent sign-in (#65)
   const handle = (result: ActionResult, success: string) => {
     if (result.ok) {
       message.success(success);
-    } else {
+    } else if (!stepUp(result)) {
       message.error(result.message || t("common.error"));
     }
     return result.ok;

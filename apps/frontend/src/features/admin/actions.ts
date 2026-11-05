@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { stepUpFlag } from "@/lib/auth/stepUpFlag";
 import type { Role } from "@/lib/auth/roles";
 
 import type {
@@ -23,7 +24,7 @@ async function run(path: string, call: () => Promise<unknown>): Promise<ActionRe
     return { ok: true };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Admin action failed", error);
     return { ok: false, message: "" }; // UI shows its generic, translated error
@@ -107,7 +108,7 @@ export async function createWebhook(
     return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Create webhook failed", error);
     return { ok: false, message: "" };
@@ -127,7 +128,7 @@ export async function updateWebhook(
     return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Update webhook failed", error);
     return { ok: false, message: "" };
@@ -144,7 +145,7 @@ export async function rotateWebhookSigningKey(id: string): Promise<ActionResult<
     return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Rotate webhook signing key failed", error);
     return { ok: false, message: "" };
@@ -168,7 +169,7 @@ export async function testWebhook(id: string): Promise<ActionResult<WebhookTestR
     return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Test webhook failed", error);
     return { ok: false, message: "" };
@@ -183,7 +184,7 @@ export async function loadWebhookDeliveries(id: string): Promise<ActionResult<We
     return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiError && error.problem.status < 500) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Load webhook deliveries failed", error);
     return { ok: false, message: "" };

@@ -38,6 +38,7 @@ import com.inpartnerhub.diligence.project.ProjectDirectory.WorkstreamSummary;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.report.ReportEvents.ReportChanged;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
+import com.inpartnerhub.diligence.security.RequiresRecentSignIn;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
@@ -280,6 +281,7 @@ class ReportService {
     }
 
     /** Lead Partner releases the report to the client; released reports are strictly immutable. */
+    @RequiresRecentSignIn("releasing a report to the client")
     Report releaseByPartner(UUID projectId, UUID reportId, String note) {
         var context = writable(project(projectId));
         if (!context.hasAnyRole(ProjectRole.PARTNER)) {
@@ -300,6 +302,7 @@ class ReportService {
     }
 
     /** A partner issues a report (legacy endpoint alias for releaseByPartner). */
+    @RequiresRecentSignIn("issuing a report to the client")
     Report issue(UUID projectId, UUID reportId) {
         return releaseByPartner(projectId, reportId, null);
     }

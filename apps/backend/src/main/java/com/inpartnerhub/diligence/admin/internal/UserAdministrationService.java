@@ -18,6 +18,7 @@ import com.inpartnerhub.diligence.admin.AdminEvents.UserRoleChanged;
 import com.inpartnerhub.diligence.admin.AdminEvents.UserStatusChanged;
 import com.inpartnerhub.diligence.admin.IdentityAdminClient;
 import com.inpartnerhub.diligence.admin.IdentityAdminClient.NewIdentityUser;
+import com.inpartnerhub.diligence.security.RequiresRecentSignIn;
 import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
@@ -93,6 +94,7 @@ class UserAdministrationService {
         }
     }
 
+    @RequiresRecentSignIn("changing a user's role")
     UserAccount changeRole(UUID id, Role role) {
         var account = get(id);
         var previous = account.getGlobalRole();

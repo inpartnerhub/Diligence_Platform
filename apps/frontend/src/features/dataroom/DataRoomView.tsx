@@ -48,6 +48,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { searchUsers } from "@/features/projects/actions";
 import type { Project, UserSummary } from "@/features/projects/types";
+import { STEP_UP_REQUIRED, stepUpLoginUrl } from "@/lib/auth/stepUp";
 import { useUrlQuery } from "@/lib/navigation/useUrlQuery";
 
 import {
@@ -86,14 +87,6 @@ const STATUS_COLORS: Record<ScanStatus, string> = {
 };
 const REFRESH_WHILE_SCANNING_MS = 4000;
 
-/** Problem type the backend returns when an action needs a fresh sign-in with MFA (step-up, #62). */
-const STEP_UP_REQUIRED = "urn:diligence:problem:step-up-required";
-
-/** Signs in again (password + MFA, no SSO reuse) and comes back to this page. */
-function stepUpLoginUrl(): string {
-  const returnTo = `${window.location.pathname}${window.location.search}`;
-  return `/auth/login?stepUp=1&returnTo=${encodeURIComponent(returnTo)}`;
-}
 export interface DataRoomViewProps {
   project: Project;
   folders: Folder[];
@@ -127,7 +120,8 @@ export function DataRoomView({
             title: t("stepUpTitle"),
             content: t("stepUpBody"),
             okText: t("stepUpConfirm"),
-            onOk: () => window.location.assign(stepUpLoginUrl()),
+            onOk: () =>
+              window.location.assign(stepUpLoginUrl(`${window.location.pathname}${window.location.search}`)),
           });
           return;
         }

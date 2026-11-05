@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
+import com.inpartnerhub.diligence.security.RequiresRecentSignIn;
 import com.inpartnerhub.diligence.shared.audit.AuditableEvent;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
@@ -84,6 +85,7 @@ class WebhookService {
     }
 
     @Transactional
+    @RequiresRecentSignIn("creating a webhook")
     WebhookSubscription create(UUID organizationId, String targetUrl, String signingKey, String description,
             String subscribedEvents, Boolean active) {
         validateUrl(targetUrl);
@@ -97,6 +99,7 @@ class WebhookService {
     }
 
     @Transactional
+    @RequiresRecentSignIn("changing a webhook")
     WebhookSubscription update(UUID id, String targetUrl, String signingKey, String description,
             String subscribedEvents, Boolean active) {
         var sub = get(id);
@@ -122,6 +125,7 @@ class WebhookService {
 
     /** Replaces the signing key with a freshly generated one; the caller shows it once. */
     @Transactional
+    @RequiresRecentSignIn("generating a new webhook signing key")
     WebhookSubscription rotateSigningKey(UUID id) {
         var sub = get(id);
         sub.setSigningKey(generateSigningKey());
@@ -130,6 +134,7 @@ class WebhookService {
     }
 
     @Transactional
+    @RequiresRecentSignIn("deleting a webhook")
     void delete(UUID id) {
         var sub = get(id);
         subscriptions.delete(sub);

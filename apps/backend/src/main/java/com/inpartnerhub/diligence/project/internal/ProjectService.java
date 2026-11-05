@@ -29,6 +29,7 @@ import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.ProjectStage;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
+import com.inpartnerhub.diligence.security.RequiresRecentSignIn;
 import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
@@ -177,6 +178,7 @@ class ProjectService {
     }
 
     /** Sets the network locations external users may access the project from (PRD Bab 10.1). */
+    @RequiresRecentSignIn("changing the project's IP allow-list")
     Project updateAllowedIpRanges(UUID id, List<String> ranges) {
         var project = access.manageable(id);
         project.updateAllowedIpRanges(ranges);
@@ -186,6 +188,7 @@ class ProjectService {
     }
 
     /** Permanently purges data room content for an archived project (PRD ADM-06, UU PDP). */
+    @RequiresRecentSignIn("permanently deleting the project's data room")
     Project purge(UUID id) {
         var project = access.manageable(id);
         if (!project.isArchived()) {

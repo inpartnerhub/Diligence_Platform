@@ -34,6 +34,8 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
+import { useStepUp } from "@/lib/auth/useStepUp";
+
 import {
   createWebhook,
   deleteWebhook,
@@ -94,6 +96,7 @@ export function WebhooksView({
   const router = useRouter();
   const { message } = App.useApp();
   const revealSigningKey = useRevealSigningKey();
+  const stepUp = useStepUp(); // webhook changes need a recent sign-in (#65)
 
   const [editing, setEditing] = useState<WebhookSubscription | "new" | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -136,7 +139,7 @@ export function WebhooksView({
           );
         }
       } else if (!res.ok) {
-        message.error(res.message);
+        if (!stepUp(res)) message.error(res.message);
       } else {
         message.error(t("error"));
       }
@@ -150,7 +153,7 @@ export function WebhooksView({
         revealSigningKey(res.data.signingKey);
         router.refresh();
       } else if (!res.ok) {
-        message.error(res.message || t("error"));
+        if (!stepUp(res)) message.error(res.message || t("error"));
       }
     });
   };
@@ -161,7 +164,7 @@ export function WebhooksView({
       if (res.ok) {
         message.success(t(active ? "enabledSuccess" : "disabledSuccess"));
         router.refresh();
-      } else {
+      } else if (!stepUp(res)) {
         message.error(res.message);
       }
     });
@@ -260,7 +263,7 @@ export function WebhooksView({
                 if (res.ok) {
                   message.success(t("deletedSuccess"));
                   router.refresh();
-                } else {
+                } else if (!stepUp(res)) {
                   message.error(res.message || t("error"));
                 }
               })
@@ -398,6 +401,7 @@ function WebhookModal({
   const { message } = App.useApp();
   const router = useRouter();
   const revealSigningKey = useRevealSigningKey();
+  const stepUp = useStepUp();
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
 
@@ -441,7 +445,7 @@ function WebhookModal({
       if (!subscription) revealSigningKey(res.data?.signingKey ?? null);
       onClose();
       router.refresh();
-    } else {
+    } else if (!stepUp(res)) {
       message.error(res.message || t("error"));
     }
   };

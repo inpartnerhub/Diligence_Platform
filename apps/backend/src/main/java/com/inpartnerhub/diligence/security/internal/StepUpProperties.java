@@ -1,0 +1,14 @@
+package com.inpartnerhub.diligence.security.internal;
+
+import java.time.Duration;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+/** @param maxAge how recent a sign-in with MFA must be for {@code @RequiresRecentSignIn} actions (#65) */
+@ConfigurationProperties("diligence.step-up")
+record StepUpProperties(Duration maxAge) {
+
+    StepUpProperties {
+        maxAge = maxAge == null || maxAge.isNegative() || maxAge.isZero() ? Duration.ofMinutes(10) : maxAge;
+    }
+}

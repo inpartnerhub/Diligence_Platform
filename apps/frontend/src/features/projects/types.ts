@@ -251,4 +251,6 @@ export interface UpdateTimeEntryInput {
   description?: string;
 }
 
-export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; message: string };
+/** `stepUp`: the action needs a fresh sign-in with MFA first (#65). */
+export type ActionResult<T = undefined> =
+  { ok: true; data?: T } | { ok: false; message: string; stepUp?: true };

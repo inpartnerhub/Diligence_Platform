@@ -41,6 +41,7 @@ import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.project.internal.ProjectTestApi;
 import com.inpartnerhub.diligence.report.internal.ReportTestApi;
 import com.inpartnerhub.diligence.security.Role;
+import com.inpartnerhub.diligence.shared.web.StepUpRequiredException;
 
 /**
  * Sprint 13–14 end to end against real PostgreSQL: approval before the target sees a question, the client's answer
@@ -179,6 +180,9 @@ class QnaAndReportIntegrationTest {
         assertThat(reports.versions(projectId)).isZero();
         signIn(pm, Role.PROJECT_MANAGER);
         assertThatThrownBy(() -> reports.issue(projectId, reportId)).isInstanceOf(AccessDeniedException.class);
+        // Issuing to the client needs a recent sign-in with MFA (step-up, #65).
+        signIn(partner, Role.PARTNER, Instant.now().minus(Duration.ofHours(2)));
+        assertThatThrownBy(() -> reports.issue(projectId, reportId)).isInstanceOf(StepUpRequiredException.class);
         signIn(partner, Role.PARTNER);
         reports.issue(projectId, reportId);
         await(() -> notifications(client, "REPORT_ISSUED") == 1);
@@ -225,7 +229,13 @@ class QnaAndReportIntegrationTest {
     }
 
     private static void signIn(UUID userId, Role role) {
-        var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(userId.toString()).build();
+        signIn(userId, role, Instant.now());
+    }
+
+    /** {@code authTime}: when the user last signed in with MFA ({@code auth_time}, step-up checks). */
+    private static void signIn(UUID userId, Role role, Instant authTime) {
+        var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(userId.toString())
+                .claim("auth_time", authTime).build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,
                 List.of(new SimpleGrantedAuthority(role.authority())), userId.toString()));
     }

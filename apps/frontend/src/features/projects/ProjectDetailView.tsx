@@ -42,6 +42,7 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 
+import { useStepUp } from "@/lib/auth/useStepUp";
 import { riskColors } from "@/theme/themeConfig";
 
 import {
@@ -286,10 +287,11 @@ function DashboardTab({ dashboard }: Readonly<{ dashboard: Dashboard }>) {
 function useActionFeedback() {
   const t = useTranslations();
   const { message } = App.useApp();
+  const stepUp = useStepUp();
   return (result: ActionResult<unknown>, success = t("common.saved")) => {
     if (result.ok) {
       message.success(success);
-    } else {
+    } else if (!stepUp(result)) {
       message.error(result.message || t("common.error"));
     }
     return result.ok;
@@ -542,16 +544,20 @@ function SettingsTab({
 
   const save = (values: SettingsForm) =>
     startTransition(async () => {
+      const ipRanges = values.allowedIpRanges
+        .split(/[\s,]+/)
+        .map((range) => range.trim())
+        .filter(Boolean);
       const updated = await updateProject(project.id, {
         name: values.name,
         stage: values.stage,
         startDate: values.period?.[0].format("YYYY-MM-DD"),
         endDate: values.period?.[1].format("YYYY-MM-DD"),
         retentionPeriodDays: values.retentionPeriodDays,
-        allowedIpRanges: values.allowedIpRanges
-          .split(/[\s,]+/)
-          .map((range) => range.trim())
-          .filter(Boolean),
+        // Only sent when changed: changing the allow-list needs a recent sign-in (#65).
+        ...(ipRanges.join("\n") !== (project.allowedIpRanges ?? []).join("\n") && {
+          allowedIpRanges: ipRanges,
+        }),
       });
       const changed = [...values.workstreams].sort().join() !== [...initial.workstreams].sort().join();
       const result =

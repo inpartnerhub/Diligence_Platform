@@ -52,7 +52,10 @@
     "yes": "Yes",
     "no": "No",
     "days": "days",
-    "forbidden": "You do not have access to this page."
+    "forbidden": "You do not have access to this page.",
+    "stepUpTitle": "Confirm it is you",
+    "stepUpBody": "This action needs a recent sign-in. Sign in again with your password and authentication code, then repeat it.",
+    "stepUpConfirm": "Sign in again"
   },
   "comingSoon": {
     "title": "{feature} is on the roadmap",
