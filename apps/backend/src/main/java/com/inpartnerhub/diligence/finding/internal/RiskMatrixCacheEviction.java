@@ -20,7 +20,7 @@ class RiskMatrixCacheEviction {
     void on(RiskMatrixChanged event) {
         var cache = caches.getCache(RiskMatrixService.CACHE);
         if (cache != null) {
-            cache.clear();
+            cache.invalidate(); // immediate, unlike clear() which may be deferred
         }
     }
 }

@@ -23,7 +23,7 @@ class OrganizationCacheEviction {
     void on(OrganizationUpdated event) {
         var cache = caches.getCache(DirectoryService.ORGANIZATIONS_CACHE);
         if (cache != null) {
-            cache.evict(event.organizationId());
+            cache.evictIfPresent(event.organizationId()); // immediate, unlike evict() which may be deferred
         }
     }
 }
