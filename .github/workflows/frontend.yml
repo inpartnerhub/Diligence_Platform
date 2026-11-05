@@ -1,6 +1,7 @@
 name: Frontend
 
 on:
+  workflow_dispatch: # re-run on demand, e.g. when GitHub drops a push event
   pull_request:
     paths: ["apps/frontend/**", ".github/workflows/frontend.yml", ".github/workflows/container-image.yml"]
   push:

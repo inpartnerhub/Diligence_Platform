@@ -1,6 +1,7 @@
 name: Backend
 
 on:
+  workflow_dispatch: # re-run on demand, e.g. when GitHub drops a push event
   pull_request:
     paths: ["apps/backend/**", "database/**", ".github/workflows/backend.yml", ".github/workflows/container-image.yml"]
   push:

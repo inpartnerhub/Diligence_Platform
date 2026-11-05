@@ -1,6 +1,7 @@
 name: Security
 
 on:
+  workflow_dispatch: # re-run on demand, e.g. when GitHub drops a push event
   pull_request:
   push:
     branches: [main]
