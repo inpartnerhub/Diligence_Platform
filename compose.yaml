@@ -107,7 +107,7 @@ services:
 
   mailpit:
     # Catches every e-mail locally (invitations, password reset, notifications). UI: http://localhost:8025
-    image: axllent/mailpit:v1.27
+    image: axllent/mailpit:v1.33
     ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
 
   # ---------------------------------------------------------------- security
