@@ -2,6 +2,7 @@ package com.inpartnerhub.diligence.shared.web;
 
 import java.net.URI;
 
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,6 +35,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InvalidRequestException.class)
     ProblemDetail handleInvalid(InvalidRequestException ex) {
         return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, ex.getMessage());
+    }
+
+    /**
+     * Tomcat 11 rejects malformed query strings (e.g. {@code ?=}, a parameter without a name) when parameters are
+     * read, instead of ignoring them. It is the caller's error, not ours: 400, not 500 (found by the DAST API scan).
+     */
+    @ExceptionHandler(InvalidParameterException.class)
+    ProblemDetail handleMalformedParameters(InvalidParameterException ex) {
+        return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "The query string is malformed.");
     }
 
     /** Unique constraints that the application could not pre-check (e.g. rows hidden by row-level security). */
