@@ -237,7 +237,7 @@ services:
   # ---------------------------------------------------------------- observability
   otel-collector:
     profiles: [observability]
-    image: otel/opentelemetry-collector-contrib:0.137.0
+    image: otel/opentelemetry-collector-contrib:0.164.0
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes: ["./infrastructure/docker/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro"]
     ports: ["127.0.0.1:4317:4317", "127.0.0.1:4318:4318"]
