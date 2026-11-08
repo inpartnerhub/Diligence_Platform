@@ -61,6 +61,13 @@ spring:
       externalization:
         enabled: true
       republish-outstanding-events-on-restart: true
+      # Publications stuck before completion (a replica died mid-way) become FAILED, so the retry job below picks them
+      # up (#81). Generous limits: a slow listener must not be marked failed while it still runs.
+      staleness:
+        published: ${EVENTS_STALE_PUBLISHED:1h}
+        processing: ${EVENTS_STALE_PROCESSING:30m}
+        resubmitted: ${EVENTS_STALE_RESUBMITTED:30m}
+        check-interval: ${EVENTS_STALE_CHECK_INTERVAL:5m}
   security:
     oauth2:
       resourceserver:
@@ -90,6 +97,14 @@ server:
     include-message: never
 
 diligence:
+  events:
+    # Failed module listeners (search indexing, notifications, webhooks…) are retried without a restart (#81,
+    # runbook failed-events.md): every interval, publications older than min-age with fewer than max-attempts.
+    retry:
+      interval: ${EVENTS_RETRY_INTERVAL:5m}
+      min-age: ${EVENTS_RETRY_MIN_AGE:5m}
+      max-attempts: ${EVENTS_RETRY_MAX_ATTEMPTS:24}
+      batch-size: ${EVENTS_RETRY_BATCH_SIZE:100}
   identity:
     base-url: ${IDP_BASE_URL:http://localhost:8180}
     realm: ${IDP_REALM:diligence}

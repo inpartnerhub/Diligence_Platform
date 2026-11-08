@@ -8,6 +8,8 @@ source of truth; the index can always be rebuilt.
 1. Cluster health (`GET _cluster/health`) and index document count vs. `SELECT count(*) FROM dr.document_version
    WHERE text_extracted`.
 2. Ingestion queue backlog ([dead-letter-queue.md](dead-letter-queue.md)) — new uploads are indexed asynchronously.
+3. Failed indexing events (`SearchIndexer` in `DiligenceEventsFailing`): retried automatically while OpenSearch comes
+   back ([failed-events.md](failed-events.md)).
 
 ## Mitigate
 

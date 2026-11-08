@@ -12,6 +12,7 @@ and after every incident.
 | [slow-api.md](slow-api.md) | Latency above the PRD targets, database pool exhaustion | `DiligenceSlowApi`, `DiligenceDatabasePoolExhausted` |
 | [suspicious-login.md](suspicious-login.md) | Password spraying, lockouts, access from outside a project's IP allow-list, ID probing | `DiligenceLoginFailureSpike`, `DiligenceAccountLockouts`, `DiligenceProjectAccessBlocked`, `DiligenceForbiddenSpike` |
 | [dead-letter-queue.md](dead-letter-queue.md) | Stuck or failed document processing (scan, OCR, preview) | `DiligenceMessagesStuck` |
+| [failed-events.md](failed-events.md) | Module listeners failing: search indexing, notifications, webhooks, audit (automatic retries, exhausted events) | `DiligenceEventsFailing`, `DiligenceEventsRetriesExhausted` |
 | [backup-restore.md](backup-restore.md) | Restoring PostgreSQL / S3, the quarterly restore test (RPO ≤ 1 h, RTO ≤ 4 h) | — |
 | [database-migration-failure.md](database-migration-failure.md) | Failed Flyway migration during a rollout | — |
 | [keycloak-outage.md](keycloak-outage.md) | Sign-in failing, token validation errors | — |
