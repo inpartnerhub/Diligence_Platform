@@ -18,7 +18,8 @@
     "adminAudit": "Audit log",
     "adminTemplates": "Project templates",
     "adminRiskMatrix": "Risk matrix",
-    "adminWebhooks": "Webhooks"
+    "adminWebhooks": "Webhooks",
+    "adminSearch": "Search index"
   },
   "header": {
     "profile": "My profile",
@@ -924,5 +925,30 @@
     "signingKeyKeepHelp": "Leave empty to keep the current key. Use the key button in the list to generate a new one.",
     "rotateKey": "Generate new signing key",
     "rotateKeyConfirm": "Generate a new signing key? The current key stops working immediately."
+  },
+  "searchIndex": {
+    "title": "Search index",
+    "subtitle": "Rebuilds full-text search from the database and the text already extracted from each document, without scanning or converting files again. Use it after a database restore or when search results are missing; entries for documents that no longer exist are removed. Searching keeps working while it runs.",
+    "start": "Rebuild index",
+    "confirmTitle": "Rebuild the search index?",
+    "confirmBody": "Every document is indexed again in the background. This can take a while for large data rooms.",
+    "started": "Re-index started",
+    "error": "The re-index could not be started",
+    "latestRun": "Latest run",
+    "never": "The index has not been rebuilt yet.",
+    "status": "Status",
+    "statuses": {
+      "RUNNING": "Running",
+      "COMPLETED": "Completed",
+      "FAILED": "Failed"
+    },
+    "documents": "Documents",
+    "startedAt": "Started",
+    "finishedAt": "Finished",
+    "indexed": "Indexed",
+    "failed": "Failed",
+    "removed": "Stale entries removed",
+    "removedSkipped": "Not removed (some documents failed)",
+    "heartbeatAt": "Last progress"
   }
 }

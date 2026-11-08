@@ -12,9 +12,25 @@ import java.util.UUID;
  */
 public interface SearchIndex {
 
+    /** Adds or replaces the entry of one document and stamps it with the time it was indexed. */
     void index(IndexedDocument document);
 
+    /**
+     * Adds or replaces many entries in bulk requests (re-index, issue #80), stamped like {@link #index}.
+     *
+     * @return the documents OpenSearch did not accept; empty when all were indexed
+     */
+    List<UUID> indexAll(List<IndexedDocument> documents);
+
     void remove(UUID documentId);
+
+    /**
+     * Removes every entry last indexed before {@code cutoff}, or never stamped (entries from before the stamp
+     * existed). After a full re-index these are the entries no current document refreshed.
+     *
+     * @return how many entries were removed
+     */
+    long removeIndexedBefore(Instant cutoff);
 
     SearchPage search(SearchQuery query);
 

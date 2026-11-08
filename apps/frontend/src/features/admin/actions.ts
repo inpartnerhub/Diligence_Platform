@@ -8,6 +8,7 @@ import type { Role } from "@/lib/auth/roles";
 
 import type {
   ActionResult,
+  SearchReindexRun,
   InviteUserInput,
   OrganizationStatus,
   OrganizationType,
@@ -187,6 +188,21 @@ export async function loadWebhookDeliveries(id: string): Promise<ActionResult<We
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
     console.error("Load webhook deliveries failed", error);
+    return { ok: false, message: "" };
+  }
+}
+
+/** Starts a bulk search re-index (#80). Needs a recent sign-in; 409 while a run is going on. */
+export async function startSearchReindex(): Promise<ActionResult<SearchReindexRun>> {
+  try {
+    const data = await apiFetch<SearchReindexRun>("/api/v1/admin/search/reindex", { method: "POST" });
+    revalidatePath("/admin/search");
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof ApiError && error.problem.status < 500) {
+      return { ok: false, message: error.message, ...stepUpFlag(error) };
+    }
+    console.error("Start search re-index failed", error);
     return { ok: false, message: "" };
   }
 }

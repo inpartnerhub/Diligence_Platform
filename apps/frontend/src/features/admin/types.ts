@@ -138,3 +138,25 @@ export interface WebhookTestResult {
 /** `stepUp`: the action needs a fresh sign-in with MFA first (#65). */
 export type ActionResult<T = undefined> =
   { ok: true; data?: T } | { ok: false; message: string; stepUp?: true };
+
+/** Bulk re-index of the search index from PostgreSQL (#80); one run at a time. */
+export interface SearchReindexRun {
+  id: string;
+  status: "RUNNING" | "COMPLETED" | "FAILED";
+  requestedBy: string;
+  startedAt: string;
+  heartbeatAt: string;
+  finishedAt: string | null;
+  documentsTotal: number;
+  indexed: number;
+  failed: number;
+  /** Stale entries removed after the run; null when the sweep was skipped (some documents failed) or not reached. */
+  removed: number | null;
+  error: string | null;
+}
+
+/** Share of documents processed so far, 0–100. */
+export function reindexPercent(run: Pick<SearchReindexRun, "documentsTotal" | "indexed" | "failed">): number {
+  if (run.documentsTotal <= 0) return 0;
+  return Math.min(100, Math.floor(((run.indexed + run.failed) / run.documentsTotal) * 100));
+}

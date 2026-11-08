@@ -146,6 +146,13 @@ diligence:
       max-size: ${PREVIEW_CACHE_MAX_SIZE:64MB}
       ttl: ${PREVIEW_CACHE_TTL:30m}
       prefetch-pages: ${PREVIEW_CACHE_PREFETCH_PAGES:2}
+    # Bulk search re-index from PostgreSQL (#80, runbook opensearch-reindex.md): documents per query, largest bulk
+    # request, parallel reads of extracted text from S3, and when a run without progress counts as interrupted.
+    reindex:
+      batch-size: ${SEARCH_REINDEX_BATCH_SIZE:500}
+      bulk-max-size: ${SEARCH_REINDEX_BULK_MAX_SIZE:20MB}
+      parallelism: ${SEARCH_REINDEX_PARALLELISM:16}
+      stale-after: ${SEARCH_REINDEX_STALE_AFTER:10m}
   request:
     # PRD REQ-04: daily reminders for open items due within these days (and overdue ones), in this time zone.
     reminder-cron: ${REQUEST_REMINDER_CRON:0 0 8 * * MON-FRI}

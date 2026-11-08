@@ -18,7 +18,8 @@
     "adminAudit": "Log audit",
     "adminTemplates": "Template proyek",
     "adminRiskMatrix": "Matriks risiko",
-    "adminWebhooks": "Webhook"
+    "adminWebhooks": "Webhook",
+    "adminSearch": "Indeks pencarian"
   },
   "header": {
     "profile": "Profil saya",
@@ -924,5 +925,30 @@
     "signingKeyKeepHelp": "Kosongkan untuk mempertahankan kunci saat ini. Gunakan tombol kunci di daftar untuk membuat kunci baru.",
     "rotateKey": "Buat kunci penandatangan baru",
     "rotateKeyConfirm": "Buat kunci penandatangan baru? Kunci saat ini langsung tidak berlaku."
+  },
+  "searchIndex": {
+    "title": "Indeks pencarian",
+    "subtitle": "Membangun ulang pencarian teks penuh dari basis data dan teks yang sudah diekstrak dari setiap dokumen, tanpa memindai atau mengonversi berkas lagi. Gunakan setelah pemulihan basis data atau saat hasil pencarian hilang; entri dokumen yang sudah tidak ada akan dihapus. Pencarian tetap berjalan selama proses ini.",
+    "start": "Bangun ulang indeks",
+    "confirmTitle": "Bangun ulang indeks pencarian?",
+    "confirmBody": "Semua dokumen diindeks ulang di latar belakang. Untuk ruang data besar, proses ini bisa memakan waktu.",
+    "started": "Pengindeksan ulang dimulai",
+    "error": "Pengindeksan ulang tidak dapat dimulai",
+    "latestRun": "Proses terakhir",
+    "never": "Indeks belum pernah dibangun ulang.",
+    "status": "Status",
+    "statuses": {
+      "RUNNING": "Berjalan",
+      "COMPLETED": "Selesai",
+      "FAILED": "Gagal"
+    },
+    "documents": "Dokumen",
+    "startedAt": "Dimulai",
+    "finishedAt": "Selesai",
+    "indexed": "Terindeks",
+    "failed": "Gagal",
+    "removed": "Entri usang dihapus",
+    "removedSkipped": "Tidak dihapus (sebagian dokumen gagal)",
+    "heartbeatAt": "Progres terakhir"
   }
 }
