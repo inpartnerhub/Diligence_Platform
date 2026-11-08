@@ -45,8 +45,11 @@ export function useAppSession(appUrl, sessions) {
 
 const base64url = (bytes) => encoding.b64encode(bytes, "rawurl");
 
-/** Access token for direct API calls (Authorization Code + PKCE); valid for the realm's token lifespan (5 min). */
-export async function apiToken({ issuer, clientId, redirectUri, username, password }) {
+/**
+ * Tokens for direct API calls (Authorization Code + PKCE). The access token lives for the realm's token lifespan
+ * (5 min); pass the result to {@link bearer}, which refreshes it for runs that last longer.
+ */
+export async function apiTokens({ issuer, clientId, redirectUri, username, password }) {
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)).buffer);
   const ascii = new Uint8Array(verifier.length);
   for (let i = 0; i < verifier.length; i++) ascii[i] = verifier.charCodeAt(i);
@@ -77,5 +80,32 @@ export async function apiToken({ issuer, clientId, redirectUri, username, passwo
     loginParams,
   );
   if (token.status !== 200) fail(`token exchange failed: ${token.status}`);
-  return token.json("access_token");
+  return { issuer, clientId, ...tokenFields(token) };
+}
+
+function tokenFields(res) {
+  return {
+    access: res.json("access_token"),
+    refresh: res.json("refresh_token"),
+    expiresAt: Date.now() + res.json("expires_in") * 1000,
+  };
+}
+
+// Per VU: the tokens this VU currently uses. setup() data is read-only, so each VU refreshes its own copy. The realm
+// does not rotate refresh tokens, so every VU can refresh from the one obtained in setup().
+let current = null;
+
+/** Authorization header value for the API; refreshes the access token a minute before it expires. */
+export function bearer(tokens) {
+  if (!current) current = { ...tokens };
+  if (Date.now() > current.expiresAt - 60000) {
+    const res = http.post(
+      `${current.issuer}/protocol/openid-connect/token`,
+      { grant_type: "refresh_token", client_id: current.clientId, refresh_token: current.refresh },
+      loginParams,
+    );
+    if (res.status !== 200) fail(`token refresh failed: ${res.status}`);
+    current = { ...current, ...tokenFields(res) };
+  }
+  return `Bearer ${current.access}`;
 }

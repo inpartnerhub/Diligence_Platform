@@ -63,11 +63,15 @@ SELECT gen_random_uuid() AS id, w.project_id, w.id AS workstream_id, w.type, w.o
 INSERT INTO dr.folder (id, project_id, name, workstream_id)
 SELECT id, project_id, lpad(ord::text, 2, '0') || ' ' || initcap(type), workstream_id FROM perf_folder;
 
+-- PERF-001 gets :first_documents (the large data room), PERF-002 :documents plus :extra_documents, the rest
+-- :documents.
 CREATE TEMP TABLE perf_document ON COMMIT DROP AS
 SELECT gen_random_uuid() AS id, gen_random_uuid() AS version_id, p.id AS project_id, f.id AS folder_id, i,
-       'Document ' || lpad(i::text, 5, '0') || '.pdf' AS name
+       'Document ' || lpad(i::text, 6, '0') || '.pdf' AS name
 FROM perf_project p
-         CROSS JOIN generate_series(1, :documents) AS i
+         CROSS JOIN LATERAL generate_series(1, CASE p.n WHEN 1 THEN :first_documents
+                                                        WHEN 2 THEN :documents + :extra_documents
+                                                        ELSE :documents END) AS i
          JOIN perf_folder f ON f.project_id = p.id AND f.ord = i % 4 + 1;
 INSERT INTO dr.document (id, project_id, folder_id, name, content_type, size_bytes, sha256, scan_status, created_by)
 SELECT id, project_id, folder_id, name, 'application/pdf', 100000 + i, md5(id::text), 'CLEAN', :'member'

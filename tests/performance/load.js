@@ -11,7 +11,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import exec from "k6/execution";
 
-import { apiToken, appSessions, useAppSession } from "./lib/auth.js";
+import { apiTokens, appSessions, bearer, useAppSession } from "./lib/auth.js";
 
 const APP_URL = __ENV.APP_URL || "http://localhost:3000";
 const API_URL = __ENV.API_URL || "http://localhost:18080";
@@ -19,21 +19,32 @@ const ISSUER = __ENV.OIDC_ISSUER || "http://localhost:8180/realms/diligence";
 const PROJECT = __ENV.PROJECT_ID;
 // Seeded projects have no stored files: page images come from a project with real, rendered documents.
 const PREVIEW_PROJECT = __ENV.PREVIEW_PROJECT_ID || PROJECT;
+// Optional: only this folder (e.g. the one upload.js filled with real PDFs), so setup() does not walk a seeded data
+// room of 50,000 documents without files. At most PREVIEW_PAGES page images are collected either way.
+const PREVIEW_FOLDER = __ENV.PREVIEW_FOLDER_ID;
+const PREVIEW_PAGES = Number(__ENV.PREVIEW_PAGES || 200);
 const USER = __ENV.K6_USER;
 const PASSWORD = __ENV.K6_PASSWORD;
 const SEARCH_TERMS = (__ENV.SEARCH_TERMS || "akta,kontrak,laporan,modal,perseroan,saham").split(",");
 
-// Access tokens live 5 minutes and are fetched once in setup(), so every profile stays below that.
+// pages + preview are the concurrent signed-in users. `sessions` caps how many app sessions setup() opens; VUs share
+// them round-robin like several tabs of one browser (opening 1,000 would take setup() longer than the run).
 const PROFILES = {
-  smoke: { pages: 2, preview: 1, apiRate: 2, duration: "30s" },
-  baseline: { pages: 20, preview: 5, apiRate: 10, duration: "3m" },
-  stress: { pages: 60, preview: 15, apiRate: 30, duration: "4m" },
+  smoke: { pages: 2, preview: 1, apiRate: 2, ramp: "20s", duration: "30s" },
+  baseline: { pages: 20, preview: 5, apiRate: 10, ramp: "20s", duration: "3m" },
+  stress: { pages: 60, preview: 15, apiRate: 30, ramp: "20s", duration: "4m" },
+  // PRD Bab 7: ≥ 1,000 concurrent users. Run on staging only, from a load generator with ≥ 4 vCPU (see README.md).
+  prd: { pages: 950, preview: 50, apiRate: 100, ramp: "5m", duration: "15m", sessions: 200 },
 };
 const profile = PROFILES[__ENV.PROFILE || "smoke"];
 if (!profile) throw new Error(`Unknown PROFILE ${__ENV.PROFILE}; use ${Object.keys(PROFILES).join(", ")}`);
 
+const SESSIONS = Number(
+  __ENV.SESSIONS || Math.min(profile.pages + profile.preview, profile.sessions || Infinity),
+);
+
 export const options = {
-  setupTimeout: "2m",
+  setupTimeout: "10m",
   // Keep each VU's session cookie across iterations, like a browser tab (k6 clears the jar by default).
   noCookiesReset: true,
   scenarios: {
@@ -41,7 +52,7 @@ export const options = {
       executor: "ramping-vus",
       exec: "browsePages",
       stages: [
-        { duration: "20s", target: profile.pages },
+        { duration: profile.ramp, target: profile.pages },
         { duration: profile.duration, target: profile.pages },
         { duration: "10s", target: 0 },
       ],
@@ -51,7 +62,7 @@ export const options = {
       exec: "viewDocuments",
       vus: profile.preview,
       duration: profile.duration,
-      startTime: "20s",
+      startTime: profile.ramp,
     },
     api: {
       executor: "constant-arrival-rate",
@@ -59,7 +70,7 @@ export const options = {
       rate: profile.apiRate,
       timeUnit: "1s",
       duration: profile.duration,
-      startTime: "20s",
+      startTime: profile.ramp,
       preAllocatedVUs: Math.max(5, profile.apiRate),
       maxVUs: profile.apiRate * 4,
     },
@@ -105,26 +116,30 @@ const withProject = (path) => path.replace("{p}", PROJECT);
 export async function setup() {
   if (!PROJECT || !USER || !PASSWORD) throw new Error("Set PROJECT_ID, K6_USER and K6_PASSWORD");
   // One app session per browsing VU (see lib/auth.js for why they are all opened here).
-  const sessions = appSessions(APP_URL, USER, PASSWORD, profile.pages + profile.preview);
-  const token = await apiToken({
+  const sessions = appSessions(APP_URL, USER, PASSWORD, SESSIONS);
+  const tokens = await apiTokens({
     issuer: ISSUER,
     clientId: __ENV.OIDC_CLIENT_ID || "diligence-web",
     redirectUri: `${APP_URL}/auth/callback`,
     username: USER,
     password: PASSWORD,
   });
-  return { sessions, token, pages: previewablePages(token) };
+  return { sessions, tokens, pages: previewablePages(tokens) };
 }
 
 /** Page images of every document in the project whose preview is ready (found once, before the load). */
-function previewablePages(token) {
-  const headers = { Authorization: `Bearer ${token}` };
+function previewablePages(tokens) {
+  const headers = { Authorization: bearer(tokens) };
   const params = { headers, tags: { kind: "setup" } };
   const project = `${API_URL}/api/v1/projects/${PREVIEW_PROJECT}`;
   const result = [];
-  for (const folder of http.get(`${project}/folders`, params).json()) {
+  const folders = PREVIEW_FOLDER
+    ? [{ id: PREVIEW_FOLDER }]
+    : http.get(`${project}/folders`, params).json();
+  for (const folder of folders) {
     const documents = http.get(`${project}/folders/${folder.id}/documents`, params);
     for (const document of documents.json().filter((d) => d.scanStatus === "CLEAN")) {
+      if (result.length >= PREVIEW_PAGES) return result;
       const preview = http.get(`${project}/documents/${document.id}/preview`, params);
       if (preview.status !== 200 || preview.json("previewStatus") !== "READY") continue;
       const version = preview.json("versionId");
@@ -152,7 +167,9 @@ function ensureSignedIn(data) {
 export function browsePages(data) {
   ensureSignedIn(data);
   const [path, name] = pick(PAGES);
+  // The body is not inspected: discarding it keeps 1,000 VUs within one load generator's memory.
   const res = http.get(`${APP_URL}${withProject(path)}`, {
+    responseType: "none",
     tags: { kind: "page", name },
   });
   check(res, {
@@ -172,6 +189,7 @@ export function viewDocuments(data) {
   for (let i = 0; i < 3; i++) {
     const path = data.pages[(first + i) % data.pages.length];
     const res = http.get(`${APP_URL}${path}`, {
+      responseType: "none",
       tags: { kind: "preview", name: "page image" },
     });
     check(res, {
@@ -183,7 +201,7 @@ export function viewDocuments(data) {
 
 export function callApi(data) {
   const headers = {
-    Authorization: `Bearer ${data.token}`,
+    Authorization: bearer(data.tokens),
     Accept: "application/json",
   };
   let res;
