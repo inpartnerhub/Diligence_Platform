@@ -82,7 +82,7 @@ else came from the Keycloak login page the scan was redirected to, or was noise:
 | File names and storage keys | Names are stripped of separators and control characters, and dot-only names are rejected. Object keys contain only IDs. `Content-Disposition` is built by Spring (RFC 6266). |
 | Upload types | Magic-byte detection against an allowlist that has no HTML, SVG or XML types. Nothing is served before a clean scan. 100 MB limit at Kong, Spring and clamd. |
 | Spreadsheet exports | Values are written as string cells (Apache POI), so formula injection does not apply. There is no CSV export. |
-| CSRF | Server actions are origin-checked by Next.js. Upload and logout check `Origin`. The cookie is `SameSite=Lax`. The API accepts bearer tokens only. |
+| CSRF | The session cookie is `SameSite=Lax`, and the API accepts bearer tokens only. On top of Next.js' own origin check for server actions, the edge proxy (`src/proxy.ts`) rejects every state-changing request that the browser marks `Sec-Fetch-Site: cross-site` or whose `Origin` is not `APP_BASE_URL` (issue #79). Uploads check `Origin` in the route handler. ZAP's "Absence of Anti-CSRF Tokens" (10202) on the hidden logout form is therefore ignored in `baseline.conf`. |
 | Error handling | `include-stacktrace: never`, `include-message: never`, RFC 9457 problem details. |
 | Actuator and API docs | Actuator runs on a separate management port and requires `SUPER_ADMIN` on the API port. API docs are off in production (`API_DOCS_ENABLED`). |
 
@@ -91,4 +91,10 @@ else came from the Keycloak login page the scan was redirected to, or was noise:
 - The web ingress (`app.*`) has no rate limit. Login brute force is handled by Keycloak's lockout. Check whether
   server actions need their own limit.
 - Users behind one corporate NAT share one per-IP bucket. Tune the limit from the load tests.
-- `style-src 'unsafe-inline'` remains, because Ant Design injects its CSS at runtime.
+- `style-src` no longer allows `'unsafe-inline'` (issue #79): Ant Design runs in zero-runtime mode from a build-time
+  stylesheet, and `<style>` elements need the request's nonce. Style attributes remain allowed through
+  `style-src-attr 'unsafe-inline'` (React `style` props, popup positioning); they hold declarations only, so the
+  selector-based CSS exfiltration that the ZAP rule targets does not apply.
+  Known gap: `@rc-component/util`'s scrollbar measurement (tables) inserts a short-lived `<style>` without a nonce, so
+  the browser blocks it and logs a CSP violation. The rule only copies a custom `::-webkit-scrollbar` size; the app
+  sets none, so the rule is empty and the measurement is unchanged. Drop this note once upstream accepts a nonce.

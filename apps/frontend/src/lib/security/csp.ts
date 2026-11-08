@@ -19,7 +19,11 @@ const originOf = (url: string | undefined) => {
 
 /**
  * Content-Security-Policy for pages. Scripts run only with this request's nonce (and what they load, via
- * strict-dynamic). Inline styles stay allowed because Ant Design injects its CSS-in-JS as <style> elements.
+ * strict-dynamic). Style elements need the nonce too: Ant Design runs in zero-runtime mode from a build-time
+ * stylesheet, so nothing injects CSS-in-JS. Style attributes (React `style` props, popup positioning) stay allowed
+ * through style-src-attr: an attribute holds declarations only, no selectors, so it cannot read the page the way an
+ * injected <style> element can (issue #79). Development keeps 'unsafe-inline' for elements, since dev-mode CSS is
+ * injected as <style> without a nonce.
  * Preview pages and downloads are same-origin route handlers, so images and requests need nothing else.
  */
 export function contentSecurityPolicy({ nonce, development, issuer, sentryDsn }: PolicyOptions): string {
@@ -27,7 +31,8 @@ export function contentSecurityPolicy({ nonce, development, issuer, sentryDsn }:
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""}`,
-    "style-src 'self' 'unsafe-inline'",
+    `style-src 'self' ${development ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
+    "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     `connect-src 'self'${extra(originOf(sentryDsn))}`,

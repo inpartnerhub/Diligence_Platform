@@ -55,7 +55,10 @@
     "forbidden": "You do not have access to this page.",
     "stepUpTitle": "Confirm it is you",
     "stepUpBody": "This action needs a recent sign-in. Sign in again with your password and authentication code, then repeat it.",
-    "stepUpConfirm": "Sign in again"
+    "stepUpConfirm": "Sign in again",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you are looking for does not exist or has moved.",
+    "notFoundBack": "Back to projects"
   },
   "comingSoon": {
     "title": "{feature} is on the roadmap",

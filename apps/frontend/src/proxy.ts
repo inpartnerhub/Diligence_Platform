@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { contentSecurityPolicy } from "@/lib/security/csp";
+import { isCrossSiteWrite } from "@/lib/security/crossSite";
 import { checkRateLimit, resolveClientIp } from "@/lib/security/rateLimiter";
 
 /**
@@ -10,10 +11,13 @@ import { checkRateLimit, resolveClientIp } from "@/lib/security/rateLimiter";
  * a fresh script nonce.
  *
  * Sensitive paths (auth initiation/callback and server actions) are protected by a sliding-window rate limiter
- * to prevent brute-force attacks and mutation flooding.
+ * to prevent brute-force attacks and mutation flooding. State-changing requests from another site (server actions,
+ * logout) are rejected before anything else (issue #79).
  */
 // Read by requireSession (src/lib/auth/session.ts); keep the names in sync.
 const RETURN_TO_HEADER = "x-diligence-return-to";
+// Read by the root layout to hand the nonce to Ant Design (src/app/layout.tsx).
+const NONCE_HEADER = "x-diligence-nonce";
 
 const FILE_PATH = /\.[a-z0-9]+$/;
 
@@ -39,6 +43,9 @@ const ACTION_LIMIT = {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuth = pathname.startsWith("/auth/");
+  if (isCrossSiteWrite(request.method, request.headers, process.env.APP_BASE_URL)) {
+    return NextResponse.json({ status: 403, detail: "Cross-site request rejected" }, { status: 403 });
+  }
   const isServerAction =
     request.headers.has("next-action") ||
     (request.method === "POST" && !isAuth && !pathname.startsWith("/api/"));
@@ -79,8 +86,9 @@ export async function proxy(request: NextRequest) {
     login.searchParams.set("returnTo", returnTo);
     return NextResponse.redirect(login);
   }
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const policy = contentSecurityPolicy({
-    nonce: Buffer.from(crypto.randomUUID()).toString("base64"),
+    nonce,
     development: process.env.NODE_ENV === "development",
     issuer: process.env.OIDC_ISSUER,
     sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -89,6 +97,7 @@ export async function proxy(request: NextRequest) {
   // the requested path along so the login redirect can bring the user back here (see requireSession).
   const headers = new Headers(request.headers);
   headers.set("Content-Security-Policy", policy);
+  headers.set(NONCE_HEADER, nonce);
   if (signedIn) headers.set(RETURN_TO_HEADER, returnTo);
   const response = NextResponse.next({ request: { headers } });
   response.headers.set("Content-Security-Policy", policy);

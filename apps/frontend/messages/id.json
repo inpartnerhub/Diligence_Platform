@@ -55,7 +55,10 @@
     "forbidden": "Anda tidak memiliki akses ke halaman ini.",
     "stepUpTitle": "Konfirmasi identitas Anda",
     "stepUpBody": "Tindakan ini memerlukan login terbaru. Masuk kembali dengan kata sandi dan kode autentikasi Anda, lalu ulangi tindakan tersebut.",
-    "stepUpConfirm": "Masuk kembali"
+    "stepUpConfirm": "Masuk kembali",
+    "notFoundTitle": "Halaman tidak ditemukan",
+    "notFoundBody": "Halaman yang Anda cari tidak ada atau sudah dipindahkan.",
+    "notFoundBack": "Kembali ke proyek"
   },
   "comingSoon": {
     "title": "{feature} sedang dikembangkan",

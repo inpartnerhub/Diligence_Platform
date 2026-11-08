@@ -19,6 +19,18 @@ describe("content security policy", () => {
     expect(policy["frame-ancestors"]).toBe("'none'");
   });
 
+  it("allows style elements only with this request's nonce, and style attributes", () => {
+    const policy = directives(contentSecurityPolicy({ nonce: "abc", development: false }));
+    expect(policy["style-src"]).toBe("'self' 'nonce-abc'");
+    expect(policy["style-src-attr"]).toBe("'unsafe-inline'");
+  });
+
+  it("allows inline style elements in development only", () => {
+    expect(directives(contentSecurityPolicy({ nonce: "n", development: true }))["style-src"]).toBe(
+      "'self' 'unsafe-inline'",
+    );
+  });
+
   it("allows eval in development only", () => {
     expect(contentSecurityPolicy({ nonce: "n", development: true })).toContain("'unsafe-eval'");
     expect(contentSecurityPolicy({ nonce: "n", development: false })).not.toContain("'unsafe-eval'");
