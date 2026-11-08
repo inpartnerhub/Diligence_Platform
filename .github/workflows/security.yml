@@ -18,16 +18,14 @@ jobs:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       # The gitleaks GitHub Action needs a paid license for organization repositories; the CLI does not.
+      # The official image pinned by digest (multi-arch index of v8.30.1) instead of the release download, whose
+      # checksums.txt GitHub served as 504 for hours. The same command runs locally with Docker.
       - name: Scan git history with gitleaks
         env:
-          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
         run: |
-          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
-          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          curl -sSfLO "$base/$archive"
-          curl -sSfL "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt" | grep " $archive$" | sha256sum -c -
-          tar xzf "$archive" gitleaks
-          ./gitleaks git --config .gitleaks.toml --redact --verbose --exit-code 1 .
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" \
+            git --config .gitleaks.toml --redact --verbose --exit-code 1 .
 
   dependency-review:
     if: github.event_name == 'pull_request'
