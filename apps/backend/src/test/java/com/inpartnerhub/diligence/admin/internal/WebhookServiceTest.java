@@ -1,9 +1,6 @@
 package com.inpartnerhub.diligence.admin.internal;
 
 import java.net.InetAddress;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -29,7 +26,6 @@ import tools.jackson.databind.json.JsonMapper;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -40,7 +36,7 @@ class WebhookServiceTest {
     private final WebhookSubscriptionRepository subscriptions = mock(WebhookSubscriptionRepository.class);
     private final WebhookDeliveryLogRepository deliveryLogs = mock(WebhookDeliveryLogRepository.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
-    private final HttpClient httpClient = mock(HttpClient.class);
+    private final WebhookTransport transport = mock(WebhookTransport.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private final Clock clock = Clock.fixed(Instant.parse("2026-12-01T00:00:00Z"), ZoneOffset.UTC);
 
@@ -58,7 +54,7 @@ class WebhookServiceTest {
         // Every host resolves to a public documentation address unless a test says otherwise.
         var policy = new WebhookTargetPolicy(false,
                 host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { 93, (byte) 184, (byte) 215, 14 }) });
-        service = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L, policy);
+        service = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L, policy);
     }
 
     @Test
@@ -87,7 +83,7 @@ class WebhookServiceTest {
     void rejectsTargetsThatResolveToInternalAddresses() {
         var internal = new WebhookTargetPolicy(false,
                 host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { 10, 0, 0, 5 }) });
-        var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L,
+        var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L,
                 internal);
 
         assertThatThrownBy(() -> guarded.create(ORG_ID, "https://vault.internal/v1/secret", null, null, null, true))
@@ -173,11 +169,7 @@ class WebhookServiceTest {
         var sub = new WebhookSubscription(id, ORG_ID, "https://api.example.com/hook", "testkey", "Desc", "*", true,
                 USER_ID, Instant.now(clock), Instant.now(clock));
 
-        @SuppressWarnings("unchecked")
-        HttpResponse<String> response = mock(HttpResponse.class);
-        when(response.statusCode()).thenReturn(200);
-        when(response.body()).thenReturn("OK");
-        doReturn(response).when(httpClient).send(any(HttpRequest.class), any());
+        when(transport.post(any(), any(), any())).thenReturn(200);
 
         var result = service.deliverWithRetry(sub, "test.event", "{\"data\":123}", 3, 0L);
         assertThat(result.success()).isTrue();
@@ -195,18 +187,14 @@ class WebhookServiceTest {
         var sub = new WebhookSubscription(id, ORG_ID, "https://api.example.com/hook", "testkey", "Desc", "*", true,
                 USER_ID, Instant.now(clock), Instant.now(clock));
 
-        @SuppressWarnings("unchecked")
-        HttpResponse<String> response = mock(HttpResponse.class);
-        when(response.statusCode()).thenReturn(500);
-        when(response.body()).thenReturn("Internal Server Error");
-        doReturn(response).when(httpClient).send(any(HttpRequest.class), any());
+        when(transport.post(any(), any(), any())).thenReturn(500);
 
         var result = service.deliverWithRetry(sub, "test.event", "{\"data\":123}", 5, 0L);
         assertThat(result.success()).isFalse();
         assertThat(result.statusCode()).isEqualTo(500);
         assertThat(result.errorMessage()).isEqualTo("HTTP 500"); // the receiver's body is never echoed (SSRF)
 
-        verify(httpClient, times(5)).send(any(), any());
+        verify(transport, times(5)).post(any(), any(), any());
         ArgumentCaptor<WebhookDeliveryLog> captor = ArgumentCaptor.forClass(WebhookDeliveryLog.class);
         verify(deliveryLogs).save(captor.capture());
         assertThat(captor.getValue().isSuccess()).isFalse();
@@ -222,11 +210,7 @@ class WebhookServiceTest {
 
         when(subscriptions.findByActiveTrue()).thenReturn(List.of(sub1, sub2));
 
-        @SuppressWarnings("unchecked")
-        HttpResponse<String> response = mock(HttpResponse.class);
-        when(response.statusCode()).thenReturn(200);
-        when(response.body()).thenReturn("OK");
-        doReturn(response).when(httpClient).send(any(HttpRequest.class), any());
+        when(transport.post(any(), any(), any())).thenReturn(200);
 
         AuditableEvent event = new AuditableEvent() {
             @Override
@@ -258,14 +242,14 @@ class WebhookServiceTest {
         service.dispatch(event);
 
         // Only sub1 matches "finding.*"
-        verify(httpClient, times(1)).send(any(), any());
+        verify(transport, times(1)).post(any(), any(), any());
     }
 
     @Test
     void blocksDeliveryWhenTargetNoLongerPassesThePolicy() throws Exception {
         var rebinding = new WebhookTargetPolicy(false,
                 host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { (byte) 169, (byte) 254, (byte) 169, (byte) 254 }) });
-        var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, httpClient, clock, 0L,
+        var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L,
                 rebinding);
         var sub = new WebhookSubscription(UUID.randomUUID(), ORG_ID, "https://api.example.com/hook", "testkey",
                 "Desc", "*", true, USER_ID, Instant.now(clock), Instant.now(clock));
@@ -274,7 +258,7 @@ class WebhookServiceTest {
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorMessage()).startsWith("Blocked by target policy");
-        verify(httpClient, times(0)).send(any(), any());
+        verify(transport, times(0)).post(any(), any(), any());
     }
 
     @Test
@@ -284,14 +268,24 @@ class WebhookServiceTest {
                 USER_ID, Instant.now(clock), Instant.now(clock));
         when(subscriptions.findById(id)).thenReturn(Optional.of(sub));
 
-        @SuppressWarnings("unchecked")
-        HttpResponse<String> response = mock(HttpResponse.class);
-        when(response.statusCode()).thenReturn(200);
-        when(response.body()).thenReturn("{\"received\":true}");
-        doReturn(response).when(httpClient).send(any(HttpRequest.class), any());
+        when(transport.post(any(), any(), any())).thenReturn(200);
 
         var result = service.testPing(id);
         assertThat(result.success()).isTrue();
         assertThat(result.statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void stopsRetryingWhenTheConnectionResolvesToAnInternalAddress() throws Exception {
+        var sub = new WebhookSubscription(UUID.randomUUID(), ORG_ID, "https://api.example.com/hook", "testkey",
+                "Desc", "*", true, USER_ID, Instant.now(clock), Instant.now(clock));
+        when(transport.post(any(), any(), any()))
+                .thenThrow(new WebhookTargetPolicy.BlockedAddressException("api.example.com"));
+
+        var result = service.deliverWithRetry(sub, "test.event", "{}", 5, 0L);
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).startsWith("Blocked by target policy");
+        verify(transport, times(1)).post(any(), any(), any());
     }
 }

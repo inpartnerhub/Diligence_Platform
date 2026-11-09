@@ -12,8 +12,10 @@ import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 /**
  * Decides which URLs outbound webhooks may call (PRD ADM-07, Bab 10.1). Targets must use HTTPS and every address the
  * host resolves to must be public, so an administrator cannot point a webhook at Vault, Keycloak, the actuator port
- * or the cloud metadata endpoint. The check runs when a subscription is saved and again before each delivery, which
- * narrows DNS-rebinding; production egress should additionally go through an allow-listing proxy.
+ * or the cloud metadata endpoint. The check runs when a subscription is saved and again before each delivery. The
+ * delivery then connects only to the addresses {@link #resolveForDelivery} checked, so a host that answers a public
+ * address to the check and an internal one to the connection (DNS rebinding) is refused (#87). The
+ * {@code backend-egress} network policy keeps port 443 away from private ranges as a second layer.
  */
 final class WebhookTargetPolicy {
 
@@ -60,18 +62,38 @@ final class WebhookTargetPolicy {
         if (!scheme.equalsIgnoreCase("https")) {
             throw new InvalidRequestException("Target URL must use HTTPS");
         }
-        InetAddress[] addresses;
         try {
-            addresses = resolver.resolve(uri.getHost());
+            resolveForDelivery(uri.getHost());
+        } catch (BlockedAddressException e) {
+            throw new InvalidRequestException("Target URL must resolve to a public internet address");
         } catch (UnknownHostException e) {
             throw new InvalidRequestException("Target host cannot be resolved");
         }
-        for (var address : addresses) {
-            if (!isPublic(address)) {
-                throw new InvalidRequestException("Target URL must resolve to a public internet address");
+        return uri;
+    }
+
+    /**
+     * Resolves a target host for the connection itself: the HTTP client uses this as its DNS resolver, so it connects
+     * to these addresses and no others. Unless insecure targets are allowed, every address must be public.
+     */
+    InetAddress[] resolveForDelivery(String host) throws UnknownHostException {
+        var addresses = resolver.resolve(host);
+        if (!allowInsecure) {
+            for (var address : addresses) {
+                if (!isPublic(address)) {
+                    throw new BlockedAddressException(host);
+                }
             }
         }
-        return uri;
+        return addresses;
+    }
+
+    /** A target host resolved to an address that webhooks may not reach. */
+    static final class BlockedAddressException extends UnknownHostException {
+
+        BlockedAddressException(String host) {
+            super(host + " resolves to an address that is not public");
+        }
     }
 
     static boolean isPublic(InetAddress address) {

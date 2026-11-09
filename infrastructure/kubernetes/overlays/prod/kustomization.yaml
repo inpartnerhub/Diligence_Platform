@@ -39,5 +39,10 @@ patches:
       - op: replace
         path: /spec/path
         value: diligence/prod/frontend
+  - target: { kind: NetworkPolicy, name: backend-egress-vpc-https }
+    patch: |-
+      - op: replace
+        path: /spec/egress/0/to/0/ipBlock/cidr
+        value: 10.30.0.0/16 # vpc_cidr in infrastructure/terraform/environments/prod/main.tf
   - path: config.yaml
   - path: frontend-config.yaml

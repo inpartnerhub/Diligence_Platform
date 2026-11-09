@@ -46,16 +46,36 @@ spec:
   podSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
   policyTypes: [Egress]
   egress:
+    # HTTPS to the internet only (S3, Keycloak, Sentry, webhook receivers): webhooks must not reach internal services
+    # such as the Kubernetes API, Vault or the cloud metadata endpoint (#87). Private HTTPS: backend-egress-vpc-https.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{ protocol: TCP, port: 443 }]
     - ports:
         - { protocol: TCP, port: 5432 } # PostgreSQL
         - { protocol: TCP, port: 6379 } # Redis
         - { protocol: TCP, port: 5671 } # RabbitMQ (TLS)
-        - { protocol: TCP, port: 443 } # S3, OpenSearch, Keycloak JWKS, Sentry
         - { protocol: TCP, port: 587 } # SMTP relay (notifications)
         - { protocol: TCP, port: 9998 } # Tika
         - { protocol: TCP, port: 3000 } # Gotenberg
         - { protocol: TCP, port: 3310 } # ClamAV
         - { protocol: TCP, port: 4317 } # OTel Collector
+---
+# HTTPS inside the environment's VPC: the OpenSearch domain (VPC endpoint). Each overlay sets its VPC CIDR; the base
+# value matches nothing.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress-vpc-https
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 192.0.2.0/32 } # TEST-NET-1 placeholder, replaced per overlay
+      ports: [{ protocol: TCP, port: 443 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

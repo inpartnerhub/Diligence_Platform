@@ -1,14 +1,11 @@
 package com.inpartnerhub.diligence.admin.internal;
 
+import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -19,6 +16,8 @@ import java.util.concurrent.Executors;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+
+import jakarta.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +45,7 @@ class WebhookService {
     private final WebhookDeliveryLogRepository deliveryLogs;
     private final CurrentUserProvider currentUser;
     private final JsonMapper json;
-    private final HttpClient httpClient;
+    private final WebhookTransport transport;
     private final Clock clock;
     private final long retryBaseDelayMs;
     private final WebhookTargetPolicy targetPolicy;
@@ -54,24 +53,34 @@ class WebhookService {
     @Autowired
     WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
             CurrentUserProvider currentUser, JsonMapper json, WebhookProperties properties) {
-        // Redirect.NEVER (the default) is deliberate: a redirect could bypass the target policy.
-        this(subscriptions, deliveryLogs, currentUser, json,
-                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5))
-                        .followRedirects(HttpClient.Redirect.NEVER).build(),
-                Clock.systemUTC(), 50L, WebhookTargetPolicy.of(properties));
+        this(subscriptions, deliveryLogs, currentUser, json, WebhookTargetPolicy.of(properties));
+    }
+
+    private WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
+            CurrentUserProvider currentUser, JsonMapper json, WebhookTargetPolicy targetPolicy) {
+        // The transport connects only to addresses the policy checked, and never follows redirects (#87).
+        this(subscriptions, deliveryLogs, currentUser, json, new PinnedWebhookTransport(targetPolicy),
+                Clock.systemUTC(), 50L, targetPolicy);
     }
 
     WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
-            CurrentUserProvider currentUser, JsonMapper json, HttpClient httpClient, Clock clock, long retryBaseDelayMs,
+            CurrentUserProvider currentUser, JsonMapper json, WebhookTransport transport, Clock clock, long retryBaseDelayMs,
             WebhookTargetPolicy targetPolicy) {
         this.subscriptions = subscriptions;
         this.deliveryLogs = deliveryLogs;
         this.currentUser = currentUser;
         this.json = json;
-        this.httpClient = httpClient;
+        this.transport = transport;
         this.clock = clock;
         this.retryBaseDelayMs = retryBaseDelayMs;
         this.targetPolicy = targetPolicy;
+    }
+
+    @PreDestroy
+    void closeTransport() throws Exception {
+        if (transport instanceof AutoCloseable closeable) {
+            closeable.close();
+        }
     }
 
     @Transactional(readOnly = true)
@@ -221,19 +230,11 @@ class WebhookService {
         while (attempts < maxAttempts) {
             attempts++;
             try {
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(target)
-                        .header("Content-Type", "application/json")
-                        .header("X-Diligence-Event", eventType)
-                        .header("X-Diligence-Signature", signature)
-                        .header("X-Diligence-Delivery", deliveryId)
-                        .header("User-Agent", "Diligence-Platform-Webhooks/1.0")
-                        .timeout(Duration.ofSeconds(10))
-                        .POST(HttpRequest.BodyPublishers.ofString(payloadJson, StandardCharsets.UTF_8))
-                        .build();
-
-                HttpResponse<?> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
-                lastStatusCode = response.statusCode();
+                lastStatusCode = transport.post(target, Map.of(
+                        "X-Diligence-Event", eventType,
+                        "X-Diligence-Signature", signature,
+                        "X-Diligence-Delivery", deliveryId,
+                        "User-Agent", "Diligence-Platform-Webhooks/1.0"), payloadJson);
                 if (lastStatusCode >= 200 && lastStatusCode < 300) {
                     long duration = System.currentTimeMillis() - start;
                     var logEntry = deliveryLogs.save(new WebhookDeliveryLog(UUID.randomUUID(), sub.getId(), eventType,
@@ -242,11 +243,11 @@ class WebhookService {
                 }
                 // The response body is never stored or returned: it could expose an internal service (SSRF).
                 lastError = "HTTP " + lastStatusCode;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                lastError = "Interrupted: " + e.getMessage();
+            } catch (WebhookTargetPolicy.BlockedAddressException e) {
+                // The host now resolves to an internal address (DNS rebinding): retrying cannot help.
+                lastError = "Blocked by target policy: " + e.getMessage();
                 break;
-            } catch (Exception e) {
+            } catch (IOException | RuntimeException e) {
                 lastError = e.getClass().getSimpleName();
             }
 
