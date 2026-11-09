@@ -71,7 +71,8 @@ else came from the Keycloak login page the scan was redirected to, or was noise:
 |-------|--------|----------|
 | Cookie without HttpOnly (`KC_AUTH_SESSION_HASH`), `SameSite=None` (`AUTH_SESSION_ID`, `KC_RESTART`) | Keycloak | By design: Keycloak's login scripts read the hash, and the session cookies must work across sites. They hold no application session. |
 | CSP `unsafe-inline` / missing fallbacks, missing Permissions-Policy, no anti-CSRF token on the login form | Keycloak login page | Keycloak's own headers. Tightening `browserSecurityHeaders` in the realm is an option for the external test. The login form is protected by Keycloak's session code. |
-| Suspicious comments, non-storable content, Spectre isolation, "modern web application" | Next.js bundles and responses | Informational or false positives. Responses are `no-store` on purpose. |
+| Suspicious comments, non-storable content, Spectre isolation (90004; ZAP 2.17 reports it as missing Cross-Origin-Resource-Policy / Cross-Origin-Embedder-Policy), "modern web application" | Next.js bundles and responses, API responses | Informational or false positives. Responses are `no-store` on purpose. The API is called server-side by the BFF, never embedded cross-origin. The app needs no cross-origin isolation (no `SharedArrayBuffer`, high-resolution timers), so COEP/CORP would add no protection. |
+| Server error and "buffer overflow" on multipart uploads (100000, 30001; ZAP 2.17, #84) | `POST …/documents`, `POST …/requests/import` | Fixed: a multipart body without boundary or terminator returned 500; it is now 400 (`GlobalExceptionHandler`, `MalformedRequestIntegrationTest`). |
 
 ### Checked without findings
 

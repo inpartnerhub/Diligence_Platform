@@ -12,6 +12,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -44,6 +46,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(InvalidParameterException.class)
     ProblemDetail handleMalformedParameters(InvalidParameterException ex) {
         return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "The query string is malformed.");
+    }
+
+    /**
+     * A multipart body that cannot be parsed (no boundary, not terminated) is the caller's error too: 400, not 500
+     * (found by the DAST API scan with ZAP 2.17, #84). Too large uploads keep their own 413 from the base class.
+     */
+    @ExceptionHandler(MultipartException.class)
+    ProblemDetail handleMalformedMultipart(MultipartException ex) {
+        if (ex instanceof MaxUploadSizeExceededException) {
+            return problem(HttpStatus.CONTENT_TOO_LARGE, ProblemTypes.VALIDATION, "The upload is too large.");
+        }
+        return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "The multipart request body is malformed.");
     }
 
     /** Unique constraints that the application could not pre-check (e.g. rows hidden by row-level security). */
