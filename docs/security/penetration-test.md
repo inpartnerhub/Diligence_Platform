@@ -12,8 +12,12 @@ pre-test found and fixed, so the external test starts from a known baseline.
 | API | `api.<env>/api/v1/*` directly, with tokens for each of the seven roles (the OIDC client is public, so users can obtain their own tokens) |
 | Identity | Keycloak realm `diligence`: login, MFA, lockout, password reset, invitation links, NDA required action |
 | Files | Upload (malware, type confusion, archive bombs, oversized files), preview, watermarked download, report and export downloads |
+| Administration | Super Admin API: users, groups, organizations, invitations, role changes, audit search and export, search re-index (`/api/v1/admin/*`) |
+| Integrations and network controls | Outbound webhooks (SSRF via target URL or DNS rebinding, signature key handling); per-project IP allow-list for external users; step-up re-authentication (`@RequiresRecentSignIn`) on release, purge, allow-list, webhook and role changes |
 | Infrastructure | Kong configuration, TLS, security headers; Kubernetes namespace from the outside only |
 | Out of scope | Denial of service against shared infrastructure, social engineering, the cloud provider's control plane |
+
+Vendor RFP, rules of engagement, test accounts and our preparation checklist: [pentest-engagement.md](pentest-engagement.md).
 
 **Environment.** Staging, switched to production settings for the test: `API_DOCS_ENABLED=false` and `TRUSTED_PROXY_HOPS=1`. Seed two projects
 with users in every role. The tester gets accounts per role in **both** projects, plus one account that belongs to
@@ -39,6 +43,10 @@ neither.
    - refresh after a role change or after the account is disabled;
    - CSRF on server actions and on the upload and logout routes.
 6. Audit integrity: actions that leave no audit entry, or that record a forged IP address.
+7. Webhooks: reaching internal addresses (private ranges, link-local metadata endpoints, DNS rebinding between the
+   check and the delivery, redirects), reading the signing key after creation, managing webhooks without Super Admin.
+8. Network and step-up controls: bypassing a project's IP allow-list (forwarded headers, BFF versus direct API),
+   and performing a step-up action with a sign-in older than 10 minutes or without MFA.
 
 **Reporting.** CVSS 3.1 per finding, with reproduction steps. Fix times follow SECURITY.md: Critical 7 days, High
 30 days. Re-test after the fixes.
