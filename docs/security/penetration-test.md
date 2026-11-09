@@ -96,6 +96,7 @@ else came from the Keycloak login page the scan was redirected to, or was noise:
   stylesheet, and `<style>` elements need the request's nonce. Style attributes remain allowed through
   `style-src-attr 'unsafe-inline'` (React `style` props, popup positioning); they hold declarations only, so the
   selector-based CSS exfiltration that the ZAP rule targets does not apply.
-  Known gap: `@rc-component/util`'s scrollbar measurement (tables) inserts a short-lived `<style>` without a nonce, so
-  the browser blocks it and logs a CSP violation. The rule only copies a custom `::-webkit-scrollbar` size; the app
-  sets none, so the rule is empty and the measurement is unchanged. Drop this note once upstream accepts a nonce.
+  rc-component's `updateCSS` callers that pass no nonce — the scrollbar measurement of tables and the scroll lock of
+  modals and drawers — go through `src/lib/security/dynamicCssNonce.ts` in production builds (`next.config.ts`), which
+  adds the document's nonce (#82). Checked in a browser: no CSP violation on table pages, and an open modal locks the
+  page behind it (`overflow-y: hidden`). Drop the wrapper once `@rc-component/util` passes a nonce itself.
