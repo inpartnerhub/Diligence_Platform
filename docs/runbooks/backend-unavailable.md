@@ -1,6 +1,10 @@
 # Backend unavailable or failing
 
-**Alerts:** `DiligenceBackendDown`, `DiligenceHighErrorRate`.
+**Alerts:** `DiligenceBackendDown`, `DiligenceGatewayDown`, `DiligenceHighErrorRate`.
+
+`DiligenceGatewayDown` means Prometheus cannot scrape Kong: every request to the web app and the API goes through
+it. Check the Kong pods in the `kong` namespace (`kubectl -n kong get pods`, logs, the last change to its
+configuration) before the backend.
 
 ## Check
 

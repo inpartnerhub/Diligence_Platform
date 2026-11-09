@@ -31,6 +31,7 @@ import com.inpartnerhub.diligence.shared.audit.AuditableEvent;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
@@ -49,23 +50,24 @@ class WebhookService {
     private final Clock clock;
     private final long retryBaseDelayMs;
     private final WebhookTargetPolicy targetPolicy;
+    private final MeterRegistry meters;
 
     @Autowired
     WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
-            CurrentUserProvider currentUser, JsonMapper json, WebhookProperties properties) {
-        this(subscriptions, deliveryLogs, currentUser, json, WebhookTargetPolicy.of(properties));
+            CurrentUserProvider currentUser, JsonMapper json, WebhookProperties properties, MeterRegistry meters) {
+        this(subscriptions, deliveryLogs, currentUser, json, WebhookTargetPolicy.of(properties), meters);
     }
 
     private WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
-            CurrentUserProvider currentUser, JsonMapper json, WebhookTargetPolicy targetPolicy) {
+            CurrentUserProvider currentUser, JsonMapper json, WebhookTargetPolicy targetPolicy, MeterRegistry meters) {
         // The transport connects only to addresses the policy checked, and never follows redirects (#87).
         this(subscriptions, deliveryLogs, currentUser, json, new PinnedWebhookTransport(targetPolicy),
-                Clock.systemUTC(), 50L, targetPolicy);
+                Clock.systemUTC(), 50L, targetPolicy, meters);
     }
 
     WebhookService(WebhookSubscriptionRepository subscriptions, WebhookDeliveryLogRepository deliveryLogs,
             CurrentUserProvider currentUser, JsonMapper json, WebhookTransport transport, Clock clock, long retryBaseDelayMs,
-            WebhookTargetPolicy targetPolicy) {
+            WebhookTargetPolicy targetPolicy, MeterRegistry meters) {
         this.subscriptions = subscriptions;
         this.deliveryLogs = deliveryLogs;
         this.currentUser = currentUser;
@@ -74,6 +76,7 @@ class WebhookService {
         this.clock = clock;
         this.retryBaseDelayMs = retryBaseDelayMs;
         this.targetPolicy = targetPolicy;
+        this.meters = meters;
     }
 
     @PreDestroy
@@ -222,11 +225,13 @@ class WebhookService {
         try {
             target = targetPolicy.validate(sub.getTargetUrl());
         } catch (InvalidRequestException e) {
+            countFailure(sub, eventType, "blocked");
             var logEntry = deliveryLogs.save(new WebhookDeliveryLog(UUID.randomUUID(), sub.getId(), eventType,
                     payloadJson, null, false, 0, "Blocked by target policy: " + e.getMessage(), Instant.now(clock), 0L));
             return new DeliveryResult(false, null, 0L, logEntry.getErrorMessage(), logEntry.getId());
         }
 
+        boolean blocked = false;
         while (attempts < maxAttempts) {
             attempts++;
             try {
@@ -246,6 +251,7 @@ class WebhookService {
             } catch (WebhookTargetPolicy.BlockedAddressException e) {
                 // The host now resolves to an internal address (DNS rebinding): retrying cannot help.
                 lastError = "Blocked by target policy: " + e.getMessage();
+                blocked = true;
                 break;
             } catch (IOException | RuntimeException e) {
                 lastError = e.getClass().getSimpleName();
@@ -262,10 +268,22 @@ class WebhookService {
             }
         }
 
+        countFailure(sub, eventType, blocked ? "blocked" : "failed");
         long duration = System.currentTimeMillis() - start;
         var logEntry = deliveryLogs.save(new WebhookDeliveryLog(UUID.randomUUID(), sub.getId(), eventType, payloadJson,
                 lastStatusCode, false, attempts, lastError, Instant.now(clock), duration));
         return new DeliveryResult(false, lastStatusCode, duration, lastError, logEntry.getId());
+    }
+
+    /**
+     * Counts deliveries that gave up, for the {@code DiligenceWebhookDeliveriesFailing} alert (#86). Tagged by
+     * subscription id (few per installation), never by URL. Test pings from the admin page are not counted.
+     */
+    private void countFailure(WebhookSubscription sub, String eventType, String reason) {
+        if (!"ping".equals(eventType)) {
+            meters.counter("diligence.webhooks.delivery.failed",
+                    "subscription", sub.getId().toString(), "reason", reason).increment();
+        }
     }
 
     static boolean matchesEvent(String subscribedEvents, String eventAction) {

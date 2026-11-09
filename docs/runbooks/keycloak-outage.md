@@ -1,5 +1,7 @@
 # Keycloak outage / sign-in failing
 
+**Alert:** `DiligenceKeycloakDown` (Prometheus cannot scrape Keycloak's metrics endpoint for 2 minutes).
+
 ## Symptoms
 
 Users cannot sign in, the BFF shows the sign-in error page, the backend logs `JwtValidationException` or cannot

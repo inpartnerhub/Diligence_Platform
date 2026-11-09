@@ -21,6 +21,7 @@ import com.inpartnerhub.diligence.shared.audit.AuditableEvent;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,6 +39,7 @@ class WebhookServiceTest {
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final WebhookTransport transport = mock(WebhookTransport.class);
     private final JsonMapper json = JsonMapper.builder().build();
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final Clock clock = Clock.fixed(Instant.parse("2026-12-01T00:00:00Z"), ZoneOffset.UTC);
 
     private WebhookService service;
@@ -54,7 +56,7 @@ class WebhookServiceTest {
         // Every host resolves to a public documentation address unless a test says otherwise.
         var policy = new WebhookTargetPolicy(false,
                 host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { 93, (byte) 184, (byte) 215, 14 }) });
-        service = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L, policy);
+        service = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L, policy, meters);
     }
 
     @Test
@@ -84,7 +86,7 @@ class WebhookServiceTest {
         var internal = new WebhookTargetPolicy(false,
                 host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { 10, 0, 0, 5 }) });
         var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L,
-                internal);
+                internal, meters);
 
         assertThatThrownBy(() -> guarded.create(ORG_ID, "https://vault.internal/v1/secret", null, null, null, true))
                 .isInstanceOf(InvalidRequestException.class)
@@ -199,6 +201,8 @@ class WebhookServiceTest {
         verify(deliveryLogs).save(captor.capture());
         assertThat(captor.getValue().isSuccess()).isFalse();
         assertThat(captor.getValue().getAttemptCount()).isEqualTo(5);
+        assertThat(meters.counter("diligence.webhooks.delivery.failed", "subscription", id.toString(), "reason",
+                "failed").count()).isEqualTo(1.0);
     }
 
     @Test
@@ -250,7 +254,7 @@ class WebhookServiceTest {
         var rebinding = new WebhookTargetPolicy(false,
                 host -> new InetAddress[] { InetAddress.getByAddress(host, new byte[] { (byte) 169, (byte) 254, (byte) 169, (byte) 254 }) });
         var guarded = new WebhookService(subscriptions, deliveryLogs, currentUser, json, transport, clock, 0L,
-                rebinding);
+                rebinding, meters);
         var sub = new WebhookSubscription(UUID.randomUUID(), ORG_ID, "https://api.example.com/hook", "testkey",
                 "Desc", "*", true, USER_ID, Instant.now(clock), Instant.now(clock));
 
@@ -287,5 +291,7 @@ class WebhookServiceTest {
         assertThat(result.success()).isFalse();
         assertThat(result.errorMessage()).startsWith("Blocked by target policy");
         verify(transport, times(1)).post(any(), any(), any());
+        assertThat(meters.counter("diligence.webhooks.delivery.failed", "subscription", sub.getId().toString(),
+                "reason", "blocked").count()).isEqualTo(1.0);
     }
 }

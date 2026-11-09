@@ -52,3 +52,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: cp .env.example .env && docker compose --profile app --profile observability config -q
+
+  alert-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check alert rules (compose and Kubernetes) and that both files hold the same rules
+        run: |
+          image=$(grep -o 'prom/prometheus:[^ "]*' compose.yaml | head -1)
+          yq '{"groups": .spec.groups}' infrastructure/kubernetes/base/backend/prometheusrule.yaml > /tmp/k8s-rules.yml
+          docker run --rm --entrypoint promtool -v "$PWD/infrastructure/docker/prometheus:/r:ro" -v /tmp:/s:ro "$image" \
+            check rules /r/alerts.yml /s/k8s-rules.yml
+          diff <(yq '.groups' infrastructure/docker/prometheus/alerts.yml) <(yq '.groups' /tmp/k8s-rules.yml)

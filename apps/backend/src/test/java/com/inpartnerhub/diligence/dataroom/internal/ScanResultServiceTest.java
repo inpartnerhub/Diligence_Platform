@@ -21,13 +21,16 @@ import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentScanned;
 import com.inpartnerhub.diligence.dataroom.ScanResults;
 import com.inpartnerhub.diligence.dataroom.ScanResults.Outcome;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 class ScanResultServiceTest {
 
     private final DocumentVersionRepository versions = mock(DocumentVersionRepository.class);
     private final DocumentRepository documents = mock(DocumentRepository.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final Instant now = Instant.parse("2026-11-03T02:00:00Z");
-    private final ScanResultService service = new ScanResultService(versions, documents, events,
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    private final ScanResultService service = new ScanResultService(versions, documents, events, meters,
             Clock.fixed(now, ZoneOffset.UTC));
 
     @Test
@@ -46,6 +49,7 @@ class ScanResultServiceTest {
         assertThat(version.getScannedAt()).isEqualTo(now);
         assertThat(document.getScanStatus()).isEqualTo(ScanStatus.INFECTED);
         verify(events).publishEvent(any(DocumentScanned.class));
+        assertThat(meters.counter("diligence.dataroom.malware.detected").count()).isEqualTo(1.0);
     }
 
     @Test

@@ -15,6 +15,9 @@ import com.inpartnerhub.diligence.dataroom.DataRoomEvents.DocumentScanned;
 import com.inpartnerhub.diligence.dataroom.ScanResults;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+
 /**
  * Applies pipeline results; runs as the trusted "system" context (no user), see RowLevelSecurityTransactionManager.
  * A result for the document's current version also updates the search index (asynchronously, see
@@ -30,19 +33,23 @@ class ScanResultService implements ScanResults {
     private final DocumentRepository documents;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final Counter malwareDetected;
 
     @Autowired
     ScanResultService(DocumentVersionRepository versions, DocumentRepository documents,
-            ApplicationEventPublisher events) {
-        this(versions, documents, events, Clock.systemUTC());
+            ApplicationEventPublisher events, MeterRegistry meters) {
+        this(versions, documents, events, meters, Clock.systemUTC());
     }
 
     ScanResultService(DocumentVersionRepository versions, DocumentRepository documents,
-            ApplicationEventPublisher events, Clock clock) {
+            ApplicationEventPublisher events, MeterRegistry meters, Clock clock) {
         this.versions = versions;
         this.documents = documents;
         this.events = events;
         this.clock = clock;
+        this.malwareDetected = Counter.builder("diligence.dataroom.malware.detected")
+                .description("Uploaded document versions the virus scanner found infected (#86)")
+                .register(meters);
     }
 
     @Override
@@ -76,6 +83,7 @@ class ScanResultService implements ScanResults {
         });
         if (outcome == Outcome.INFECTED) {
             log.warn("Malware detected in document version {}: {}", versionId, detail);
+            malwareDetected.increment();
         }
         events.publishEvent(new DocumentScanned(version.getProjectId(), version.getDocumentId(), versionId, outcome,
                 detail, RequestMetadata.SYSTEM));

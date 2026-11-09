@@ -1,7 +1,10 @@
 # Document processing stuck / dead-letter queue
 
-**Alert:** `DiligenceMessagesStuck`. Uploads are processed asynchronously: malware scan (ClamAV) → type detection and
-text/OCR (Tika + Tesseract) → preview (Gotenberg/PDFBox) → search index (DOC-02, DOC-03, DOC-06).
+**Alerts:** `DiligenceMessagesStuck`, `DiligenceMessageBrokerDown` (Prometheus cannot scrape a self-hosted RabbitMQ;
+new uploads stay `PENDING` until it is back, a managed broker is watched through the cloud provider's monitoring).
+
+Uploads are processed asynchronously: malware scan (ClamAV) → type detection and text/OCR
+(Tika + Tesseract) → preview (Gotenberg/PDFBox) → search index (DOC-02, DOC-03, DOC-06).
 
 ## Check
 

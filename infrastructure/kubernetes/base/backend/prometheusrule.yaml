@@ -15,6 +15,29 @@ spec:
           annotations:
             summary: Backend instance {{ $labels.instance }} is not scraped
             runbook: docs/runbooks/backend-unavailable.md
+        - alert: DiligenceKeycloakDown
+          # Job names differ between compose and the Kubernetes releases of Keycloak, Kong and RabbitMQ: match by pattern.
+          expr: max by (job) (up{job=~".*keycloak.*"}) == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "Keycloak ({{ $labels.job }}) is not scraped: sign-in and token refresh fail"
+            runbook: docs/runbooks/keycloak-outage.md
+        - alert: DiligenceGatewayDown
+          expr: max by (job) (up{job=~".*kong.*"}) == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "Kong ({{ $labels.job }}) is not scraped: the web app and the API are unreachable"
+            runbook: docs/runbooks/backend-unavailable.md
+        - alert: DiligenceMessageBrokerDown
+          # Self-hosted RabbitMQ only; a managed broker (Amazon MQ) is watched through the cloud provider's monitoring.
+          expr: max by (job) (up{job=~".*rabbitmq.*"}) == 0
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "RabbitMQ ({{ $labels.job }}) is not scraped: uploads are not scanned or processed"
+            runbook: docs/runbooks/dead-letter-queue.md
 
     - name: diligence-api
       rules:
@@ -89,6 +112,13 @@ spec:
           annotations:
             summary: Unusually many 403/404 responses — possible access probing
             runbook: docs/runbooks/suspicious-login.md
+        - alert: DiligenceMalwareDetected
+          # The virus scanner found an infected upload (#86). The version is quarantined; someone must find out why.
+          expr: sum(increase(diligence_dataroom_malware_detected_total[15m])) > 0
+          labels: { severity: warning }
+          annotations:
+            summary: Malware was found in an uploaded document; the file is quarantined
+            runbook: docs/runbooks/malware-detected.md
 
     - name: diligence-pipeline
       rules:
@@ -113,3 +143,10 @@ spec:
           annotations:
             summary: "Event listener {{ $labels.listener }} gave up on events; they need an operator"
             runbook: docs/runbooks/failed-events.md
+        - alert: DiligenceWebhookDeliveriesFailing
+          # Deliveries that gave up after their retries, or were refused by the target policy (reason="blocked").
+          expr: sum by (subscription, reason) (increase(diligence_webhooks_delivery_failed_total[30m])) > 0
+          labels: { severity: warning }
+          annotations:
+            summary: "Webhook subscription {{ $labels.subscription }}: deliveries gave up ({{ $labels.reason }})"
+            runbook: docs/runbooks/webhook-failures.md
