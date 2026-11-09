@@ -1,0 +1,59 @@
+name: CodeQL
+
+# Static analysis of our own code (#88): the backend (Java), the BFF (TypeScript) and the workflows themselves
+# (GitHub Actions injection). Results go to Security → Code scanning; SECURITY.md says how alerts are handled.
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1" # weekly, picks up new queries
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: java-kotlin
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+      - if: matrix.build-mode == 'manual'
+        uses: actions/setup-java@v6
+        with: { distribution: temurin, java-version: "21" }
+      - if: matrix.build-mode == 'manual'
+        uses: gradle/actions/setup-gradle@v6
+        with: { cache-disabled: true } # CodeQL must see javac run, not a cache hit
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-config.yml
+      - if: matrix.build-mode == 'manual'
+        name: Compile the backend
+        working-directory: apps/backend
+        run: ./gradlew --no-build-cache --no-configuration-cache classes
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

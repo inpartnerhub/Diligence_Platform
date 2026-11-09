@@ -1,0 +1,7 @@
+name: Diligence CodeQL configuration
+
+# Load-test scripts (k6) are tooling run by hand against staging, not shipped code.
+paths-ignore:
+  - "**/node_modules/**"
+  - "apps/frontend/.next/**"
+  - "tests/performance/**"
