@@ -29,6 +29,13 @@ clean-volumes: ## Stop containers AND delete local data volumes
 keycloak-bootstrap: ## Set the admin-api client secret and create local admin/PM users from .env
 	infrastructure/docker/scripts/keycloak-bootstrap.sh
 
+.PHONY: keycloak-reset
+keycloak-reset: .env ## Re-import the realm from diligence-realm.json (recreates Keycloak's users with their account ids)
+	$(COMPOSE) rm --stop --force keycloak
+	docker volume rm diligence-keycloak-data
+	$(COMPOSE) up -d --wait keycloak
+	infrastructure/docker/scripts/keycloak-bootstrap.sh
+
 .PHONY: backend-run
 backend-run: .env ## Run the backend on the host against compose infrastructure
 	set -a && source .env && set +a && cd apps/backend && \

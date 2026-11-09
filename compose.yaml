@@ -128,6 +128,9 @@ services:
     depends_on: [mailpit]
     ports: ["127.0.0.1:8180:8180"]
     volumes:
+      # Users, credentials and sessions survive `make down` and container recreation (#83). The realm itself is only
+      # imported when it does not exist yet: apply changes to diligence-realm.json with `make keycloak-reset`.
+      - keycloak-data:/opt/keycloak/data
       - ./infrastructure/docker/keycloak/diligence-realm.json:/opt/keycloak/data/import/diligence-realm.json:ro
       # Breached/common passwords rejected by the realm policy (ADM-02, #65)
       - ./infrastructure/docker/keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
@@ -279,6 +282,8 @@ services:
 
 volumes:
   postgres-data:
+  keycloak-data:
+    name: diligence-keycloak-data # fixed name for `make keycloak-reset`
   redis-data:
   object-storage-data:
   opensearch-data:

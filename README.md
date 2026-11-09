@@ -88,6 +88,14 @@ Sign in at http://localhost:3000 with `KEYCLOAK_DEV_ADMIN`. Super admins must en
 on first login. From **Administration → Users** invite a client or target user; the invitation e-mail (set password,
 OTP, NDA) appears in Mailpit at http://localhost:8025.
 
+Keycloak keeps its users in the `diligence-keycloak-data` volume, so they survive `make down`. The realm is imported
+from `infrastructure/docker/keycloak/diligence-realm.json` only when it does not exist yet: after changing that file,
+run `make keycloak-reset` (PostgreSQL must be running). The application uses the Keycloak user id as its account id;
+`make keycloak-bootstrap` therefore creates users with the id the application already has for their e-mail, and
+existing projects stay visible. Only the users from `.env` are recreated: a reset loses users invited through the app or
+provisioned by SSO, and their application accounts then block a new invitation for the same e-mail. Avoid
+`make keycloak-reset` while you need them, or start over with `make clean-volumes`.
+
 Or run everything in containers, including observability:
 
 ```bash
