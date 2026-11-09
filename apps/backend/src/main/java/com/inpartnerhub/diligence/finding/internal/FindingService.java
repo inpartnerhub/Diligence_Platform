@@ -32,6 +32,7 @@ import com.inpartnerhub.diligence.project.ProjectDirectory.ProjectContext;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
+import com.inpartnerhub.diligence.shared.web.CsvCells;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
@@ -303,37 +304,37 @@ class FindingService {
         var sb = new StringBuilder();
         sb.append('\ufeff'); // UTF-8 BOM
         sb.append(String.join(",",
-                csvCell("Finding Number"),
-                csvCell("Workstream"),
-                csvCell("Title"),
-                csvCell("Category"),
-                csvCell("Risk Level"),
-                csvCell("Monetary Impact"),
-                csvCell("Currency"),
-                csvCell("SPA Protection Type"),
-                csvCell("SPA Clause Reference"),
-                csvCell("Remediation Status"),
-                csvCell("Remediation Action"),
-                csvCell("Remediation Deadline"),
-                csvCell("Remediation Owner")
+                CsvCells.cell("Finding Number"),
+                CsvCells.cell("Workstream"),
+                CsvCells.cell("Title"),
+                CsvCells.cell("Category"),
+                CsvCells.cell("Risk Level"),
+                CsvCells.cell("Monetary Impact"),
+                CsvCells.cell("Currency"),
+                CsvCells.cell("SPA Protection Type"),
+                CsvCells.cell("SPA Clause Reference"),
+                CsvCells.cell("Remediation Status"),
+                CsvCells.cell("Remediation Action"),
+                CsvCells.cell("Remediation Deadline"),
+                CsvCells.cell("Remediation Owner")
         )).append("\r\n");
 
         for (var f : list) {
             var wsType = workstreams.get(f.getWorkstreamId());
             sb.append(String.join(",",
-                    csvCell(f.getNumber()),
-                    csvCell(wsType != null ? wsType.name() : ""),
-                    csvCell(f.getTitle()),
-                    csvCell(f.getCategory()),
-                    csvCell(f.getRiskLevel() != null ? f.getRiskLevel().name() : ""),
-                    csvCell(f.getMonetaryImpact() != null ? f.getMonetaryImpact().toPlainString() : ""),
-                    csvCell(f.getCurrency() != null ? f.getCurrency() : ""),
-                    csvCell(f.getSpaProtectionType() != null ? f.getSpaProtectionType().name() : ""),
-                    csvCell(f.getSpaClauseReference() != null ? f.getSpaClauseReference() : ""),
-                    csvCell(f.getRemediationStatus().name()),
-                    csvCell(f.getRemediationAction() != null ? f.getRemediationAction() : ""),
-                    csvCell(f.getRemediationDeadline() != null ? f.getRemediationDeadline().toString() : ""),
-                    csvCell(f.getRemediationOwner() != null ? f.getRemediationOwner() : "")
+                    CsvCells.cell(f.getNumber()),
+                    CsvCells.cell(wsType != null ? wsType.name() : ""),
+                    CsvCells.cell(f.getTitle()),
+                    CsvCells.cell(f.getCategory()),
+                    CsvCells.cell(f.getRiskLevel() != null ? f.getRiskLevel().name() : ""),
+                    CsvCells.cell(f.getMonetaryImpact() != null ? f.getMonetaryImpact().toPlainString() : ""),
+                    CsvCells.cell(f.getCurrency() != null ? f.getCurrency() : ""),
+                    CsvCells.cell(f.getSpaProtectionType() != null ? f.getSpaProtectionType().name() : ""),
+                    CsvCells.cell(f.getSpaClauseReference() != null ? f.getSpaClauseReference() : ""),
+                    CsvCells.cell(f.getRemediationStatus().name()),
+                    CsvCells.cell(f.getRemediationAction() != null ? f.getRemediationAction() : ""),
+                    CsvCells.cell(f.getRemediationDeadline() != null ? f.getRemediationDeadline().toString() : ""),
+                    CsvCells.cell(f.getRemediationOwner() != null ? f.getRemediationOwner() : "")
             )).append("\r\n");
         }
 
@@ -353,17 +354,6 @@ class FindingService {
         var owner = limited(r.remediationOwner(), 200, "remediation owner");
         var status = r.remediationStatus() != null ? r.remediationStatus() : RemediationStatus.OPEN;
         return new Finding.Remediation(r.spaProtectionType(), clause, status, action, r.remediationDeadline(), owner);
-    }
-
-    private static String csvCell(String value) {
-        if (value == null || value.isEmpty()) {
-            return "\"\"";
-        }
-        char first = value.charAt(0);
-        String sanitized = (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r')
-                ? "'" + value
-                : value;
-        return "\"" + sanitized.replace("\"", "\"\"") + "\"";
     }
 
     /** Internal review note (any status except archived); never visible to the client. */

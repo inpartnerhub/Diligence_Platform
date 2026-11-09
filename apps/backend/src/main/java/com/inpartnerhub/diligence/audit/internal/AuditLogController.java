@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.inpartnerhub.diligence.audit.AuditEvents.AuditLogExported;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
+import com.inpartnerhub.diligence.shared.web.CsvCells;
 import com.inpartnerhub.diligence.shared.web.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -104,21 +105,21 @@ class AuditLogController {
             writer.write("\uFEFF"); // UTF-8 BOM for Excel compatibility
             writer.write("Timestamp (UTC),User ID,Action,Object Type,Object ID,IP Address,Outcome,Details\r\n");
             for (var entry : entries) {
-                writer.write(csvCell(entry.getOccurredAt() != null ? entry.getOccurredAt().toString() : ""));
+                writer.write(CsvCells.cell(entry.getOccurredAt() != null ? entry.getOccurredAt().toString() : ""));
                 writer.write(",");
-                writer.write(csvCell(entry.getUserId() != null ? entry.getUserId().toString() : ""));
+                writer.write(CsvCells.cell(entry.getUserId() != null ? entry.getUserId().toString() : ""));
                 writer.write(",");
-                writer.write(csvCell(entry.getAction()));
+                writer.write(CsvCells.cell(entry.getAction()));
                 writer.write(",");
-                writer.write(csvCell(entry.getObjectType()));
+                writer.write(CsvCells.cell(entry.getObjectType()));
                 writer.write(",");
-                writer.write(csvCell(entry.getObjectId()));
+                writer.write(CsvCells.cell(entry.getObjectId()));
                 writer.write(",");
-                writer.write(csvCell(entry.getIpAddress()));
+                writer.write(CsvCells.cell(entry.getIpAddress()));
                 writer.write(",");
-                writer.write(csvCell(entry.getOutcome()));
+                writer.write(CsvCells.cell(entry.getOutcome()));
                 writer.write(",");
-                writer.write(csvCell(entry.getDetails()));
+                writer.write(CsvCells.cell(entry.getDetails()));
                 writer.write("\r\n");
             }
             writer.flush();
@@ -161,16 +162,5 @@ class AuditLogController {
             spec = spec.and((root, query, cb) -> cb.lessThan(root.get("occurredAt"), to));
         }
         return spec;
-    }
-
-    private static String csvCell(String value) {
-        if (value == null || value.isEmpty()) {
-            return "\"\"";
-        }
-        char first = value.charAt(0);
-        String sanitized = (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r')
-                ? "'" + value
-                : value;
-        return "\"" + sanitized.replace("\"", "\"\"") + "\"";
     }
 }

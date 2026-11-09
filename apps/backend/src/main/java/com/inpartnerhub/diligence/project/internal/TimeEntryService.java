@@ -25,6 +25,7 @@ import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
+import com.inpartnerhub.diligence.shared.web.CsvCells;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
@@ -188,21 +189,21 @@ class TimeEntryService {
 
         writer.write("\uFEFF");
         writer.write(String.join(",",
-                csvCell("Date"),
-                csvCell("Consultant"),
-                csvCell("Workstream"),
-                csvCell("Hours"),
-                csvCell("Description")));
+                CsvCells.cell("Date"),
+                CsvCells.cell("Consultant"),
+                CsvCells.cell("Workstream"),
+                CsvCells.cell("Hours"),
+                CsvCells.cell("Description")));
         writer.write("\r\n");
 
         for (var entry : entries) {
             var userName = userSummaryMap.getOrDefault(entry.getUserId(), entry.getUserId().toString());
             writer.write(String.join(",",
-                    csvCell(entry.getEntryDate().toString()),
-                    csvCell(userName),
-                    csvCell(entry.getWorkstreamType().name()),
-                    csvCell(entry.getHours().toPlainString()),
-                    csvCell(entry.getDescription() != null ? entry.getDescription() : "")));
+                    CsvCells.cell(entry.getEntryDate().toString()),
+                    CsvCells.cell(userName),
+                    CsvCells.cell(entry.getWorkstreamType().name()),
+                    CsvCells.cell(entry.getHours().toPlainString()),
+                    CsvCells.cell(entry.getDescription() != null ? entry.getDescription() : "")));
             writer.write("\r\n");
         }
         writer.flush();
@@ -220,17 +221,6 @@ class TimeEntryService {
                 || hours.compareTo(BigDecimal.valueOf(24)) > 0) {
             throw new InvalidRequestException("Hours must be greater than 0 and less than or equal to 24");
         }
-    }
-
-    private static String csvCell(String value) {
-        if (value == null) {
-            return "\"\"";
-        }
-        var escaped = value.replace("\"", "\"\"");
-        if (escaped.startsWith("=") || escaped.startsWith("+") || escaped.startsWith("-") || escaped.startsWith("@")) {
-            escaped = "'" + escaped;
-        }
-        return "\"" + escaped + "\"";
     }
 
     record TimeEntrySummary(BigDecimal totalHours, Map<WorkstreamType, BigDecimal> byWorkstream,
