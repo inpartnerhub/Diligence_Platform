@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -21,8 +23,10 @@ import org.springframework.data.domain.Sort;
 
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.project.FindingStatistics;
+import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.RequestStatistics;
 import com.inpartnerhub.diligence.project.WorkstreamType;
+import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
@@ -145,15 +149,26 @@ class TemplateAndDashboardTest {
                 Clock.fixed(Instant.parse("2026-11-02T03:00:00Z"), ZoneOffset.UTC));
 
         var p1 = project(UUID.randomUUID());
+        var p2 = project(UUID.randomUUID());
         var legal = new Workstream(p1.getId(), WorkstreamType.LEGAL);
-        when(projects.findAll(any(Sort.class))).thenReturn(List.of(p1));
-        when(workstreams.findByProjectIdOrderByType(p1.getId())).thenReturn(List.of(legal));
-        when(requests.progressByWorkstream(p1.getId())).thenReturn(List.of(new RequestStatistics.WorkstreamProgress(
-                legal.getId(), Map.of("REQUESTED", 1L, "CLOSED", 4L))));
-        when(requests.deadlines(p1.getId(), today, DashboardService.DUE_SOON_DAYS))
-                .thenReturn(new RequestStatistics.DeadlineSummary(1, 2));
-        when(findings.countsByRiskLevel(p1.getId())).thenReturn(Map.of("CRITICAL", 1L, "HIGH", 2L));
-        when(members.countByProjectId(p1.getId())).thenReturn(3L);
+        var tax = new Workstream(p2.getId(), WorkstreamType.TAX);
+        var lead = UUID.randomUUID();
+        var ids = List.of(p1.getId(), p2.getId());
+        when(projects.findAll(any(Sort.class))).thenReturn(List.of(p1, p2));
+        when(workstreams.findByProjectIdInOrderByType(ids)).thenReturn(List.of(legal, tax));
+        when(requests.progressByWorkstream(ids)).thenReturn(Map.of(p1.getId(), List.of(
+                new RequestStatistics.WorkstreamProgress(legal.getId(), Map.of("REQUESTED", 1L, "CLOSED", 4L)))));
+        when(requests.deadlines(ids, today, DashboardService.DUE_SOON_DAYS))
+                .thenReturn(Map.of(p1.getId(), new RequestStatistics.DeadlineSummary(1, 2)));
+        when(findings.countsByRiskLevel(ids)).thenReturn(Map.of(p1.getId(), Map.of("CRITICAL", 1L, "HIGH", 2L)));
+        when(members.findByProjectIdInOrderByCreatedAt(ids)).thenReturn(List.of(
+                new ProjectMember(p1.getId(), UUID.randomUUID(), ProjectRole.ANALYST, null, null),
+                new ProjectMember(p1.getId(), lead, ProjectRole.PARTNER, null, null),
+                new ProjectMember(p1.getId(), UUID.randomUUID(), ProjectRole.TARGET, null, null)));
+        when(directory.findUsers(any())).thenReturn(List.of(
+                new Directory.UserSummary(lead, "lead@x.test", "Lead Partner", null, Role.PARTNER, true),
+                new Directory.UserSummary(p2.getCreatedBy(), "pm@x.test", "Creator", null, Role.PROJECT_MANAGER,
+                        true)));
         when(directory.findOrganization(p1.getClientOrganizationId())).thenReturn(
                 Optional.of(new Directory.OrganizationSummary(p1.getClientOrganizationId(), "Acme Client", Directory.OrganizationType.CLIENT, true)));
         when(directory.findOrganization(p1.getTargetOrganizationId())).thenReturn(
@@ -161,13 +176,13 @@ class TemplateAndDashboardTest {
 
         var portfolio = service.portfolio();
 
-        assertThat(portfolio.totalProjects()).isEqualTo(1);
-        assertThat(portfolio.activeProjects()).isEqualTo(1);
+        assertThat(portfolio.totalProjects()).isEqualTo(2);
+        assertThat(portfolio.activeProjects()).isEqualTo(2);
         assertThat(portfolio.totalFindings()).isEqualTo(3);
         assertThat(portfolio.criticalFindings()).isEqualTo(1);
         assertThat(portfolio.highFindings()).isEqualTo(2);
         assertThat(portfolio.totalOverdueRequests()).isEqualTo(2);
-        assertThat(portfolio.projects()).hasSize(1);
+        assertThat(portfolio.projects()).hasSize(2);
         var summary = portfolio.projects().getFirst();
         assertThat(summary.code()).isEqualTo(p1.getCode());
         assertThat(summary.clientName()).isEqualTo("Acme Client");
@@ -176,5 +191,20 @@ class TemplateAndDashboardTest {
         assertThat(summary.criticalFindings()).isEqualTo(1);
         assertThat(summary.highFindings()).isEqualTo(2);
         assertThat(summary.overdueRequests()).isEqualTo(2);
+        assertThat(summary.memberCount()).isEqualTo(3);
+        assertThat(summary.leadName()).isEqualTo("Lead Partner");
+        // A project without figures yet: zeros, and the creator as lead.
+        var empty = portfolio.projects().get(1);
+        assertThat(empty.completionPercent()).isZero();
+        assertThat(empty.totalFindings()).isZero();
+        assertThat(empty.memberCount()).isZero();
+        assertThat(empty.leadName()).isEqualTo("Creator");
+        assertThat(empty.workstreams()).containsExactly(WorkstreamType.TAX);
+
+        // A fixed number of lookups for all projects, none per project (#122).
+        verify(requests, never()).progressByWorkstream(any(UUID.class));
+        verify(findings, never()).countsByRiskLevel(any(UUID.class));
+        verify(members, never()).countByProjectId(any());
+        verify(directory, never()).findUser(any());
     }
 }

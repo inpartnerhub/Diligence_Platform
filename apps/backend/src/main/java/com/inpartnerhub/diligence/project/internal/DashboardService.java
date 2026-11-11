@@ -3,7 +3,9 @@ package com.inpartnerhub.diligence.project.internal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -100,12 +102,38 @@ class DashboardService {
                 members.countByProjectId(projectId));
     }
 
+    /**
+     * Every project the caller can see, with its key figures (PRD PRJ-05). The figures are loaded for all projects at
+     * once, a fixed number of queries however many projects there are (#122), instead of several per project.
+     */
     PortfolioDashboard portfolio() {
         var hidden = access.outsideAllowList();
         var allProjects = projects.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
                 .filter(project -> !hidden.contains(project.getId()))
                 .toList();
         var today = LocalDate.now(clock);
+        var ids = allProjects.stream().map(Project::getId).toList();
+
+        var progressByProject = requests.progressByWorkstream(ids);
+        var deadlinesByProject = requests.deadlines(ids, today, DUE_SOON_DAYS);
+        var findingsByProject = findings.countsByRiskLevel(ids);
+        var workstreamsByProject = workstreams.findByProjectIdInOrderByType(ids).stream()
+                .collect(Collectors.groupingBy(Workstream::getProjectId));
+        var membersByProject = members.findByProjectIdInOrderByCreatedAt(ids).stream()
+                .collect(Collectors.groupingBy(ProjectMember::getProjectId));
+        var leads = new LinkedHashMap<UUID, UUID>();
+        for (var project : allProjects) {
+            membersByProject.getOrDefault(project.getId(), List.of()).stream()
+                    .filter(m -> m.getRole() == ProjectRole.PARTNER || m.getRole() == ProjectRole.PROJECT_MANAGER)
+                    .findFirst()
+                    .ifPresent(m -> leads.put(project.getId(), m.getUserId()));
+        }
+        var userIds = new LinkedHashSet<UUID>(leads.values());
+        allProjects.stream().map(Project::getCreatedBy).forEach(userIds::add);
+        var userNames = userIds.isEmpty() ? Map.<UUID, String>of() : directory.findUsers(List.copyOf(userIds))
+                .stream().filter(u -> u.displayName() != null)
+                .collect(Collectors.toMap(Directory.UserSummary::id, Directory.UserSummary::displayName, (a, b) -> a));
+        var organizationNames = new HashMap<UUID, String>();
 
         List<PortfolioProjectSummary> summaries = new ArrayList<>();
         long activeCount = 0;
@@ -125,10 +153,10 @@ class DashboardService {
                 byStage.compute(project.getStage().name(), (k, v) -> v == null ? 1L : v + 1L);
             }
 
-            var counts = requests.progressByWorkstream(pid).stream()
+            var counts = progressByProject.getOrDefault(pid, List.of()).stream()
                     .collect(Collectors.toMap(RequestStatistics.WorkstreamProgress::workstreamId,
                             RequestStatistics.WorkstreamProgress::countsByStatus));
-            var wsList = workstreams.findByProjectIdOrderByType(pid);
+            var wsList = workstreamsByProject.getOrDefault(pid, List.of());
             var wsProgress = wsList.stream()
                     .map(w -> progress(w, counts.getOrDefault(w.getId(), Map.of())))
                     .toList();
@@ -136,31 +164,24 @@ class DashboardService {
             long fulfilled = wsProgress.stream().mapToLong(WorkstreamProgress::fulfilled).sum();
             int completion = percent(fulfilled, requested);
 
-            var deadlines = requests.deadlines(pid, today, DUE_SOON_DAYS);
-            var findingCounts = findings.countsByRiskLevel(pid);
+            var deadlines = deadlinesByProject.getOrDefault(pid, new RequestStatistics.DeadlineSummary(0, 0));
+            var findingCounts = findingsByProject.getOrDefault(pid, Map.of());
             long critical = findingCounts.getOrDefault("CRITICAL", 0L);
             long high = findingCounts.getOrDefault("HIGH", 0L);
             long totalF = findingCounts.values().stream().mapToLong(Long::longValue).sum();
-            long membersCount = members.countByProjectId(pid);
+            long membersCount = membersByProject.getOrDefault(pid, List.of()).size();
 
             totalFindingsCount += totalF;
             totalCriticalCount += critical;
             totalHighCount += high;
             totalOverdueCount += deadlines.overdue();
 
-            String clientName = directory.findOrganization(project.getClientOrganizationId())
-                    .map(Directory.OrganizationSummary::name).orElse(null);
-            String targetName = directory.findOrganization(project.getTargetOrganizationId())
-                    .map(Directory.OrganizationSummary::name).orElse(null);
-
-            var projectMembers = members.findByProjectIdOrderByCreatedAt(pid);
-            String leadName = projectMembers.stream()
-                    .filter(m -> m.getRole() == ProjectRole.PARTNER || m.getRole() == ProjectRole.PROJECT_MANAGER)
-                    .findFirst()
-                    .flatMap(m -> directory.findUser(m.getUserId()))
-                    .map(Directory.UserSummary::displayName)
-                    .or(() -> directory.findUser(project.getCreatedBy()).map(Directory.UserSummary::displayName))
-                    .orElse(null);
+            // Organization names are cached (Redis) and shared by many projects: one lookup per organization.
+            String clientName = organizationName(project.getClientOrganizationId(), organizationNames);
+            String targetName = organizationName(project.getTargetOrganizationId(), organizationNames);
+            var lead = leads.get(pid);
+            String leadName = lead != null && userNames.containsKey(lead) ? userNames.get(lead)
+                    : userNames.get(project.getCreatedBy());
 
             List<WorkstreamType> wsTypes = wsList.stream().map(Workstream::getType).toList();
 
@@ -196,6 +217,17 @@ class DashboardService {
                 totalOverdueCount,
                 byStage,
                 summaries);
+    }
+
+    private String organizationName(UUID organizationId, Map<UUID, String> names) {
+        if (organizationId == null) {
+            return null;
+        }
+        if (!names.containsKey(organizationId)) {
+            names.put(organizationId, directory.findOrganization(organizationId)
+                    .map(Directory.OrganizationSummary::name).orElse(null));
+        }
+        return names.get(organizationId);
     }
 
     /**
