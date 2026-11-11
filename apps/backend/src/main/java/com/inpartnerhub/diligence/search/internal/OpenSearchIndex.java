@@ -162,6 +162,16 @@ class OpenSearchIndex implements SearchIndex {
     }
 
     @Override
+    public void removeProject(UUID projectId) {
+        ensureIndex();
+        // A query only sees entries after a refresh: without it, documents indexed moments ago would stay behind.
+        call(() -> client.indices().refresh(r -> r.index(index)));
+        var ofProject = Query.of(q -> q.term(t -> t.field("projectId").value(FieldValue.of(projectId.toString()))));
+        call(() -> client.deleteByQuery(d -> d.index(index).query(ofProject).conflicts(Conflicts.Proceed)
+                .refresh(Refresh.True)));
+    }
+
+    @Override
     public void remove(UUID documentId) {
         ensureIndex();
         try {

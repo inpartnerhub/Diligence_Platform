@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 interface DocumentRepository extends JpaRepository<Document, UUID> {
@@ -25,5 +26,10 @@ interface DocumentRepository extends JpaRepository<Document, UUID> {
 
     List<Document> findByProjectId(UUID projectId);
 
-    void deleteByProjectId(UUID projectId);
+    long countByProjectId(UUID projectId);
+
+    /** Project purge (ADM-06, #123): one statement; versions, annotations and clauses go by ON DELETE CASCADE. */
+    @Modifying
+    @Query("delete from Document d where d.projectId = :projectId")
+    int deleteAllForProject(UUID projectId);
 }
