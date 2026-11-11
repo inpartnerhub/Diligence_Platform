@@ -133,6 +133,9 @@ diligence:
   # MFA within this age (#65); the web app then signs the user in again.
   step-up:
     max-age: ${STEP_UP_MAX_AGE:10m}
+  http:
+    # Largest request body that is not a multipart upload (#117); uploads keep spring.servlet.multipart.* (100 MB).
+    max-body-size: ${HTTP_MAX_BODY_SIZE:1MB}
   # Per-user API rate limit (#63), on top of Kong's per-IP limit: requests per user and minute, and a stricter limit
   # for search, downloads and exports. Counted in Redis; load tests that reuse one account switch it off.
   rate-limit:
