@@ -40,8 +40,8 @@ jobs:
       - name: Render and validate overlays
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
-          for env in dev staging prod; do
-            kubectl kustomize "infrastructure/kubernetes/overlays/$env" | ./kubeconform -strict -summary \
+          for dir in overlays/dev overlays/staging overlays/prod processing; do
+            kubectl kustomize "infrastructure/kubernetes/$dir" | ./kubeconform -strict -summary \
               -ignore-missing-schemas \
               -schema-location default \
               -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'

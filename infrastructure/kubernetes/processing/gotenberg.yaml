@@ -1,0 +1,74 @@
+# Gotenberg (LibreOffice) renders Office/OpenDocument uploads to PDF for previews. Runs as the image's user 10101;
+# LibreOffice writes its profile under the home directory, so that and /tmp are writable emptyDirs.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gotenberg
+  namespace: diligence-processing
+  labels: { app.kubernetes.io/name: gotenberg }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app.kubernetes.io/name: gotenberg }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: gotenberg }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10101
+        runAsGroup: 10101
+        fsGroup: 10101
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: gotenberg
+          image: ghcr.io/inpartnerhub/diligence-gotenberg:main
+          args: ["gotenberg", "--api-disable-health-check-logging", "--api-timeout=120s"]
+          ports: [{ name: http, containerPort: 3000 }]
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { cpu: "2", memory: 2Gi }
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: home, mountPath: /home/gotenberg }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 2Gi }
+        - name: home
+          emptyDir: { sizeLimit: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gotenberg
+  namespace: diligence-processing
+  labels: { app.kubernetes.io/name: gotenberg }
+spec:
+  selector: { app.kubernetes.io/name: gotenberg }
+  ports: [{ name: http, port: 3000, targetPort: http }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gotenberg
+  namespace: diligence-processing
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: gotenberg }
