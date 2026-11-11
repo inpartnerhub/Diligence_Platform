@@ -23,6 +23,9 @@ class DocumentSearchService {
 
     static final int MAX_PAGE_SIZE = 50;
 
+    /** OpenSearch's {@code index.max_result_window}: results beyond it cannot be paged to (#89). */
+    static final int MAX_RESULT_WINDOW = 10_000;
+
     record Result(Document document, SearchHit hit) {
     }
 
@@ -43,13 +46,18 @@ class DocumentSearchService {
         if (text == null || text.isBlank() || text.length() > 500) {
             throw new InvalidRequestException("Enter a search term of at most 500 characters");
         }
+        var pageSize = Math.clamp(size, 1, MAX_PAGE_SIZE);
+        var pageNumber = Math.max(page, 0);
+        if ((long) (pageNumber + 1L) * pageSize > MAX_RESULT_WINDOW) {
+            throw new InvalidRequestException("Only the first " + MAX_RESULT_WINDOW
+                    + " results can be browsed; refine the search term");
+        }
         var context = access.project(projectId);
         var folderIds = access.visibleFolders(context).stream().map(Folder::getId).toList();
         if (folderIds.isEmpty()) {
             return new ResultPage(List.of(), 0);
         }
-        var found = index.search(new SearchQuery(projectId, folderIds, text, Math.max(page, 0),
-                Math.clamp(size, 1, MAX_PAGE_SIZE)));
+        var found = index.search(new SearchQuery(projectId, folderIds, text, pageNumber, pageSize));
         var visible = new HashMap<UUID, Document>();
         documents.findAllById(found.hits().stream().map(SearchHit::documentId).toList())
                 .forEach(d -> visible.put(d.getId(), d));

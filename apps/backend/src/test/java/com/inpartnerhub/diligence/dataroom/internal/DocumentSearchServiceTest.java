@@ -76,4 +76,27 @@ class DocumentSearchServiceTest {
     private static SearchHit hit(UUID documentId, UUID folderId) {
         return new SearchHit(documentId, UUID.randomUUID(), folderId, "x", 1, List.of());
     }
+
+    @Test
+    void refusesPagesBeyondTheResultWindowWithoutAskingTheIndex() {
+        assertThatThrownBy(() -> service.search(PROJECT, "akta", 200, 50)).isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> service.search(PROJECT, "akta", Integer.MAX_VALUE, 50))
+                .isInstanceOf(InvalidRequestException.class);
+        verify(index, never()).search(any());
+    }
+
+    @Test
+    void theLastPageInsideTheResultWindowStillReachesTheIndex() {
+        var context = context(ProjectRole.TARGET);
+        var granted = new Folder(PROJECT, null, "Shared", null);
+        when(access.project(PROJECT)).thenReturn(context);
+        when(access.visibleFolders(context)).thenReturn(List.of(granted));
+        when(index.search(any())).thenReturn(new SearchPage(List.of(), 10_000));
+
+        service.search(PROJECT, "akta", 199, 50); // results 9 951–10 000
+
+        var query = ArgumentCaptor.forClass(SearchQuery.class);
+        verify(index).search(query.capture());
+        assertThat(query.getValue().page()).isEqualTo(199);
+    }
 }
