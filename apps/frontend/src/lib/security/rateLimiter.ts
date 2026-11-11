@@ -1,6 +1,7 @@
 import { createClient } from "redis";
 
 import { clientAddress } from "../api/clientAddress";
+import { logWarn } from "@/lib/log";
 
 export interface RateLimitOptions {
   windowSeconds: number;
@@ -135,12 +136,12 @@ function getStore(): Promise<RateLimitStore> | RateLimitStore {
       try {
         const client = createClient({ url: redisUrl });
         client.on("error", (err: unknown) => {
-          console.warn("Redis rate limiter client error:", err);
+          logWarn("Redis rate limiter client error", err);
         });
         await client.connect();
         return new RedisRateLimitStore(client as unknown as RedisClientLike);
       } catch (err) {
-        console.warn("Failed to connect to Redis for rate limiting, falling back to in-memory:", err);
+        logWarn("Failed to connect to Redis for rate limiting, falling back to in-memory", err);
         return memoryStore;
       }
     })();
@@ -161,7 +162,7 @@ export async function checkRateLimit(
   try {
     return await store.consume(key, options);
   } catch (error) {
-    console.warn("Rate limit store error, falling back to memory store:", error);
+    logWarn("Rate limit store error, falling back to memory store", error);
     try {
       return await memoryStore.consume(key, options);
     } catch {

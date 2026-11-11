@@ -42,7 +42,7 @@ jobs:
       - run: npm run build
       - name: SonarQube analysis
         if: env.SONAR_TOKEN != ''
-        uses: SonarSource/sonarqube-scan-action@v8
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8
         with:
           projectBaseDir: apps/frontend
         env:

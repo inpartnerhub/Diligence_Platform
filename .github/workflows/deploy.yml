@@ -32,7 +32,7 @@ jobs:
       REGISTRY: ghcr.io/${{ github.repository_owner }}
     steps:
       - uses: actions/checkout@v7
-      - uses: azure/setup-kubectl@v5
+      - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5
       # Configure cluster access here, e.g. aws-actions/configure-aws-credentials with role-to-assume
       # followed by `aws eks update-kubeconfig --name diligence-${{ inputs.environment }}`.
       - name: Pin images

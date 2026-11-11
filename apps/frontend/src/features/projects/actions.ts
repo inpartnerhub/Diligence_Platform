@@ -7,6 +7,7 @@ import { ApiError, apiFetch } from "@/lib/api/client";
 import { stepUpFlag } from "@/lib/auth/stepUpFlag";
 import { withQuery } from "@/lib/api/query";
 import { sanitizeOptionalText, sanitizeText, validateRequiredText } from "@/lib/security/inputSanitizer";
+import { logError } from "@/lib/log";
 
 import type {
   ActionResult,
@@ -32,7 +33,7 @@ async function run<T>(paths: string[], call: () => Promise<T>): Promise<ActionRe
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Project action failed", error);
+    logError("Project action failed", error);
     return { ok: false, message: "" }; // the UI shows its generic, translated error
   }
 }

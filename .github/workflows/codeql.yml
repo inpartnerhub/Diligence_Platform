@@ -42,7 +42,7 @@ jobs:
         uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: "21" }
       - if: matrix.build-mode == 'manual'
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
         with: { cache-disabled: true } # CodeQL must see javac run, not a cache hit
       - uses: github/codeql-action/init@v4
         with:

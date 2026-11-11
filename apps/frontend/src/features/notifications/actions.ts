@@ -3,6 +3,7 @@
 import type { Page } from "@/features/admin/types";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { withQuery } from "@/lib/api/query";
+import { logError } from "@/lib/log";
 
 import type { InboxEntry, NotificationPreference } from "./types";
 
@@ -11,7 +12,7 @@ export async function unreadCount(): Promise<number> {
   try {
     return (await apiFetch<{ unread: number }>("/api/v1/me/notifications/unread-count")).unread;
   } catch (error) {
-    if (!(error instanceof ApiError)) console.error("Unread count failed", error);
+    if (!(error instanceof ApiError)) logError("Unread count failed", error);
     return 0;
   }
 }
@@ -40,7 +41,7 @@ export async function savePreferences(
     });
     return { ok: true, data };
   } catch (error) {
-    console.error("Saving notification preferences failed", error);
+    logError("Saving notification preferences failed", error);
     return { ok: false };
   }
 }

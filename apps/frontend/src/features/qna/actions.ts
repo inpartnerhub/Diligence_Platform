@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { sanitizeOptionalText, validateRequiredText } from "@/lib/security/inputSanitizer";
+import { logError } from "@/lib/log";
 
 import type { Question, QuestionDetail, QuestionInput, QuestionStatus } from "./types";
 
@@ -21,7 +22,7 @@ async function attempt<T>(call: () => Promise<T>): Promise<Result<T>> {
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message };
     }
-    console.error("Q&A action failed", error);
+    logError("Q&A action failed", error);
     return { ok: false, message: "" };
   }
 }

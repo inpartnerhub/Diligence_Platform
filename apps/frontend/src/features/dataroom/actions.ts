@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { logError } from "@/lib/log";
 
 import type {
   AnnotationCreateRequest,
@@ -116,7 +117,7 @@ async function attempt<T>(call: () => Promise<T>): Promise<Result<T>> {
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message };
     }
-    console.error("Data room request failed", error);
+    logError("Data room request failed", error);
     return { ok: false, message: "" };
   }
 }

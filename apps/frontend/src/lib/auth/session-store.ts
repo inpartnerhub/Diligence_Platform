@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "redis";
 
 import { serverEnv } from "@/lib/config/env";
+import { logError } from "@/lib/log";
 
 import type { Role } from "./roles";
 
@@ -27,7 +28,7 @@ const KEY_PREFIX = "diligence:session:";
 
 function connect() {
   return createClient({ url: serverEnv.redisUrl })
-    .on("error", (error: unknown) => console.error("Redis session store error", error))
+    .on("error", (error: unknown) => logError("Redis session store error", error))
     .connect();
 }
 

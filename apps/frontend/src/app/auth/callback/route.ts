@@ -10,6 +10,7 @@ import { loginTransaction } from "@/lib/auth/login-transaction";
 import { sessionCookie, userFromTokens } from "@/lib/auth/session";
 import { writeSession } from "@/lib/auth/session-store";
 import { serverEnv } from "@/lib/config/env";
+import { logError } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
       expectedState: state,
     });
   } catch (error) {
-    console.error("OIDC callback failed", error);
+    logError("OIDC callback failed", error);
     return NextResponse.redirect(new URL("/auth/login", serverEnv.appBaseUrl));
   }
 

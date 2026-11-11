@@ -8,6 +8,7 @@ import {
   sanitizeOptionalTextOrNull,
   validateRequiredText,
 } from "@/lib/security/inputSanitizer";
+import { logError } from "@/lib/log";
 
 import type {
   Finding,
@@ -34,7 +35,7 @@ async function attempt<T>(call: () => Promise<T>): Promise<Result<T>> {
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message };
     }
-    console.error("Finding action failed", error);
+    logError("Finding action failed", error);
     return { ok: false, message: "" };
   }
 }

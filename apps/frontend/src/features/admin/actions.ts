@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { stepUpFlag } from "@/lib/auth/stepUpFlag";
 import type { Role } from "@/lib/auth/roles";
+import { logError } from "@/lib/log";
 
 import type {
   ActionResult,
@@ -27,7 +28,7 @@ async function run(path: string, call: () => Promise<unknown>): Promise<ActionRe
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Admin action failed", error);
+    logError("Admin action failed", error);
     return { ok: false, message: "" }; // UI shows its generic, translated error
   }
 }
@@ -111,7 +112,7 @@ export async function createWebhook(
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Create webhook failed", error);
+    logError("Create webhook failed", error);
     return { ok: false, message: "" };
   }
 }
@@ -131,7 +132,7 @@ export async function updateWebhook(
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Update webhook failed", error);
+    logError("Update webhook failed", error);
     return { ok: false, message: "" };
   }
 }
@@ -148,7 +149,7 @@ export async function rotateWebhookSigningKey(id: string): Promise<ActionResult<
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Rotate webhook signing key failed", error);
+    logError("Rotate webhook signing key failed", error);
     return { ok: false, message: "" };
   }
 }
@@ -172,7 +173,7 @@ export async function testWebhook(id: string): Promise<ActionResult<WebhookTestR
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Test webhook failed", error);
+    logError("Test webhook failed", error);
     return { ok: false, message: "" };
   }
 }
@@ -187,7 +188,7 @@ export async function loadWebhookDeliveries(id: string): Promise<ActionResult<We
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Load webhook deliveries failed", error);
+    logError("Load webhook deliveries failed", error);
     return { ok: false, message: "" };
   }
 }
@@ -202,7 +203,7 @@ export async function startSearchReindex(): Promise<ActionResult<SearchReindexRu
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Start search re-index failed", error);
+    logError("Start search re-index failed", error);
     return { ok: false, message: "" };
   }
 }

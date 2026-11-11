@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { sanitizeOptionalText, validateRequiredText } from "@/lib/security/inputSanitizer";
+import { logError } from "@/lib/log";
 
 import type { ItemInput, RequestComment, RequestItem, RequestItemDetail, RequestStatus } from "./types";
 
@@ -27,7 +28,7 @@ async function attempt<T>(call: () => Promise<T>): Promise<Result<T>> {
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message };
     }
-    console.error("Request list action failed", error);
+    logError("Request list action failed", error);
     return { ok: false, message: "" };
   }
 }

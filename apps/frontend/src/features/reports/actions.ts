@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { stepUpFlag } from "@/lib/auth/stepUpFlag";
+import { logError } from "@/lib/log";
 
 import type { Report, ReportStatusHistoryItem } from "./types";
 
@@ -21,7 +22,7 @@ async function run<T>(projectId: string, call: () => Promise<T>): Promise<Result
     if (error instanceof ApiError && error.problem.status < 500) {
       return { ok: false, message: error.message, ...stepUpFlag(error) };
     }
-    console.error("Report action failed", error);
+    logError("Report action failed", error);
     return { ok: false, message: "" };
   }
 }
