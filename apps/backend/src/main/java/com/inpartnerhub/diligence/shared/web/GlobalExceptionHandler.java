@@ -6,12 +6,17 @@ import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -58,6 +63,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             return problem(HttpStatus.CONTENT_TOO_LARGE, ProblemTypes.VALIDATION, "The upload is too large.");
         }
         return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "The multipart request body is malformed.");
+    }
+
+    /**
+     * A body without Content-Length that passed {@link RequestBodyLimitFilter}'s limit while it was read (#117):
+     * the message converter reports it as unreadable, but it is too large, not malformed.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof RequestBodyLimitFilter.BodyTooLargeException) {
+                return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem(HttpStatus.CONTENT_TOO_LARGE,
+                        ProblemTypes.VALIDATION, "The request body is too large."));
+            }
+        }
+        return super.handleHttpMessageNotReadable(ex, headers, status, request);
     }
 
     /** Unique constraints that the application could not pre-check (e.g. rows hidden by row-level security). */

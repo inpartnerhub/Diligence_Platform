@@ -84,6 +84,7 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 | CSRF | Server actions are origin-checked by Next.js; logout is POST + same-origin; the API accepts bearer tokens only |
 | Redirects | Post-login targets must be same-origin relative paths (`safeReturnTo`) |
 | Authorization | Deny by default at every layer; admin API requires `SUPER_ADMIN` |
+| Request size | Uploads and imports (multipart) up to 100 MB at Kong, Spring and clamd; every other request body is capped at `HTTP_MAX_BODY_SIZE` (1 MB) by `RequestBodyLimitFilter` before authentication and parsing, chunked bodies included (413, #117) |
 | Input | Bean Validation on every request DTO; problem details (RFC 9457) without stack traces |
 | Headers | HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`; nonce-based Content-Security-Policy on pages (`src/proxy.ts`), `default-src 'none'; sandbox` on route handlers |
 | Client addresses | Watermark, audit and rate-limit IPs come from our own proxies only, never from a caller's `X-Forwarded-For` ([docs/security/client-addresses.md](docs/security/client-addresses.md)) |
