@@ -110,6 +110,25 @@ class OpenSearchIndexIntegrationTest {
     }
 
     @Test
+    void removeProjectDeletesOnlyThatProjectsEntries() throws Exception {
+        var index = new OpenSearchIndex(client, properties, at(RUN_START));
+        var purged = document("a", "perjanjian kredit");
+        var other = UUID.randomUUID();
+        var kept = new IndexedDocument(UUID.randomUUID(), UUID.randomUUID(), other, folder, "b.pdf",
+                "application/pdf", "perjanjian kredit", BEFORE_RESTORE);
+        index.index(purged);
+        index.index(kept);
+
+        index.removeProject(project); // #123: one request for the whole project
+        index.removeProject(project); // nothing left: no error
+
+        assertThat(hits(index, "perjanjian")).isEmpty();
+        client.indices().refresh(r -> r.index(properties.documentsIndex()));
+        assertThat(index.search(new SearchQuery(other, List.of(folder), "perjanjian", 0, 10)).hits())
+                .extracting(h -> h.documentId()).containsExactly(kept.documentId());
+    }
+
+    @Test
     void indexCreatedBeforeTheStampGetsTheField() throws Exception {
         // An index from an earlier release: same name, no indexedAt in the mapping.
         client.indices().create(c -> c.index(properties.documentsIndex()));

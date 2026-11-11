@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 /** Row-level security limits results to folders the caller may see. */
@@ -20,5 +21,11 @@ interface FolderRepository extends JpaRepository<Folder, UUID> {
 
     boolean existsByParentId(UUID parentId);
 
-    void deleteByProjectId(UUID projectId);
+    /**
+     * Project purge (ADM-06, #123): one statement, after the documents; grants go by ON DELETE CASCADE. Parent links
+     * are checked at the end of the statement, so the whole tree goes at once.
+     */
+    @Modifying
+    @Query("delete from Folder f where f.projectId = :projectId")
+    int deleteAllForProject(UUID projectId);
 }

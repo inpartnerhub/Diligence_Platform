@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 
 interface TimeEntryRepository extends Repository<TimeEntry, UUID> {
@@ -25,5 +27,8 @@ interface TimeEntryRepository extends Repository<TimeEntry, UUID> {
 
     void delete(TimeEntry entry);
 
+    /** Project purge (ADM-06, #123): one statement instead of loading and deleting each entry. */
+    @Modifying
+    @Query("delete from TimeEntry e where e.projectId = :projectId")
     void deleteByProjectId(UUID projectId);
 }

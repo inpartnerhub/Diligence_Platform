@@ -24,6 +24,9 @@ public interface SearchIndex {
 
     void remove(UUID documentId);
 
+    /** Removes every entry of a project in one request (project purge, ADM-06, #123). */
+    void removeProject(UUID projectId);
+
     /**
      * Removes every entry last indexed before {@code cutoff}, or never stamped (entries from before the stamp
      * existed). After a full re-index these are the entries no current document refreshed.
