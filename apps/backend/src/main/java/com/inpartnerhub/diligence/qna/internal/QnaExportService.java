@@ -1,9 +1,11 @@
 package com.inpartnerhub.diligence.qna.internal;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -19,7 +21,7 @@ import org.apache.poi.ss.usermodel.PrintSetup;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.WorkbookUtil;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
 import com.inpartnerhub.diligence.qna.QnaEvents.QnaExported;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
+import com.inpartnerhub.diligence.shared.web.TemporaryFile;
 import com.inpartnerhub.diligence.shared.web.UpstreamServiceException;
 
 /**
@@ -43,8 +46,8 @@ class QnaExportService {
 
     enum Format { XLSX, PDF }
 
-    record ExportFile(String fileName, String contentType, byte[] content) {
-    }
+    /** Rows of a streamed export kept in memory before they are flushed to disk (#129). */
+    static final int ROW_WINDOW = 100;
 
     private final QuestionService questions;
     private final QnaAccess access;
@@ -61,21 +64,33 @@ class QnaExportService {
         this.zone = zone;
     }
 
-    ExportFile export(UUID projectId, QuestionService.QuestionFilter filter, Format format) {
+    TemporaryFile export(UUID projectId, QuestionService.QuestionFilter filter, Format format) {
         var context = access.project(projectId);
         var list = questions.list(projectId, filter);
         var answers = questions.answers(list);
-        var xlsx = workbook(context.code(), list, answers);
         var base = "qna-" + context.code().toLowerCase(Locale.ROOT) + "-" + Instant.now().atZone(zone).toLocalDate();
-        events.publishEvent(new QnaExported(projectId, format.name(), list.size(), RequestMetadata.capture()));
-        return switch (format) {
-            case XLSX -> new ExportFile(base + ".xlsx", XLSX, xlsx);
-            case PDF -> new ExportFile(base + ".pdf", "application/pdf", pdf(xlsx, base + ".xlsx"));
-        };
+        // Written to temporary files, never held in memory as a whole (#129); the response deletes them once sent.
+        var xlsx = TemporaryFile.create("qna", ".xlsx");
+        try {
+            try (var out = new BufferedOutputStream(Files.newOutputStream(xlsx))) {
+                workbook(context.code(), list, answers, out);
+            }
+            events.publishEvent(new QnaExported(projectId, format.name(), list.size(), RequestMetadata.capture()));
+            return switch (format) {
+                case XLSX -> new TemporaryFile(base + ".xlsx", XLSX, xlsx);
+                case PDF -> new TemporaryFile(base + ".pdf", "application/pdf", pdf(xlsx, base + ".xlsx"));
+            };
+        } catch (IOException | RuntimeException ex) {
+            TemporaryFile.delete(xlsx);
+            throw ex instanceof IOException io ? new UncheckedIOException(io) : (RuntimeException) ex;
+        }
     }
 
-    private byte[] workbook(String projectCode, List<Question> list, Map<UUID, Answer> answers) {
-        try (var workbook = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
+    /** Streaming workbook (#129): only a window of rows stays in memory. */
+    private void workbook(String projectCode, List<Question> list, Map<UUID, Answer> answers,
+            OutputStream out) {
+        // close() also removes the workbook's temporary row files.
+        try (var workbook = new SXSSFWorkbook(ROW_WINDOW)) {
             var sheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(projectCode + " Q&A"));
             var bold = workbook.createFont();
             bold.setBold(true);
@@ -121,7 +136,6 @@ class QnaExportService {
             sheet.getHeader().setLeft(projectCode + " · Q&A");
             sheet.getFooter().setRight("&P / &N");
             workbook.write(out);
-            return out.toByteArray();
         } catch (IOException ex) {
             throw new IllegalStateException("Q&A export failed", ex);
         }
@@ -131,17 +145,17 @@ class QnaExportService {
         return at == null ? "" : TIMESTAMP.format(at.atZone(zone));
     }
 
-    private byte[] pdf(byte[] xlsx, String fileName) {
-        try {
-            var target = Files.createTempFile("qna", ".pdf");
-            try {
-                renderer.renderPdf(new ByteArrayInputStream(xlsx), fileName, XLSX, target);
-                return Files.readAllBytes(target);
-            } finally {
-                Files.deleteIfExists(target);
-            }
+    /** Converts the workbook file to PDF (Gotenberg) and deletes the workbook; returns the PDF file. */
+    private Path pdf(Path xlsx, String fileName) {
+        var target = TemporaryFile.create("qna", ".pdf");
+        try (var content = Files.newInputStream(xlsx)) {
+            renderer.renderPdf(content, fileName, XLSX, target);
+            return target;
         } catch (IOException | RuntimeException ex) {
+            TemporaryFile.delete(target);
             throw new UpstreamServiceException("The PDF export is not available right now", ex);
+        } finally {
+            TemporaryFile.delete(xlsx);
         }
     }
 }

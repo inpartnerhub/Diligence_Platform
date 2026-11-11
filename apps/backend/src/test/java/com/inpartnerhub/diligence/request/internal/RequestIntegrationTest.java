@@ -34,6 +34,7 @@ import com.inpartnerhub.diligence.TestContainersConfiguration;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory.DocumentSummary;
 import com.inpartnerhub.diligence.notification.EmailSender;
+import com.inpartnerhub.diligence.shared.web.TemporaryFile;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.project.internal.ProjectTestApi;
 import com.inpartnerhub.diligence.security.Role;
@@ -188,7 +189,8 @@ class RequestIntegrationTest {
 
         // The export is audited (outbox write inside the export transaction).
         var export = transfers.export(projectId, RequestTransferService.Format.XLSX);
-        assertThat(export.content()).isNotEmpty();
+        assertThat(export.size()).isPositive();
+        TemporaryFile.delete(export.path());
         await(() -> jdbc.queryForObject("select count(*) from audit.audit_log where action = 'request.exported' "
                 + "and object_id = ?", Integer.class, projectId.toString()) == 1);
 

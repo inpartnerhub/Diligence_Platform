@@ -1,9 +1,11 @@
 package com.inpartnerhub.diligence.request.internal;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -31,6 +33,7 @@ import com.inpartnerhub.diligence.request.internal.RequestSpreadsheet.ImportRow;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
+import com.inpartnerhub.diligence.shared.web.TemporaryFile;
 import com.inpartnerhub.diligence.shared.web.UpstreamServiceException;
 
 /**
@@ -91,7 +94,7 @@ class RequestTransferService {
      * The caller's view of the list (target: released items only) as Excel or PDF. Not read-only: the audit event
      * of the export is written to the event outbox in this transaction.
      */
-    ExportFile export(UUID projectId, Format format) {
+    TemporaryFile export(UUID projectId, Format format) {
         var context = access.project(projectId);
         var project = projects.summary(projectId).orElseThrow();
         var list = requests.list(projectId, RequestService.ItemFilter.ALL);
@@ -108,15 +111,25 @@ class RequestTransferService {
                 i.getAssigneeUserId() == null ? null : names.get(i.getAssigneeUserId()),
                 counts.getOrDefault(i.getId(), 0L), i.getRequestedAt(),
                 i.getUpdatedAt())).toList();
-        var xlsx = RequestSpreadsheet.export(context.code(), project.name(), rows, zone);
         var baseName = "request-list-" + context.code().toLowerCase(Locale.ROOT) + "-" + Instant.now()
                 .atZone(zone).toLocalDate();
-        events.publishEvent(new RequestListTransferred(projectId, "exported", format.name(), rows.size(),
-                RequestMetadata.capture()));
-        return switch (format) {
-            case XLSX -> new ExportFile(baseName + ".xlsx", RequestSpreadsheet.CONTENT_TYPE, xlsx);
-            case PDF -> new ExportFile(baseName + ".pdf", "application/pdf", toPdf(xlsx, baseName + ".xlsx"));
-        };
+        // Written to temporary files, never held in memory as a whole (#129); the response deletes them once sent.
+        var xlsx = TemporaryFile.create("request-list", ".xlsx");
+        try {
+            try (var out = new BufferedOutputStream(Files.newOutputStream(xlsx))) {
+                RequestSpreadsheet.export(context.code(), project.name(), rows, zone, out);
+            }
+            events.publishEvent(new RequestListTransferred(projectId, "exported", format.name(), rows.size(),
+                    RequestMetadata.capture()));
+            return switch (format) {
+                case XLSX -> new TemporaryFile(baseName + ".xlsx", RequestSpreadsheet.CONTENT_TYPE, xlsx);
+                case PDF -> new TemporaryFile(baseName + ".pdf", "application/pdf",
+                        toPdf(xlsx, baseName + ".xlsx"));
+            };
+        } catch (IOException | RuntimeException ex) {
+            TemporaryFile.delete(xlsx);
+            throw ex instanceof IOException io ? new UncheckedIOException(io) : (RuntimeException) ex;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -127,17 +140,17 @@ class RequestTransferService {
                 RequestSpreadsheet.CONTENT_TYPE, RequestSpreadsheet.template(names));
     }
 
-    private byte[] toPdf(byte[] xlsx, String fileName) {
-        try {
-            var target = Files.createTempFile("request-list", ".pdf");
-            try {
-                renderer.renderPdf(new ByteArrayInputStream(xlsx), fileName, RequestSpreadsheet.CONTENT_TYPE, target);
-                return Files.readAllBytes(target);
-            } finally {
-                Files.deleteIfExists(target);
-            }
+    /** Converts the workbook file to PDF (Gotenberg) and deletes the workbook; returns the PDF file. */
+    private Path toPdf(Path xlsx, String fileName) {
+        var target = TemporaryFile.create("request-list", ".pdf");
+        try (var content = Files.newInputStream(xlsx)) {
+            renderer.renderPdf(content, fileName, RequestSpreadsheet.CONTENT_TYPE, target);
+            return target;
         } catch (IOException | RuntimeException ex) {
+            TemporaryFile.delete(target);
             throw new UpstreamServiceException("The PDF export is not available right now", ex);
+        } finally {
+            TemporaryFile.delete(xlsx);
         }
     }
 

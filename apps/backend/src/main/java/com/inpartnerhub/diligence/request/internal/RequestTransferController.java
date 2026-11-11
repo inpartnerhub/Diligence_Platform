@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
@@ -39,14 +40,14 @@ class RequestTransferController {
 
     @GetMapping("/export")
     @Operation(summary = "Download the request list as Excel (xlsx) or PDF; logged in the audit trail — REQ-05")
-    ResponseEntity<byte[]> export(@PathVariable UUID projectId,
+    ResponseEntity<StreamingResponseBody> export(@PathVariable UUID projectId,
             @RequestParam(defaultValue = "xlsx") String format) {
         var parsed = switch (format.toLowerCase(Locale.ROOT)) {
             case "xlsx" -> RequestTransferService.Format.XLSX;
             case "pdf" -> RequestTransferService.Format.PDF;
             default -> throw new InvalidRequestException("Format must be xlsx or pdf");
         };
-        return file(transfers.export(projectId, parsed));
+        return transfers.export(projectId, parsed).response();
     }
 
     @GetMapping("/import-template")

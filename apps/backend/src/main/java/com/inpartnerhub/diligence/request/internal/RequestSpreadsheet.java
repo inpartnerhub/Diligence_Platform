@@ -3,6 +3,7 @@ package com.inpartnerhub.diligence.request.internal;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -27,6 +28,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.WorkbookUtil;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
@@ -40,6 +42,8 @@ final class RequestSpreadsheet {
 
     static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     static final int MAX_ROWS = 2000;
+    /** Rows of a streamed export kept in memory before they are flushed to disk (#129). */
+    static final int ROW_WINDOW = 100;
 
     /** Import columns: header name → accepted aliases (lower case). */
     enum Column {
@@ -95,8 +99,14 @@ final class RequestSpreadsheet {
 
     // ------------------------------------------------------------------ export
 
-    static byte[] export(String projectCode, String projectName, List<ExportRow> rows, ZoneId zone) {
-        try (var workbook = new XSSFWorkbook()) {
+    /**
+     * Writes the export to {@code out} with POI's streaming workbook (#129): only a window of rows is kept in memory,
+     * the rest is flushed to a temporary file that is removed afterwards.
+     */
+    static void export(String projectCode, String projectName, List<ExportRow> rows, ZoneId zone,
+            OutputStream out) {
+        // close() also removes the workbook's temporary row files.
+        try (var workbook = new SXSSFWorkbook(ROW_WINDOW)) {
             var styles = new Styles(workbook);
             var sheet = workbook.createSheet(WorkbookUtil.createSafeSheetName(projectCode));
             var headers = new ArrayList<String>();
@@ -126,7 +136,7 @@ final class RequestSpreadsheet {
             layout(sheet, new int[] { 12, 16, 22, 60, 10, 12, 7, 15, 22, 11, 17, 17 }, headers.size(), rows.size());
             sheet.getHeader().setLeft(projectCode + " · " + projectName);
             sheet.getFooter().setRight("&P / &N");
-            return bytes(workbook);
+            workbook.write(out);
         } catch (IOException ex) {
             throw new IllegalStateException("Excel export failed", ex);
         }
