@@ -1,8 +1,5 @@
 package com.inpartnerhub.diligence.audit.internal;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -27,11 +24,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.inpartnerhub.diligence.audit.AuditEvents.AuditLogExported;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
-import com.inpartnerhub.diligence.shared.web.CsvCells;
 import com.inpartnerhub.diligence.shared.web.PageResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -54,10 +51,12 @@ class AuditLogController {
     }
 
     private final AuditLogRepository repository;
+    private final AuditCsvExport csv;
     private final ApplicationEventPublisher events;
 
-    AuditLogController(AuditLogRepository repository, ApplicationEventPublisher events) {
+    AuditLogController(AuditLogRepository repository, AuditCsvExport csv, ApplicationEventPublisher events) {
         this.repository = repository;
+        this.csv = csv;
         this.events = events;
     }
 
@@ -77,9 +76,9 @@ class AuditLogController {
     }
 
     @GetMapping(value = "/export", produces = "text/csv")
-    @Transactional
-    @Operation(summary = "Export the audit trail as CSV — ADM-04")
-    ResponseEntity<byte[]> export(
+    @Transactional // the export is audited (AuditLogExported) when this transaction commits
+    @Operation(summary = "Export the audit trail as CSV, streamed newest first — ADM-04")
+    ResponseEntity<StreamingResponseBody> export(
             @RequestParam(required = false) UUID userId,
             @RequestParam(required = false) String objectType,
             @RequestParam(required = false) String objectId,
@@ -87,7 +86,6 @@ class AuditLogController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         var spec = buildSpecification(userId, objectType, objectId, action, from, to);
-        var entries = repository.findAll(spec, Sort.by(Sort.Direction.DESC, "occurredAt"));
 
         Map<String, String> filterDetails = new LinkedHashMap<>();
         if (userId != null) filterDetails.put("userId", userId.toString());
@@ -99,45 +97,18 @@ class AuditLogController {
 
         events.publishEvent(new AuditLogExported(RequestMetadata.capture(), filterDetails));
 
-        byte[] csvBytes;
-        try (var out = new ByteArrayOutputStream();
-                var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8)) {
-            writer.write("\uFEFF"); // UTF-8 BOM for Excel compatibility
-            writer.write("Timestamp (UTC),User ID,Action,Object Type,Object ID,IP Address,Outcome,Details\r\n");
-            for (var entry : entries) {
-                writer.write(CsvCells.cell(entry.getOccurredAt() != null ? entry.getOccurredAt().toString() : ""));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getUserId() != null ? entry.getUserId().toString() : ""));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getAction()));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getObjectType()));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getObjectId()));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getIpAddress()));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getOutcome()));
-                writer.write(",");
-                writer.write(CsvCells.cell(entry.getDetails()));
-                writer.write("\r\n");
-            }
-            writer.flush();
-            csvBytes = out.toByteArray();
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to generate audit log CSV export", ex);
-        }
-
         String filename = "audit-logs-"
                 + DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(ZoneOffset.UTC).format(Instant.now())
                 + ".csv";
+        // Streamed in batches (#116): the whole audit log never sits in memory.
+        StreamingResponseBody body = out -> csv.write(spec, out);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename(filename, StandardCharsets.UTF_8).build().toString())
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
-                .body(csvBytes);
+                .body(body);
     }
 
     private Specification<AuditLogEntry> buildSpecification(
