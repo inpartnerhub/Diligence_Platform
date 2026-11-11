@@ -2,7 +2,8 @@
 
 Modules react to each other through events (Spring Modulith, transactional outbox in `public.event_publication`):
 search indexing after a scan, notifications, webhooks, audit entries, clause extraction, the RabbitMQ externalizer.
-When a listener throws, its publication is marked **FAILED**. The backend retries it on its own (issue #81):
+A publication is deleted as soon as its listener completes (`completion-mode: delete`, #115), so the table only
+holds work in progress and failures. When a listener throws, its publication is marked **FAILED**. The backend retries it on its own (issue #81):
 
 - every `EVENTS_RETRY_INTERVAL` (5 min) one replica resubmits FAILED publications older than `EVENTS_RETRY_MIN_AGE`
   (5 min) that had fewer than `EVENTS_RETRY_MAX_ATTEMPTS` (24) attempts — about two hours of retries;

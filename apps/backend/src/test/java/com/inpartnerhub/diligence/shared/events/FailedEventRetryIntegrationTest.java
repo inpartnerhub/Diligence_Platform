@@ -128,7 +128,8 @@ class FailedEventRetryIntegrationTest {
 
         job.run();
 
-        await(() -> "COMPLETED".equals(status(probe, "FlakyListener")));
+        // Completed publications are deleted (completion-mode: delete, #115): the retried one disappears.
+        await(() -> FLAKY_CALLS.get() == 2 && status(probe, "FlakyListener") == null);
         assertThat(FLAKY_CALLS).hasValue(2);
         metrics.refresh();
         assertThat(meters.find("diligence.events.publications.incomplete").tag("listener", "FlakyListener.on")

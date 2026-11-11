@@ -61,6 +61,10 @@ spring:
       externalization:
         enabled: true
       republish-outstanding-events-on-restart: true
+      # A completed publication is deleted at once (#115): keeping them (the default, UPDATE) grows the table with
+      # every event times every listener and keeps the serialized payloads past the project purge (ADM-06).
+      # Incomplete and FAILED publications stay for the retry job, the metrics and republishing on restart.
+      completion-mode: delete
       # Publications stuck before completion (a replica died mid-way) become FAILED, so the retry job below picks them
       # up (#81). Generous limits: a slow listener must not be marked failed while it still runs.
       staleness:
