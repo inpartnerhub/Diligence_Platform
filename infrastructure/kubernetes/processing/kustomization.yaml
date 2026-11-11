@@ -1,0 +1,32 @@
+# Document-processing services (#92): ClamAV, Apache Tika and Gotenberg parse every uploaded file, including files
+# from external users. They run in their own namespace, one per cluster (the backend's TIKA_URL, GOTENBERG_URL and
+# CLAMAV_HOST point at diligence-processing in every environment), with no egress except DNS (and HTTPS to the
+# internet for ClamAV signature updates), ingress only from the backend, pinned images and resource limits.
+#   kubectl apply -k infrastructure/kubernetes/processing
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: diligence-processing
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: diligence
+      app.kubernetes.io/component: document-processing
+    includeSelectors: false
+resources:
+  - namespace.yaml
+  - network-policies.yaml
+  - clamav.yaml
+  - tika.yaml
+  - gotenberg.yaml
+images:
+  # Pinned by digest; Dependabot (docker) proposes updates. Tika is our image with Indonesian OCR
+  # (infrastructure/docker/tika, built by the Processing images workflow); CI pins it like the backend.
+  - name: clamav/clamav-debian
+    newTag: "1.5.4"
+    digest: sha256:76a9c3b63764b78178dc68fa7efcceca0cde2c8c9d4f925a8e697cb4511f8fdc
+  - name: gotenberg/gotenberg
+    newTag: "8.40.0"
+    digest: sha256:53073e798c8ef39ea2187e44cb67bab77894ea2509100b94c4fe3b461f7b2996
+  # Built from main by the Processing images workflow; pin the immutable tag when deploying:
+  #   kustomize edit set image ghcr.io/inpartnerhub/diligence-tika=ghcr.io/inpartnerhub/diligence-tika:sha-<commit>
+  - name: ghcr.io/inpartnerhub/diligence-tika
+    newTag: main

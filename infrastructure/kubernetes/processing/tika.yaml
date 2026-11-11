@@ -1,0 +1,69 @@
+# Apache Tika with Tesseract and Indonesian OCR (infrastructure/docker/tika). Runs as the image's user 35002.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tika
+  labels: { app.kubernetes.io/name: tika }
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app.kubernetes.io/name: tika }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: tika }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 35002
+        runAsGroup: 35002
+        fsGroup: 35002
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: tika
+          image: ghcr.io/inpartnerhub/diligence-tika
+          ports: [{ name: http, containerPort: 9998 }]
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=75 -Djava.io.tmpdir=/tmp"
+          resources:
+            requests: { cpu: 500m, memory: 1536Mi }
+            limits: { cpu: "2", memory: 2Gi }
+          startupProbe:
+            httpGet: { path: /version, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /version, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /version, port: http }
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 2Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tika
+  labels: { app.kubernetes.io/name: tika }
+spec:
+  selector: { app.kubernetes.io/name: tika }
+  ports: [{ name: http, port: 9998, targetPort: http }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tika
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: tika }

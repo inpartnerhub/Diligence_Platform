@@ -1,0 +1,55 @@
+# Default deny; only the backend may call the parsers, and the parsers may call nothing but DNS. A parser bug
+# triggered by a hostile file then cannot reach the cloud metadata endpoint, other services or the internet.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Backend pods of any Diligence environment namespace (they carry app.kubernetes.io/part-of: diligence).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-ingress
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { app.kubernetes.io/part-of: diligence } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
+      ports:
+        - { protocol: TCP, port: 3310 } # ClamAV
+        - { protocol: TCP, port: 9998 } # Tika
+        - { protocol: TCP, port: 3000 } # Gotenberg
+---
+# freshclam downloads signatures from the ClamAV CDN (database.clamav.net) over HTTPS; public addresses only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clamav-signature-updates
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: clamav } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{ protocol: TCP, port: 443 }]

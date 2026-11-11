@@ -1,6 +1,7 @@
 # Custom Apache Tika Server image bundled with Indonesian OCR language pack (PRD DOC-06).
 # The upstream apache/tika:*-full image ships eng/deu/fra/ita/spa/jpn; this adds tesseract-ocr-ind.
-FROM apache/tika:4.2.0-1-full
+# Pinned by digest (#92); Dependabot (docker) proposes updates.
+FROM apache/tika:4.2.0-1-full@sha256:4774eaac44f86cdf648ae7b5a367016eaf6f9052adec31e5cff07cff1a0c6e24
 
 USER root
 
