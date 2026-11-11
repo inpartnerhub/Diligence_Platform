@@ -19,6 +19,20 @@ interface FolderRepository extends JpaRepository<Folder, UUID> {
     @Query("select f from Folder f where f.parentId = :parentId and lower(f.name) = lower(:name)")
     Optional<Folder> findChild(UUID parentId, String name);
 
+    /**
+     * The folder and its ancestors, as far as row-level security lets the caller see them (#128): what a single-folder
+     * authorization needs, instead of every folder of the project. Order is not defined; follow {@code parentId}.
+     */
+    @Query(value = """
+            WITH RECURSIVE chain (id, parent_id, depth) AS (
+                SELECT f.id, f.parent_id, 0 FROM dr.folder f WHERE f.id = :folderId AND f.project_id = :projectId
+                UNION ALL
+                SELECT p.id, p.parent_id, c.depth + 1 FROM dr.folder p JOIN chain c ON p.id = c.parent_id
+                WHERE c.depth < 64)
+            SELECT f.* FROM dr.folder f WHERE f.id IN (SELECT id FROM chain)
+            """, nativeQuery = true)
+    List<Folder> findWithAncestors(UUID projectId, UUID folderId);
+
     boolean existsByParentId(UUID parentId);
 
     /**
