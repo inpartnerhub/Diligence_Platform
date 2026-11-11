@@ -13,7 +13,8 @@ import com.inpartnerhub.diligence.search.SearchIndex;
 
 /**
  * Handles project data room purging upon retention expiry or administrator request (PRD ADM-06, UU PDP).
- * Safely removes S3 objects, full-text search index documents, and PostgreSQL data room entities.
+ * Removes the S3 objects (every version), the full-text search entries and the PostgreSQL data room rows. If any
+ * step fails the listener fails, so the purge is retried and never recorded as complete while data remains (#124).
  */
 @Component
 class DataRoomRetentionListener {
@@ -48,26 +49,20 @@ class DataRoomRetentionListener {
         var docList = documents.findByProjectId(projectId);
         long documentsCount = docList.size();
 
+        // Failures are not swallowed (#124): an exception rolls this transaction back and leaves the event publication
+        // incomplete, so the failed-event retry job (#81) runs the purge again and no ProjectDataPurged audit entry
+        // claims a purge while files or index entries remain. Both deletions are idempotent.
         // 1. Remove from full-text search index
         for (var doc : docList) {
-            try {
-                searchIndex.remove(doc.getId());
-            } catch (Exception ex) {
-                log.warn("Failed to remove document {} from search index: {}", doc.getId(), ex.getMessage());
-            }
+            searchIndex.remove(doc.getId());
         }
 
         // 2. Count versions
         var verList = versions.findByProjectId(projectId);
         long versionsCount = verList.size();
 
-        // 3. Delete binary objects from S3 under "projects/{projectId}/"
-        long s3ObjectsPurged = 0;
-        try {
-            s3ObjectsPurged = storage.deletePrefix("projects/" + projectId + "/");
-        } catch (Exception ex) {
-            log.warn("Failed to delete S3 objects for project {}: {}", projectId, ex.getMessage());
-        }
+        // 3. Delete every version of the binary objects under "projects/{projectId}/"
+        long s3ObjectsPurged = storage.deletePrefix("projects/" + projectId + "/");
 
         // Purged pages must not linger in memory either.
         previewPages.evictProject(projectId);

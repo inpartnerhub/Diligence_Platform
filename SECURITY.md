@@ -46,8 +46,12 @@ Only the latest release deployed from `main` receives security fixes.
   ([ADR-0003](docs/adr/0003-hosting-and-data-residency.md)).
 - **Retention**: project data is deleted after closure per client agreement (ADM-06): when an archived project passes
   its retention period every module deletes its data (data room files and search entries, findings, request items,
-  Q&A, reports, notifications, timesheet, webhook logs; #114). The project record, its workstreams and expired
-  memberships stay as the record that it existed;
+  Q&A, reports, notifications, timesheet, webhook logs; #114). Documents are deleted with every S3 object version
+  and delete marker (the bucket is versioned), so they cannot be restored from S3; database rows remain only in the
+  RDS backups until those expire (14 days). A purge that cannot delete everything fails and is retried; it is
+  recorded as `project.data-purged` only once the data is gone (#124). The backend's role needs
+  `s3:ListBucketVersions` and `s3:DeleteObjectVersion` on the document bucket. The project record, its workstreams and
+  expired memberships stay as the record that it existed;
   the audit log is retained per policy and is not deletable by the application.
 - **NDA / terms of use**: external users must accept them on first login (Keycloak `TERMS_AND_CONDITIONS` required
   action). The formal bilingual Non-Disclosure Agreement and Digital Workspace Terms of Use are configured in the
