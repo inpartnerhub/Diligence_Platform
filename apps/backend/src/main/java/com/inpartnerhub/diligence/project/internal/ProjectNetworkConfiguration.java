@@ -11,7 +11,6 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
-import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.web.ApiPaths;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,7 +54,7 @@ class ProjectNetworkConfiguration implements WebMvcConfigurer {
             return;
         }
         var user = users.currentUser().orElse(null);
-        if (user == null || user.roles().isEmpty() || !user.roles().stream().allMatch(Role::isExternal)) {
+        if (!ProjectNetworkGuard.restricts(user)) {
             return;
         }
         var matcher = PROJECT_PATH.matcher(request.getRequestURI());

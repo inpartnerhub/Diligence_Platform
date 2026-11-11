@@ -18,6 +18,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectAccessBlocked;
 import com.inpartnerhub.diligence.security.AuthenticatedUser;
@@ -106,6 +108,32 @@ class ProjectNetworkTest {
         as(Role.SUPER_ADMIN);
         configuration.check(request(project.getId(), "198.51.100.1"));
         verify(projects, never()).findById(any());
+    }
+
+    @Test
+    void listsLeaveOutProjectsOutsideTheAllowListForExternalUsersOnly() {
+        project.updateAllowedIpRanges(List.of("203.0.113.0/24"));
+        when(projects.findWithAllowList()).thenReturn(List.of(project));
+        var access = new ProjectAccess(projects, mock(ProjectMemberRepository.class), currentUser);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request(project.getId(),
+                "198.51.100.1")));
+        try {
+            as(Role.CLIENT);
+            assertThat(access.outsideAllowList()).containsExactly(project.getId());
+
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request(project.getId(),
+                    "203.0.113.5")));
+            assertThat(access.outsideAllowList()).isEmpty();
+
+            as(Role.PARTNER);
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request(project.getId(),
+                    "198.51.100.1")));
+            assertThat(access.outsideAllowList()).isEmpty();
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+        as(Role.CLIENT);
+        assertThat(access.outsideAllowList()).as("outside a web request").isEmpty();
     }
 
     private static List<String> manyRanges() {

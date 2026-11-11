@@ -17,10 +17,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.inpartnerhub.diligence.TestContainersConfiguration;
 import com.inpartnerhub.diligence.project.ProjectRole;
@@ -128,6 +131,45 @@ class ProjectIntegrationTest {
                 project.getId())).isZero();
         signIn(target, Role.TARGET);
         assertThat(projects.list(new ProjectService.ProjectFilter(null, null), PageRequest.of(0, 10))).isEmpty();
+    }
+
+    @Test
+    void externalUsersOutsideTheAllowListDoNotSeeTheProjectInListsOrThePortfolio() {
+        signIn(pm, Role.PROJECT_MANAGER);
+        var project = projects.create(new ProjectService.CreateCommand("NET-" + pm.toString().substring(0, 8),
+                "Borealis", clientOrg, targetOrg, LocalDate.now(), LocalDate.now().plusMonths(3), null,
+                Set.of(WorkstreamType.LEGAL)));
+        members.add(project.getId(), new MemberService.AddCommand(target, ProjectRole.TARGET, null, null));
+        jdbc.update("update prj.project set allowed_ip_ranges = '203.0.113.0/24' where id = ?", project.getId());
+        var all = new ProjectService.ProjectFilter(null, null);
+
+        try {
+            signIn(target, Role.TARGET);
+            from("198.51.100.7");
+            assertThat(projects.list(all, PageRequest.of(0, 10))).isEmpty();
+            assertThat(dashboards.portfolio().projects()).isEmpty();
+            assertThat(dashboards.portfolio().totalProjects()).isZero();
+
+            from("203.0.113.20");
+            assertThat(projects.list(all, PageRequest.of(0, 10))).extracting(Project::getId)
+                    .containsExactly(project.getId());
+            assertThat(dashboards.portfolio().projects()).extracting(DashboardService.PortfolioProjectSummary::projectId)
+                    .containsExactly(project.getId());
+
+            // The internal team is not restricted by the allow-list.
+            signIn(pm, Role.PROJECT_MANAGER);
+            from("198.51.100.7");
+            assertThat(projects.list(all, PageRequest.of(0, 10))).extracting(Project::getId)
+                    .contains(project.getId());
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    private static void from(String ip) {
+        var request = new MockHttpServletRequest("GET", "/api/v1/projects");
+        request.setRemoteAddr(ip);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
     }
 
     private void seedUser(UUID id, UUID organizationId, Role role) {

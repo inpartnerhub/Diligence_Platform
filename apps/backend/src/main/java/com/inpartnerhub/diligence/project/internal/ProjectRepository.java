@@ -12,4 +12,8 @@ interface ProjectRepository extends JpaRepository<Project, UUID>, JpaSpecificati
 
     @Query("select p from Project p where p.status = 'ARCHIVED' and p.purgedAt is null and p.archivedAt is not null")
     List<Project> findArchivedCandidates();
+
+    /** Visible projects that restrict external access to an IP allow-list (PRD Bab 10.1); usually few or none. */
+    @Query("select p from Project p where p.allowedIpRanges <> ''")
+    List<Project> findWithAllowList();
 }

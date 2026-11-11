@@ -101,7 +101,10 @@ class DashboardService {
     }
 
     PortfolioDashboard portfolio() {
-        var allProjects = projects.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+        var hidden = access.outsideAllowList();
+        var allProjects = projects.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .filter(project -> !hidden.contains(project.getId()))
+                .toList();
         var today = LocalDate.now(clock);
 
         List<PortfolioProjectSummary> summaries = new ArrayList<>();

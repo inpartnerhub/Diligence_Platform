@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
@@ -57,6 +59,26 @@ class ProjectAccess {
             throw new AccessDeniedException("Only the project's partners and project managers can change it");
         }
         return project;
+    }
+
+    /**
+     * Projects the caller can see but may not reach from the current address (PRD Bab 10.1, #125). Lists such as the
+     * project list and the portfolio leave them out, so an external user outside a project's allow-list learns
+     * nothing about it; project-scoped endpoints are refused by {@link ProjectNetworkConfiguration}. Empty for the
+     * internal team and outside a web request.
+     */
+    Set<UUID> outsideAllowList() {
+        var user = currentUser.currentUser().orElse(null);
+        if (!ProjectNetworkGuard.restricts(user)
+                || !(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
+            return Set.of();
+        }
+        // The address Tomcat resolved from our trusted proxies (docs/security/client-addresses.md).
+        var ip = attributes.getRequest().getRemoteAddr();
+        return projects.findWithAllowList().stream()
+                .filter(project -> !project.allowsAddress(ip))
+                .map(Project::getId)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /** Like {@link #manageable(UUID)}, but also rejects archived projects. */

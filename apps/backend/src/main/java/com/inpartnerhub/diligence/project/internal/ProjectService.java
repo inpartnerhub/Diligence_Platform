@@ -91,6 +91,10 @@ class ProjectService {
             spec = spec.and((root, query, cb) -> cb.or(cb.like(cb.lower(root.get("code")), pattern),
                     cb.like(cb.lower(root.get("name")), pattern)));
         }
+        var hidden = access.outsideAllowList();
+        if (!hidden.isEmpty()) {
+            spec = spec.and((root, query, cb) -> cb.not(root.get("id").in(hidden)));
+        }
         return projects.findAll(spec, pageable);
     }
 

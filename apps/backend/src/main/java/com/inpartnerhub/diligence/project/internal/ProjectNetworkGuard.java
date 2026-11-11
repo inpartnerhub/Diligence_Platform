@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectAccessBlocked;
+import com.inpartnerhub.diligence.security.AuthenticatedUser;
+import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 
 import io.micrometer.core.instrument.Counter;
@@ -30,6 +32,14 @@ class ProjectNetworkGuard {
         this.blocked = Counter.builder("diligence.project.access.blocked")
                 .description("External requests refused by a project's IP allow-list (PRD 10.1)")
                 .register(meters);
+    }
+
+    /**
+     * Whether the allow-lists apply to this user: only external users (client, target, observer) are restricted; the
+     * internal team is protected by SSO and MFA from any location.
+     */
+    static boolean restricts(AuthenticatedUser user) {
+        return user != null && !user.roles().isEmpty() && user.roles().stream().allMatch(Role::isExternal);
     }
 
     /** Whether the caller may reach the project from {@code ip}; unknown or invisible projects are left to the API. */
