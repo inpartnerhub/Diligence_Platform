@@ -85,6 +85,10 @@ spring:
     password: ${SMTP_PASSWORD:}
     properties:
       mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      # JavaMail waits forever by default (#126): a stalled SMTP server must not block the notification threads.
+      mail.smtp.connectiontimeout: ${SMTP_CONNECT_TIMEOUT_MS:5000}
+      mail.smtp.timeout: ${SMTP_READ_TIMEOUT_MS:15000}
+      mail.smtp.writetimeout: ${SMTP_WRITE_TIMEOUT_MS:15000}
   servlet:
     multipart:
       max-file-size: 100MB
@@ -117,6 +121,9 @@ diligence:
     web-client-id: ${OIDC_WEB_CLIENT_ID:diligence-web}
     web-redirect-uri: ${APP_BASE_URL:http://localhost:3000}
     invitation-lifespan: 72h
+    # Keycloak Admin API calls run inside the user-administration transaction: never wait on it without limit (#126).
+    connect-timeout: ${IDP_CONNECT_TIMEOUT:5s}
+    read-timeout: ${IDP_READ_TIMEOUT:15s}
   notification:
     from: ${MAIL_FROM:Diligence Platform <no-reply@diligence.local>}
     # Links in notification e-mails point to the web application.
