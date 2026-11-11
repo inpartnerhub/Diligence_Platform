@@ -28,7 +28,10 @@ recovery simulation proves the targets.
 ## Restore S3 objects
 
 Deleted or overwritten documents: restore the previous object version (`aws s3api list-object-versions`, then copy
-the version back). Project purges (ADM-06) delete all versions on purpose and are not recoverable.
+the version back). Project purges (ADM-06) delete all versions and delete markers under `projects/<id>/` on purpose
+and are not recoverable (#124); this needs `s3:ListBucketVersions` and `s3:DeleteObjectVersion` for the backend. A
+purge that fails (S3 or OpenSearch unavailable, missing permission) is retried by the failed-event job, see
+[failed-events.md](failed-events.md).
 
 ## Quarterly restore test
 

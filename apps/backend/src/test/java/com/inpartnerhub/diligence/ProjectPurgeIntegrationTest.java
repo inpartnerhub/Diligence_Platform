@@ -2,6 +2,9 @@ package com.inpartnerhub.diligence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.List;
@@ -18,16 +21,22 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.modulith.events.FailedEventPublications;
+import org.springframework.modulith.events.ResubmissionOptions;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.inpartnerhub.diligence.dataroom.DocumentStorage;
 import com.inpartnerhub.diligence.project.ProjectEvents.ProjectDataPurgeRequested;
+import com.inpartnerhub.diligence.search.SearchIndex;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 
 /**
  * Project purge across modules (PRD ADM-06, #114): after {@link ProjectDataPurgeRequested} no table outside the
  * audit log holds rows of the project, except the project record itself, its workstreams and its (expired)
  * memberships. Every table with a {@code project_id} column is checked, so a new table that the purge forgets
- * fails this test. Another project's data stays untouched.
+ * fails this test. Another project's data stays untouched. A purge that cannot delete the documents' files is not
+ * recorded as done and keeps the rows until a retry succeeds (#124).
  */
 @Tag("integration")
 @SpringBootTest(properties = {
@@ -49,6 +58,16 @@ class ProjectPurgeIntegrationTest {
 
     @Autowired
     TransactionTemplate transactions;
+
+    @Autowired
+    FailedEventPublications failedEvents;
+
+    // No S3 or OpenSearch in this test: the purge must reach them, so they are stubbed.
+    @MockitoBean
+    DocumentStorage storage;
+
+    @MockitoBean
+    SearchIndex searchIndex;
 
     private final UUID manager = UUID.randomUUID();
     private final UUID purged = UUID.randomUUID();
@@ -116,6 +135,33 @@ class ProjectPurgeIntegrationTest {
         await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(250))
                 .untilAsserted(() -> assertThat(leftovers(purged)).isEmpty());
         assertThat(leftovers(kept)).as("the other project").isEqualTo(before);
+    }
+
+    @Test
+    void aPurgeThatCannotDeleteTheFilesKeepsTheDataAndIsNotRecordedUntilARetrySucceeds() {
+        when(storage.deletePrefix(anyString())).thenThrow(new IllegalStateException("S3 refused the delete"));
+
+        transactions.executeWithoutResult(status -> events.publishEvent(
+                new ProjectDataPurgeRequested(purged, "PURGE-" + purged, RequestMetadata.SYSTEM)));
+
+        await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(250)).untilAsserted(() -> assertThat(
+                jdbc.queryForObject("select count(*) from event_publication where status = 'FAILED' "
+                        + "and listener_id like '%DataRoomRetentionListener%'", Integer.class)).isPositive());
+        assertThat(leftovers(purged)).containsKeys("dr.document", "dr.folder");
+        assertThat(purgedRecords()).isZero();
+
+        reset(storage);
+        failedEvents.resubmit(ResubmissionOptions.defaults().withMinAge(Duration.ZERO));
+
+        await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(250))
+                .untilAsserted(() -> assertThat(leftovers(purged)).isEmpty());
+        await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(250))
+                .untilAsserted(() -> assertThat(purgedRecords()).isEqualTo(1));
+    }
+
+    private Integer purgedRecords() {
+        return jdbc.queryForObject("select count(*) from audit.audit_log where action = 'project.data-purged' "
+                + "and object_id = ?", Integer.class, purged.toString());
     }
 
     /** Row counts per table with a project_id column, outside the audit schema and the kept tables. */

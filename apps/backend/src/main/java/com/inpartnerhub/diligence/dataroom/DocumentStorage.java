@@ -11,6 +11,9 @@ public interface DocumentStorage {
 
     void delete(String objectKey);
 
-    /** Removes all objects under a given key prefix. Returns the count of deleted objects. */
+    /**
+     * Removes every object under a key prefix for good, including all earlier versions. Throws when anything could
+     * not be deleted. Returns the number of object versions deleted.
+     */
     long deletePrefix(String prefix);
 }
