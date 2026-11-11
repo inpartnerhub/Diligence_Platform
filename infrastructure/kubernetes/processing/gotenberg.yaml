@@ -1,9 +1,10 @@
-# Gotenberg (LibreOffice) renders Office/OpenDocument uploads to PDF for previews. Runs as the image's user 1001;
+# Gotenberg (LibreOffice) renders Office/OpenDocument uploads to PDF for previews. Runs as the image's user 10101;
 # LibreOffice writes its profile under the home directory, so that and /tmp are writable emptyDirs.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gotenberg
+  namespace: diligence-processing
   labels: { app.kubernetes.io/name: gotenberg }
 spec:
   replicas: 2
@@ -17,13 +18,13 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+        runAsUser: 10101
+        runAsGroup: 10101
+        fsGroup: 10101
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: gotenberg
-          image: gotenberg/gotenberg
+          image: ghcr.io/inpartnerhub/diligence-gotenberg:main
           args: ["gotenberg", "--api-disable-health-check-logging", "--api-timeout=120s"]
           ports: [{ name: http, containerPort: 3000 }]
           resources:
@@ -56,6 +57,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: gotenberg
+  namespace: diligence-processing
   labels: { app.kubernetes.io/name: gotenberg }
 spec:
   selector: { app.kubernetes.io/name: gotenberg }
@@ -65,6 +67,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: gotenberg
+  namespace: diligence-processing
 spec:
   minAvailable: 1
   selector:

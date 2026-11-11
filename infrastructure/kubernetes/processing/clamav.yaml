@@ -4,6 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: clamav-config
+  namespace: diligence-processing
 data:
   clamd.conf: |
     Foreground yes
@@ -32,6 +33,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: clamav
+  namespace: diligence-processing
   labels: { app.kubernetes.io/name: clamav }
 spec:
   replicas: 2
@@ -45,13 +47,13 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 10100
+        runAsGroup: 10100
+        fsGroup: 10100
         seccompProfile: { type: RuntimeDefault }
       initContainers:
         - name: signatures
-          image: clamav/clamav-debian
+          image: ghcr.io/inpartnerhub/diligence-clamav:main
           command: ["freshclam", "--config-file=/etc/clamav-config/freshclam.conf", "--foreground"]
           resources:
             requests: { cpu: 100m, memory: 256Mi }
@@ -66,7 +68,7 @@ spec:
             - { name: tmp, mountPath: /tmp }
       containers:
         - name: clamd
-          image: clamav/clamav-debian
+          image: ghcr.io/inpartnerhub/diligence-clamav:main
           command: ["clamd", "--config-file=/etc/clamav-config/clamd.conf"]
           ports: [{ name: clamd, containerPort: 3310 }]
           resources:
@@ -90,7 +92,7 @@ spec:
           securityContext: *restricted
           volumeMounts: *mounts
         - name: freshclam
-          image: clamav/clamav-debian
+          image: ghcr.io/inpartnerhub/diligence-clamav:main
           command: ["freshclam", "--config-file=/etc/clamav-config/freshclam.conf", "--daemon"]
           resources:
             requests: { cpu: 50m, memory: 128Mi }
@@ -109,6 +111,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: clamav
+  namespace: diligence-processing
   labels: { app.kubernetes.io/name: clamav }
 spec:
   selector: { app.kubernetes.io/name: clamav }
@@ -118,6 +121,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: clamav
+  namespace: diligence-processing
 spec:
   minAvailable: 1
   selector:

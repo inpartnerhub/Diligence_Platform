@@ -7,8 +7,8 @@ the platform, so these services run apart from the application (#92):
 | Control | How |
 |---------|-----|
 | Network | Default deny. Ingress only from `diligence-backend` pods of namespaces labelled `app.kubernetes.io/part-of: diligence`, on 3310/9998/3000. Egress only DNS; ClamAV additionally HTTPS to public addresses for signature updates. No access to the metadata endpoint, other namespaces or the internet. |
-| Pods | Pod Security `restricted`: non-root (ClamAV 1000, Tika 35002, Gotenberg 1001), read-only root filesystem, all capabilities dropped, `RuntimeDefault` seccomp, no service-account token. Writable paths are size-limited `emptyDir`s. |
-| Images | ClamAV and Gotenberg pinned by digest; Tika is our image (`infrastructure/docker/tika`, base pinned by digest) built and scanned by the *Processing images* workflow. Dependabot proposes updates. |
+| Pods | Pod Security `restricted`: non-root with UIDs above 10000 (ClamAV 10100, Gotenberg 10101, Tika 35002), read-only root filesystem, all capabilities dropped, `RuntimeDefault` seccomp, no service-account token. Writable paths are size-limited `emptyDir`s. |
+| Images | All three are rebuilt into GHCR, the only trusted registry (`.trivy/data/trusted-registries.yaml`): `infrastructure/docker/{clamav,gotenberg,tika}` start from digest-pinned upstream images, apply security updates and move the service user above UID 10000. The *Processing images* workflow builds, Trivy-scans (fails on fixable High/Critical) and pushes them. Dependabot proposes base updates. |
 | Capacity | Requests and limits per container, two replicas each, a PodDisruptionBudget each. |
 
 ClamAV does not use the image's `/init` (it needs root): an init container downloads the signatures, `clamd` scans,
@@ -23,7 +23,9 @@ One processing namespace per cluster serves every Diligence environment in it (t
 
 ```bash
 cd infrastructure/kubernetes/processing
-kustomize edit set image ghcr.io/inpartnerhub/diligence-tika=ghcr.io/inpartnerhub/diligence-tika:sha-<commit>
+for image in clamav gotenberg tika; do
+  kustomize edit set image "ghcr.io/inpartnerhub/diligence-$image=ghcr.io/inpartnerhub/diligence-$image:sha-<commit>"
+done
 kubectl apply -k .
 kubectl -n diligence-processing rollout status deploy/clamav deploy/tika deploy/gotenberg
 ```
@@ -31,7 +33,7 @@ kubectl -n diligence-processing rollout status deploy/clamav deploy/tika deploy/
 The signatures are re-downloaded when a ClamAV pod starts (about 300 MB from the ClamAV CDN, which rate-limits
 heavy users). For frequent restarts or several clusters, point `DatabaseMirror` at a private mirror.
 
-## Verified locally (Docker, same user, read-only root and dropped capabilities)
+## Verified locally (Docker, read-only root and dropped capabilities; with the upstream images and their original UIDs 1000/1001, before the GHCR rebuilds moved them above 10000)
 
 - ClamAV 1.5.4: signatures downloaded by `freshclam`, `clamd` answered `PING` after about 8 s, EICAR reported as
   `Eicar-Test-Signature FOUND` over `INSTREAM`, a clean stream `OK`; about 1 GiB of memory.

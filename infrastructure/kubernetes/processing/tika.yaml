@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tika
+  namespace: diligence-processing
   labels: { app.kubernetes.io/name: tika }
 spec:
   replicas: 2
@@ -22,7 +23,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: tika
-          image: ghcr.io/inpartnerhub/diligence-tika
+          image: ghcr.io/inpartnerhub/diligence-tika:main
           ports: [{ name: http, containerPort: 9998 }]
           env:
             - name: JAVA_TOOL_OPTIONS
@@ -54,6 +55,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tika
+  namespace: diligence-processing
   labels: { app.kubernetes.io/name: tika }
 spec:
   selector: { app.kubernetes.io/name: tika }
@@ -63,6 +65,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: tika
+  namespace: diligence-processing
 spec:
   minAvailable: 1
   selector:

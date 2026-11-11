@@ -5,10 +5,15 @@ FROM apache/tika:4.2.0-1-full@sha256:4774eaac44f86cdf648ae7b5a367016eaf6f9052ade
 
 USER root
 
+# Security updates of the base (e.g. apt itself), and no pebble: Ubuntu's service manager is unused here and its Go
+# runtime carries open CVEs (#92).
 RUN apt-get update \
+    && apt-get -y upgrade \
     && apt-get install -y --no-install-recommends \
        tesseract-ocr-ind \
        curl \
+    && (pkg=$(dpkg -S /usr/bin/pebble 2>/dev/null | cut -d: -f1); \
+        if [ -n "$pkg" ]; then apt-get purge -y "$pkg"; else rm -f /usr/bin/pebble; fi) \
     && rm -rf /var/lib/apt/lists/*
 
 USER 35002:35002

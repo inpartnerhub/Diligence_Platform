@@ -4,6 +4,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-all
+  namespace: diligence-processing
 spec:
   podSelector: {}
   policyTypes: [Ingress, Egress]
@@ -12,6 +13,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns-egress
+  namespace: diligence-processing
 spec:
   podSelector: {}
   policyTypes: [Egress]
@@ -27,6 +29,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-backend-ingress
+  namespace: diligence-processing
 spec:
   podSelector: {}
   policyTypes: [Ingress]
@@ -44,6 +47,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: clamav-signature-updates
+  namespace: diligence-processing
 spec:
   podSelector: { matchLabels: { app.kubernetes.io/name: clamav } }
   policyTypes: [Egress]
