@@ -143,6 +143,10 @@ diligence:
     # _PREVIOUS and set a new one; restarted pods re-encrypt every signing key, then _PREVIOUS can be removed.
     key-encryption-key: ${WEBHOOK_KEY_ENCRYPTION_KEY:}
     previous-key-encryption-key: ${WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS:}
+    # Delivery logs keep the event payload: delete them after this period, and at once when their project is purged
+    # (ADM-06 retention, #90). The cron runs on one replica (ShedLock).
+    log-retention: ${WEBHOOK_LOG_RETENTION:P30D}
+    log-retention-cron: ${WEBHOOK_LOG_RETENTION_CRON:0 30 2 * * *}
   dataroom:
     # Time zone of the timestamp in viewer watermarks (PRD DOC-04).
     watermark-zone: ${WATERMARK_ZONE:Asia/Jakarta}

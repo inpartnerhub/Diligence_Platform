@@ -12,6 +12,9 @@ admin page are not counted.
 | `failed` | The receiver answered non-2xx, timed out or refused the connection on every attempt. |
 | `blocked` | The target resolved to a private, loopback, link-local or metadata address and the delivery was refused (SSRF protection, #87). |
 
+Delivery logs are kept for `WEBHOOK_LOG_RETENTION` (30 days by default) and deleted at once when their project is
+purged (#90), so older failures are no longer in the table.
+
 ## Check
 
 1. Administration → Webhooks → the subscription with the id in the alert → *Deliveries*: status code, attempts and
