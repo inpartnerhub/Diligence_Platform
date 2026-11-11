@@ -18,6 +18,8 @@ interface ProjectMemberRepository extends JpaRepository<ProjectMember, UUID> {
 
     long countByProjectId(UUID projectId);
 
+    List<ProjectMember> findByProjectIdInOrderByCreatedAt(Collection<UUID> projectIds);
+
     /**
      * Ends access for the given roles at the database's own clock, which row-level security compares against
      * (prj.has_project_role): an application clock running ahead of the database would otherwise leave access
