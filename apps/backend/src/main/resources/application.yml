@@ -85,6 +85,11 @@ spring:
     password: ${SMTP_PASSWORD:}
     properties:
       mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      # With STARTTLS on, also require it (#127): otherwise a server (or an attacker on the path) that does not offer
+      # it gets the credentials and the mail in plaintext. Local Mailpit has no TLS and keeps both off.
+      mail.smtp.starttls.required: ${SMTP_STARTTLS:false}
+      mail.smtp.ssl.checkserveridentity: ${SMTP_STARTTLS:false}
+      mail.smtp.ssl.protocols: TLSv1.2 TLSv1.3
       # JavaMail waits forever by default (#126): a stalled SMTP server must not block the notification threads.
       mail.smtp.connectiontimeout: ${SMTP_CONNECT_TIMEOUT_MS:5000}
       mail.smtp.timeout: ${SMTP_READ_TIMEOUT_MS:15000}
