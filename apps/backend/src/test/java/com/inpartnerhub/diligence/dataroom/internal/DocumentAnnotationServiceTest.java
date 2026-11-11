@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
+import com.inpartnerhub.diligence.dataroom.AnnotationFindings;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.security.AuthenticatedUser;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
@@ -30,8 +32,9 @@ class DocumentAnnotationServiceTest {
     private final DocumentRepository documents = mock(DocumentRepository.class);
     private final DataRoomAccess access = mock(DataRoomAccess.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
+    private final AnnotationFindings findings = mock(AnnotationFindings.class);
     private final DocumentAnnotationService service = new DocumentAnnotationService(annotations, documents, access,
-            currentUser);
+            currentUser, findings);
 
     private final UUID docId = UUID.randomUUID();
     private final Document doc = new Document(PROJECT, UUID.randomUUID(), "contract.pdf", UUID.randomUUID());
@@ -75,6 +78,7 @@ class DocumentAnnotationServiceTest {
     @Test
     void createsAndSavesAnnotation() {
         var findingId = UUID.randomUUID();
+        when(findings.visible(PROJECT, findingId)).thenReturn(true);
         var annotation = service.create(PROJECT, docId, 2, 15.0, 25.0, 30.0, 10.0, "#ffe58f",
                 "Indemnity cap mentioned here", findingId);
 
@@ -126,5 +130,15 @@ class DocumentAnnotationServiceTest {
 
         service.delete(PROJECT, docId, annId);
         verify(annotations).delete(ann);
+    }
+
+    @Test
+    void refusesAFindingThatIsNotInTheProject() {
+        var otherProjectsFinding = UUID.randomUUID();
+        when(findings.visible(PROJECT, otherProjectsFinding)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.create(PROJECT, docId, 1, 10.0, 10.0, 10.0, 10.0, null, null,
+                otherProjectsFinding)).isInstanceOf(InvalidRequestException.class);
+        verify(annotations, never()).save(any(DocumentAnnotation.class));
     }
 }

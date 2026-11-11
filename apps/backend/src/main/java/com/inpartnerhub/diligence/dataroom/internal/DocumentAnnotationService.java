@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.inpartnerhub.diligence.dataroom.AnnotationFindings;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
@@ -25,13 +26,15 @@ class DocumentAnnotationService {
     private final DocumentRepository documents;
     private final DataRoomAccess access;
     private final CurrentUserProvider currentUser;
+    private final AnnotationFindings findings;
 
     DocumentAnnotationService(DocumentAnnotationRepository annotations, DocumentRepository documents,
-            DataRoomAccess access, CurrentUserProvider currentUser) {
+            DataRoomAccess access, CurrentUserProvider currentUser, AnnotationFindings findings) {
         this.annotations = annotations;
         this.documents = documents;
         this.access = access;
         this.currentUser = currentUser;
+        this.findings = findings;
     }
 
     @Transactional(readOnly = true)
@@ -61,6 +64,7 @@ class DocumentAnnotationService {
             throw new AccessDeniedException("Only analysts and managers can create annotations");
         }
         verifyDocumentExists(projectId, documentId);
+        verifyFinding(projectId, findingId);
         validateCoordinates(xPct, yPct, widthPct, heightPct);
         if (pageNumber < 1) {
             throw new InvalidRequestException("pageNumber must be positive");
@@ -83,6 +87,7 @@ class DocumentAnnotationService {
         var annotation = annotations.findById(annotationId)
                 .filter(a -> a.getProjectId().equals(projectId) && a.getDocumentId().equals(documentId))
                 .orElseThrow(() -> new ResourceNotFoundException("Annotation", annotationId));
+        verifyFinding(projectId, findingId);
         if (xPct != null || yPct != null || widthPct != null || heightPct != null) {
             validateCoordinates(
                     xPct != null ? xPct : annotation.getxPct(),
@@ -110,6 +115,13 @@ class DocumentAnnotationService {
         documents.findById(documentId)
                 .filter(d -> d.getProjectId().equals(projectId))
                 .orElseThrow(() -> new ResourceNotFoundException("Document", documentId));
+    }
+
+    /** An annotation may only point at a finding of its own project that the caller can see (#91). */
+    private void verifyFinding(UUID projectId, UUID findingId) {
+        if (findingId != null && !findings.visible(projectId, findingId)) {
+            throw new InvalidRequestException("The finding does not exist in this project");
+        }
     }
 
     private static void validateCoordinates(double x, double y, double width, double height) {
