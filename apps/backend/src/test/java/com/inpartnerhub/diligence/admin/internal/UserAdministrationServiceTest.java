@@ -42,7 +42,7 @@ class UserAdministrationServiceTest {
     private final IdentityAdminClient identity = mock(IdentityAdminClient.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final IdentityProperties properties = new IdentityProperties(null, "diligence", "admin", "secret",
-            "diligence-web", null, Duration.ofHours(72));
+            "diligence-web", null, Duration.ofHours(72), null, null);
     private final UserAdministrationService service = new UserAdministrationService(users, invitations, organizations,
             identity, properties, events);
 

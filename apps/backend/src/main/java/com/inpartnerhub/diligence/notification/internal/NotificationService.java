@@ -8,8 +8,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.admin.Directory;
-import com.inpartnerhub.diligence.notification.EmailSender;
 import com.inpartnerhub.diligence.notification.NotificationType;
 import com.inpartnerhub.diligence.notification.Notifier;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
@@ -28,13 +25,13 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Delivery and inbox (PRD ADM-05): every notification is stored in the recipient's inbox and e-mailed, unless the
- * recipient switched that channel off for the type. E-mail failures are logged and do not undo the in-app delivery.
+ * recipient switched that channel off for the type. E-mails go out after the transaction commits, off this thread
+ * ({@link NotificationMailQueue}); failures are logged and do not undo the in-app delivery.
  */
 @Service
 @Transactional
 class NotificationService implements Notifier {
 
-    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
     private static final TypeReference<Map<String, String>> PARAMS = new TypeReference<>() {
     };
 
@@ -48,18 +45,18 @@ class NotificationService implements Notifier {
     private final InAppNotificationRepository notifications;
     private final NotificationPreferenceRepository preferences;
     private final Directory directory;
-    private final EmailSender email;
+    private final NotificationMailQueue mail;
     private final CurrentUserProvider currentUser;
     private final JsonMapper json;
     private final String appBaseUrl;
 
     NotificationService(InAppNotificationRepository notifications, NotificationPreferenceRepository preferences,
-            Directory directory, EmailSender email, CurrentUserProvider currentUser, JsonMapper json,
+            Directory directory, NotificationMailQueue mail, CurrentUserProvider currentUser, JsonMapper json,
             @Value("${diligence.notification.app-base-url}") String appBaseUrl) {
         this.notifications = notifications;
         this.preferences = preferences;
         this.directory = directory;
-        this.email = email;
+        this.mail = mail;
         this.currentUser = currentUser;
         this.json = json;
         this.appBaseUrl = appBaseUrl.endsWith("/") ? appBaseUrl.substring(0, appBaseUrl.length() - 1) : appBaseUrl;
@@ -84,7 +81,7 @@ class NotificationService implements Notifier {
                         params, notification.link()));
             }
             if ((preference == null || preference.isEmailEnabled()) && user.email() != null) {
-                sendQuietly(NotificationMessages.email(user.email(), notification.type(), notification.params(), url));
+                mail.sendAfterCommit(NotificationMessages.email(user.email(), notification.type(), notification.params(), url));
             }
         }
     }
@@ -140,14 +137,6 @@ class NotificationService implements Notifier {
     private InboxEntry entry(InAppNotification n) {
         return new InboxEntry(n.getId(), n.getType(), n.getProjectId(), json.readValue(n.getParams(), PARAMS),
                 n.getLink(), n.getCreatedAt(), n.getReadAt());
-    }
-
-    private void sendQuietly(EmailSender.EmailMessage message) {
-        try {
-            email.send(message);
-        } catch (RuntimeException ex) {
-            log.warn("Notification e-mail could not be sent: {}", ex.getMessage());
-        }
     }
 
     private UUID me() {

@@ -49,7 +49,8 @@ class NotificationServiceTest {
     private final Directory directory = mock(Directory.class);
     private final EmailSender email = mock(EmailSender.class);
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
-    private final NotificationService service = new NotificationService(notifications, preferences, directory, email,
+    private final NotificationService service = new NotificationService(notifications, preferences, directory,
+            new NotificationMailQueue(email, Runnable::run),
             currentUser, JsonMapper.builder().build(), "https://dd.example/");
 
     private final List<InAppNotification> saved = new ArrayList<>();

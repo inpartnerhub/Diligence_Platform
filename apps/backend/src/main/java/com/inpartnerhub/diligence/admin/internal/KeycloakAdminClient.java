@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.admin.internal;
 
+import java.net.http.HttpClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.stream.Stream;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -37,7 +39,14 @@ class KeycloakAdminClient implements IdentityAdminClient {
     private volatile CachedToken token;
 
     KeycloakAdminClient(RestClient.Builder builder, IdentityProperties properties) {
-        this.http = builder.baseUrl(properties.baseUrl().toString()).build();
+        // Explicit timeouts (#126): the defaults wait without limit, and these calls hold a database transaction.
+        // HTTP/1.1 as before: no h2c upgrade attempt on plain-HTTP internal addresses.
+        var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(properties.connectTimeout())
+                .build());
+        factory.setReadTimeout(properties.readTimeout());
+        this.http = builder.clone().baseUrl(properties.baseUrl().toString()).requestFactory(factory).build();
         this.properties = properties;
     }
 
