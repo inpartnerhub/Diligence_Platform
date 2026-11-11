@@ -48,7 +48,7 @@ class DocumentSearchService {
         }
         var pageSize = Math.clamp(size, 1, MAX_PAGE_SIZE);
         var pageNumber = Math.max(page, 0);
-        if ((long) (pageNumber + 1L) * pageSize > MAX_RESULT_WINDOW) {
+        if ((pageNumber + 1L) * pageSize > MAX_RESULT_WINDOW) {
             throw new InvalidRequestException("Only the first " + MAX_RESULT_WINDOW
                     + " results can be browsed; refine the search term");
         }

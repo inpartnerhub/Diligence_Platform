@@ -10,18 +10,13 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
-import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.PrintSetup;
@@ -182,74 +177,13 @@ final class RequestSpreadsheet {
 
     // ------------------------------------------------------------------ import
 
-    /** Reads the first sheet. Rows without any value are skipped. */
+    /** Reads the first sheet, streamed (#93). Rows without any value are skipped. */
     static List<ImportRow> read(InputStream content) {
-        try (Workbook workbook = new XSSFWorkbook(content)) {
-            if (workbook.getNumberOfSheets() == 0) {
-                throw new InvalidRequestException("The workbook has no sheet");
-            }
-            var sheet = workbook.getSheetAt(0);
-            var headerRow = sheet.getRow(sheet.getFirstRowNum());
-            if (headerRow == null) {
-                throw new InvalidRequestException("The first sheet is empty");
-            }
-            var formatter = new DataFormatter(Locale.ROOT);
-            var columns = new HashMap<Integer, Column>();
-            for (var cell : headerRow) {
-                Column.forHeader(formatter.formatCellValue(cell)).ifPresent(c -> columns.putIfAbsent(cell
-                        .getColumnIndex(), c));
-            }
-            if (!columns.containsValue(Column.WORKSTREAM) || !columns.containsValue(Column.DESCRIPTION)) {
-                throw new InvalidRequestException("The first row must contain the column headers, at least "
-                        + "'Workstream' and 'Description'");
-            }
-            var rows = new ArrayList<ImportRow>();
-            for (var r = headerRow.getRowNum() + 1; r <= sheet.getLastRowNum(); r++) {
-                var row = sheet.getRow(r);
-                if (row == null) {
-                    continue;
-                }
-                var values = new HashMap<Column, String>();
-                LocalDate due = null;
-                String dueError = null;
-                for (var entry : columns.entrySet()) {
-                    var cell = row.getCell(entry.getKey());
-                    if (cell == null) {
-                        continue;
-                    }
-                    if (entry.getValue() == Column.DUE_DATE) {
-                        var text = formatter.formatCellValue(cell).strip();
-                        values.put(Column.DUE_DATE, text);
-                        if (!text.isEmpty()) {
-                            var parsed = date(cell, text);
-                            due = parsed.orElse(null);
-                            dueError = parsed.isPresent() ? null : "Invalid due date '" + text + "'";
-                        }
-                    } else {
-                        values.put(entry.getValue(), formatter.formatCellValue(cell));
-                    }
-                }
-                if (values.values().stream().allMatch(v -> v == null || v.isBlank())) {
-                    continue;
-                }
-                if (rows.size() >= MAX_ROWS) {
-                    throw new InvalidRequestException("At most " + MAX_ROWS + " rows can be imported at once");
-                }
-                rows.add(new ImportRow(r + 1, values, due, dueError));
-            }
-            return rows;
-        } catch (IOException | RuntimeException ex) {
-            if (ex instanceof InvalidRequestException invalid) {
-                throw invalid;
-            }
-            throw new InvalidRequestException("The file is not a readable Excel workbook (.xlsx)");
-        }
+        return RequestSheetReader.read(content);
     }
 
-    static Optional<LocalDate> date(Cell cell, String text) {
-        if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-            return Optional.of(cell.getLocalDateTimeCellValue().toLocalDate());
-        }
+    /** A due date typed as text, or an ISO date from a date-formatted cell. */
+    static Optional<LocalDate> parseDate(String text) {
         for (var format : DATE_FORMATS) {
             try {
                 return Optional.of(LocalDate.parse(text, format));
