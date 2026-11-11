@@ -62,7 +62,9 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 ## Secrets management
 
 - **Never commit secrets**: passwords, tokens, API keys, client secrets, private keys, `.env` files, `*.tfvars`,
-  Terraform state. These are git-ignored and gitleaks runs in CI on every push.
+  Terraform state. These are git-ignored and gitleaks runs in CI on every push. GitHub secret scanning with push
+  protection is enabled on the repository (since 2026-11-11): a push containing a recognised provider secret is
+  rejected before it reaches the history. Bypass it only for a confirmed false positive, with the reason given.
 - Local development uses `.env` (placeholders only in `.env.example`).
 - Deployed environments receive secrets only from **HashiCorp Vault** via the Vault Secrets Operator
   ([ADR-0002](docs/adr/0002-secrets-via-vault-operator.md)): backend (`kv/diligence/<env>/backend/*`, including
