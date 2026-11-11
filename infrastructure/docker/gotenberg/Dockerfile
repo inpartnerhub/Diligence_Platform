@@ -12,3 +12,7 @@ RUN apt-get update \
     && chown -R 10101:10101 /home/gotenberg
 
 USER 10101:10101
+
+# For docker run/compose; Kubernetes uses its own probes.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -sf http://127.0.0.1:3000/health || exit 1

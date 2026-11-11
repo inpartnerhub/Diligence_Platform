@@ -11,3 +11,6 @@ RUN apt-get update \
     && chown -R 10100:10100 /var/lib/clamav /var/log/clamav
 
 USER 10100:10100
+
+# For docker run/compose; Kubernetes uses its own probes (clamdscan --ping against /etc/clamav-config).
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 CMD clamdscan --ping 1 || exit 1
