@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
@@ -20,7 +22,6 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -37,7 +38,7 @@ import com.inpartnerhub.diligence.security.internal.SecurityConfiguration;
 @WebMvcTest(controllers = AuditLogController.class,
         properties = { "diligence.security.client-id=diligence-api",
                 "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:0/realms/test" })
-@Import(SecurityConfiguration.class)
+@Import({ SecurityConfiguration.class, AuditCsvExport.class })
 @RecordApplicationEvents
 class AuditLogControllerTest {
 
@@ -117,12 +118,15 @@ class AuditLogControllerTest {
                 "SUCCESS",
                 "=cmd|' /C calc'!A0"); // test CSV formula injection defense
 
-        when(repository.findAll(ArgumentMatchers.<Specification<AuditLogEntry>>any(), any(Sort.class)))
+        when(repository.findBy(ArgumentMatchers.<Specification<AuditLogEntry>>any(), any()))
                 .thenReturn(List.of(entry1, entry2));
 
-        var result = mvc.perform(get("/api/v1/admin/audit-logs/export")
+        var started = mvc.perform(get("/api/v1/admin/audit-logs/export")
                 .with(superAdmin())
                 .param("action", "document.downloaded"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        var result = mvc.perform(asyncDispatch(started))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8"))
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
