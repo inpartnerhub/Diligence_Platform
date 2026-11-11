@@ -8,7 +8,9 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 interface RequestItemRepository extends JpaRepository<RequestItem, UUID>, JpaSpecificationExecutor<RequestItem> {
 
@@ -29,4 +31,9 @@ interface RequestItemRepository extends JpaRepository<RequestItem, UUID>, JpaSpe
             order by i.projectId, i.dueDate
             """)
     List<RequestItem> dueForReminder(Collection<RequestStatus> statuses, LocalDate until, LocalDate today);
+
+    /** Project purge (ADM-06, #114): child rows of this module go with it through ON DELETE CASCADE. */
+    @Modifying
+    @Query("delete from RequestItem e where e.projectId = :projectId")
+    int deleteAllForProject(@Param("projectId") UUID projectId);
 }

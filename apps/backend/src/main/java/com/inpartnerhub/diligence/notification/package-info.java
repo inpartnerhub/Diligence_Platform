@@ -5,7 +5,8 @@
  * {@link com.inpartnerhub.diligence.notification.NotificationType}.
  * Account e-mails (invitation, password reset, OTP setup) are sent by Keycloak itself.
  */
-@ApplicationModule(displayName = "Notification", allowedDependencies = { "shared", "security", "admin" })
+@ApplicationModule(displayName = "Notification", allowedDependencies = { "shared", "security", "admin",
+        "project" })
 package com.inpartnerhub.diligence.notification;
 
 import org.springframework.modulith.ApplicationModule;

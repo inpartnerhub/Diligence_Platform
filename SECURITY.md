@@ -44,7 +44,10 @@ Only the latest release deployed from `main` receives security fixes.
 - **UU No. 27/2022 (PDP)**: processing basis, data subject rights, incident notification and the data protection
   officer are mapped in the compliance register (owner: Security Officer). Hosting location is an open decision
   ([ADR-0003](docs/adr/0003-hosting-and-data-residency.md)).
-- **Retention**: project data is deleted or anonymized after closure per client agreement (ADM-06, phase 2);
+- **Retention**: project data is deleted after closure per client agreement (ADM-06): when an archived project passes
+  its retention period every module deletes its data (data room files and search entries, findings, request items,
+  Q&A, reports, notifications, timesheet, webhook logs; #114). The project record, its workstreams and expired
+  memberships stay as the record that it existed;
   the audit log is retained per policy and is not deletable by the application.
 - **NDA / terms of use**: external users must accept them on first login (Keycloak `TERMS_AND_CONDITIONS` required
   action). The formal bilingual Non-Disclosure Agreement and Digital Workspace Terms of Use are configured in the

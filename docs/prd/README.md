@@ -71,7 +71,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | ADM-03 | Immutable audit trail | M | `audit`, `audit.audit_log` triggers | ✅ |
 | ADM-04 | Activity report per user / document | S (MVP) | `GET /api/v1/admin/audit-logs`, `/admin/audit` | ✅ basic |
 | ADM-05 | E-mail and in-app notifications, preferences | M | `notification` (`ntf.notification`, preferences), header bell, `/notifications` | ✅ |
-| ADM-06 | Retention and automatic deletion | S | `ProjectRetentionJob`, `DataRoomRetentionListener` | ✅ |
+| ADM-06 | Retention and automatic deletion | S | `ProjectRetentionJob`; one `*RetentionListener` per module (data room, findings, requests, Q&A, reports, notifications, timesheet), `WebhookLogRetention`; `ProjectPurgeIntegrationTest` (#114) | ✅ |
 | ADM-07 | Public API and webhooks | C | OpenAPI; `WebhookService` (HMAC-SHA256, retries, delivery log, HTTPS-only public targets, key shown once, Super Admin only) | ✅ |
 
 ## Non-functional requirements (Bab 7)
