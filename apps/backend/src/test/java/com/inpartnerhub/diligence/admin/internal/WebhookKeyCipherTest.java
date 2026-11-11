@@ -20,7 +20,7 @@ class WebhookKeyCipherTest {
     }
 
     private static WebhookKeyCipher cipher(String current, String previous) {
-        return new WebhookKeyCipher(new WebhookProperties(false, current, previous));
+        return new WebhookKeyCipher(new WebhookProperties(false, current, previous, null));
     }
 
     @Test
