@@ -61,6 +61,13 @@ public final class AdminEvents {
         }
     }
 
+    /**
+     * An organization was set to inactive (#156). Published after its {@link OrganizationUpdated}; the project module
+     * ends the project access of the organization's client and target members.
+     */
+    public record OrganizationDeactivated(UUID organizationId) {
+    }
+
     public record UserInvited(UUID userId, UUID organizationId, Role role, RequestMetadata requestMetadata)
             implements AuditableEvent {
 

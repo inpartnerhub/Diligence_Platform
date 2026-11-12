@@ -95,6 +95,23 @@ class MemberServiceTest {
     }
 
     @Test
+    void externalUsersOfAnInactiveOrganizationCannotJoin() {
+        // #156: a deactivated organization's people get no new project access.
+        var target = summary(Role.TARGET, TARGET_ORG);
+        when(directory.findUser(target.id())).thenReturn(Optional.of(target));
+        when(directory.findOrganization(TARGET_ORG)).thenReturn(Optional.of(
+                new Directory.OrganizationSummary(TARGET_ORG, "Target", Directory.OrganizationType.TARGET, false)));
+
+        assertThatThrownBy(() -> service.add(project.getId(), new MemberService.AddCommand(target.id(),
+                ProjectRole.TARGET, null, null))).hasMessageContaining("organization is inactive");
+
+        when(directory.findOrganization(TARGET_ORG)).thenReturn(Optional.of(
+                new Directory.OrganizationSummary(TARGET_ORG, "Target", Directory.OrganizationType.TARGET, true)));
+        assertThatNoException().isThrownBy(() -> service.add(project.getId(), new MemberService.AddCommand(target.id(),
+                ProjectRole.TARGET, null, null)));
+    }
+
+    @Test
     void addsMemberScopedToWorkstream() {
         var analyst = summary(Role.ANALYST, null);
         var legal = new Workstream(project.getId(), WorkstreamType.LEGAL);

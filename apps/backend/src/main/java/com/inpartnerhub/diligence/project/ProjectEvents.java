@@ -124,6 +124,31 @@ public final class ProjectEvents {
         }
     }
 
+    /** A member's access ended without removing the membership, e.g. because their organization was deactivated. */
+    public record ProjectMemberAccessRevoked(UUID projectId, UUID memberId, UUID userId, String reason,
+            RequestMetadata requestMetadata) implements AuditableEvent {
+
+        @Override
+        public String auditAction() {
+            return "project.member-access-revoked";
+        }
+
+        @Override
+        public String auditObjectType() {
+            return "project";
+        }
+
+        @Override
+        public String auditObjectId() {
+            return projectId.toString();
+        }
+
+        @Override
+        public Map<String, String> auditDetails() {
+            return Map.of("userId", userId.toString(), "reason", reason);
+        }
+    }
+
     public record ProjectRetentionUpdated(UUID projectId, String code, int retentionPeriodDays,
             RequestMetadata requestMetadata) implements AuditableEvent {
 
