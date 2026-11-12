@@ -9,7 +9,11 @@ metadata:
 plugin: rate-limiting
 config:
   minute: 600
-  policy: redis # shared counters across Kong replicas
+  # Counters per Kong proxy replica (#139): the effective limit per address is minute × proxy replicas. "redis"
+  # would share them, but needs config.redis (host, TLS, a password from a secret) for this environment's Redis;
+  # without it Kong rejects the plugin and no per-address limit applies. The CI check in infrastructure.yml fails
+  # a redis policy without a host.
+  policy: local
   limit_by: ip
 ---
 apiVersion: configuration.konghq.com/v1
