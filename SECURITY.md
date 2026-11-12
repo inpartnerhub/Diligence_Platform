@@ -98,7 +98,9 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 ## Infrastructure baseline
 
 - Non-root containers (UID 10001), read-only root filesystem, all capabilities dropped, `restricted` Pod Security.
-- Default-deny NetworkPolicies; backend reachable only from Kong; management port only from monitoring.
+- Default-deny NetworkPolicies, enforced by the VPC CNI network policy agent (`modules/kubernetes-cluster`, #157) and
+  checked after deployment with `infrastructure/kubernetes/scripts/verify-network-policies.sh`; backend reachable only
+  from Kong; management port only from monitoring.
 - Data services are private; API docs disabled in production.
 - Infrastructure logging: VPC flow logs, EKS control-plane logs, OpenSearch audit logs, S3 access logs.
 - Supply chain: Dependabot, dependency review, Trivy (images + IaC), SBOM and provenance, SonarQube. Images come

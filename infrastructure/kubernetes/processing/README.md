@@ -41,6 +41,8 @@ heavy users). For frequent restarts or several clusters, point `DatabaseMirror` 
   request.
 - Tika 4.2.0 (our image): text and PDF extraction; about 0.8 GiB of memory. OCR was not exercised.
 
-Not verifiable here: the NetworkPolicies themselves (they need a CNI that enforces them) and Pod Security admission;
-check both on the first deployment (`kubectl -n diligence-processing exec deploy/tika -- curl -m 5 https://example.com`
-must fail).
+Not verifiable here: the NetworkPolicies themselves and Pod Security admission. The EKS module enables VPC CNI network
+policy enforcement (#157); after every cluster or add-on change run
+`infrastructure/kubernetes/scripts/verify-network-policies.sh diligence-<env>`, which tries connections the policies
+must block (processing pods to the internet, the backend and the metadata endpoint) and checks that the backend still
+reaches Tika. It must report "NetworkPolicies are enforced".
