@@ -65,6 +65,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: cp .env.example .env && docker compose --profile app --profile observability config -q
+      - name: clamd reports unscannable content in compose and Kubernetes (#140)
+        run: |
+          for setting in "AlertExceedsMax yes" "AlertEncryptedArchive yes"; do
+            grep -q "^    $setting$" infrastructure/kubernetes/processing/clamav.yaml \
+              || { echo "::error::clamav.yaml must set $setting"; exit 1; }
+            key=${setting% *}
+            [ "$(docker compose config --format json | jq -r ".services.clamav.environment.CLAMD_CONF_$key")" = yes ] \
+              || { echo "::error::compose.yaml must set CLAMD_CONF_$key: yes"; exit 1; }
+          done
 
   alert-rules:
     runs-on: ubuntu-latest
