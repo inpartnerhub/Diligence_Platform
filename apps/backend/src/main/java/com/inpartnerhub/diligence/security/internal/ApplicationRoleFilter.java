@@ -32,8 +32,7 @@ class ApplicationRoleFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         if (SecurityContextHolder.getContext().getAuthentication() instanceof JwtAuthenticationToken token
                 && JwtCurrentUserProvider.toUser(token).roles().isEmpty()) {
-            log.warn("Refused {} {}: account {} has no application role", request.getMethod(),
-                    request.getRequestURI(), token.getName());
+            log.warn("Refused a request: account {} has no application role", token.getName());
             response.setStatus(HttpStatus.FORBIDDEN.value());
             response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
             response.getWriter().write("""
