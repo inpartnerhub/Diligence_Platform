@@ -65,6 +65,32 @@ CREATE POLICY user_account_update ON adm.user_account FOR UPDATE
 CREATE POLICY user_account_delete ON adm.user_account FOR DELETE USING (
     prj.is_system() OR prj.app_role() = 'super_admin');
 
+-- A user's own row is writable only for bookkeeping: last login, invited → active, language (and the JPA version).
+-- Role, organization, e-mail, name and MFA flag change only through the Super Admin or internal processing.
+CREATE FUNCTION adm.protect_own_account() RETURNS trigger
+    LANGUAGE plpgsql AS
+$$
+BEGIN
+    IF prj.is_system() OR prj.app_role() = 'super_admin' THEN
+        RETURN NEW;
+    END IF;
+    IF NEW.id IS DISTINCT FROM OLD.id
+        OR NEW.email IS DISTINCT FROM OLD.email
+        OR NEW.display_name IS DISTINCT FROM OLD.display_name
+        OR NEW.organization_id IS DISTINCT FROM OLD.organization_id
+        OR NEW.global_role IS DISTINCT FROM OLD.global_role
+        OR NEW.mfa_enabled IS DISTINCT FROM OLD.mfa_enabled
+        OR NEW.created_at IS DISTINCT FROM OLD.created_at
+        OR (NEW.status IS DISTINCT FROM OLD.status AND NOT (OLD.status = 'INVITED' AND NEW.status = 'ACTIVE')) THEN
+        RAISE EXCEPTION 'only the Super Admin changes role, organization, e-mail, name or status of an account'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+END
+$$;
+CREATE TRIGGER user_account_protect_own BEFORE UPDATE ON adm.user_account
+    FOR EACH ROW EXECUTE FUNCTION adm.protect_own_account();
+
 -- ---------------------------------------------------------------- organizations
 ALTER TABLE adm.organization ENABLE ROW LEVEL SECURITY;
 CREATE POLICY organization_read ON adm.organization FOR SELECT USING (

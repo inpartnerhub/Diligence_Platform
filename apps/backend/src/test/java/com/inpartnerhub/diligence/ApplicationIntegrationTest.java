@@ -118,6 +118,10 @@ class ApplicationIntegrationTest {
         assertThat(asUser(client, "client",
                 "with u as (update adm.user_account set locale = 'en' where id = '%s' returning 1) select count(*) from u"
                         .formatted(client))).isEqualTo(1);                 // own profile
+        assertThatThrownBy(() -> asUser(client, "client",
+                "with u as (update adm.user_account set global_role = 'PARTNER' where id = '%s' returning 1) select count(*) from u"
+                        .formatted(client)))
+                .hasMessageContaining("only the Super Admin");             // never its own role
     }
 
     private UUID account(UUID organization, String role) {
