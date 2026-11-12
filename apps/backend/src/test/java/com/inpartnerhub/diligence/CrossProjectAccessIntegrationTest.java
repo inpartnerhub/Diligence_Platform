@@ -116,6 +116,17 @@ class CrossProjectAccessIntegrationTest {
     }
 
     @Test
+    void anAccountWithoutAnApplicationRoleSeesNothing() throws Exception {
+        // #152: e.g. an account imported by an SSO broker before an administrator assigned its role.
+        var withoutRole = jwt().jwt(j -> j.subject(UUID.randomUUID().toString()).claim("email", "sso@example.com"));
+        for (var path : List.of("/api/v1/projects", "/api/v1/projects/" + projectB,
+                "/api/v1/projects/" + projectB + "/dashboard", "/api/v1/projects/" + projectB + "/members",
+                "/api/v1/projects/" + projectB + "/workstreams", "/api/v1/me")) {
+            mvc.perform(get(path).with(withoutRole)).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
     void theSameResourcesAreReachableThroughTheirOwnProject() throws Exception {
         for (var path : List.of("/documents/" + documentB + "/versions", "/folders/" + folderB + "/documents",
                 "/findings/" + findingB, "/requests/" + itemB, "/questions/" + questionB, "/reports")) {

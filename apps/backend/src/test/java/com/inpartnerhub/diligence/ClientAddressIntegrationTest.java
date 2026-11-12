@@ -56,7 +56,9 @@ class ClientAddressIntegrationTest {
     void acceptAnyToken() {
         when(jwtDecoder.decode(anyString())).thenReturn(Jwt.withTokenValue("t").header("alg", "none")
                 .subject(CALLER.toString()).claim("preferred_username", "echo")
-                .claim("email", "echo@example.com").issuedAt(Instant.now())
+                .claim("email", "echo@example.com")
+                .claim("realm_access", java.util.Map.of("roles", java.util.List.of("analyst"))) // #152
+                .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(60)).build());
     }
 

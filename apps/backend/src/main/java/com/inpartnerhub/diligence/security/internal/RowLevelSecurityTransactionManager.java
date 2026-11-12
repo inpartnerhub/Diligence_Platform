@@ -1,11 +1,15 @@
 package com.inpartnerhub.diligence.security.internal;
 
+import java.util.Optional;
+
 import org.springframework.orm.jpa.EntityManagerHolder;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.inpartnerhub.diligence.security.AuthenticatedUser;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
+import com.inpartnerhub.diligence.security.Role;
 
 import jakarta.persistence.EntityManagerFactory;
 
@@ -23,6 +27,7 @@ class RowLevelSecurityTransactionManager extends JpaTransactionManager {
 
     static final String DATABASE_ROLE = "diligence_app";
     static final String SYSTEM_ROLE = "system";
+    static final String NO_ROLE = "none";
 
     private final transient CurrentUserProvider currentUserProvider;
 
@@ -38,12 +43,24 @@ class RowLevelSecurityTransactionManager extends JpaTransactionManager {
         var entityManager = holder.getEntityManager();
         var user = currentUserProvider.currentUser();
         var userId = user.map(u -> u.id().toString()).orElse("");
-        var role = user.flatMap(u -> u.primaryRole()).map(r -> r.realmRoleName()).orElse(SYSTEM_ROLE);
+        var role = roleFor(user);
 
         entityManager.createNativeQuery("SET LOCAL ROLE " + DATABASE_ROLE).executeUpdate();
         entityManager.createNativeQuery("SELECT set_config('app.user_id', :userId, true), set_config('app.role', :role, true)")
                 .setParameter("userId", userId)
                 .setParameter("role", role)
                 .getSingleResult();
+    }
+
+    /**
+     * {@code system} only when there is no authenticated user at all (message listeners, schedulers). A user without
+     * an application role gets {@link #NO_ROLE}, which no policy trusts (#152); {@link ApplicationRoleFilter} already
+     * refuses such callers, this keeps the database from failing open if one gets through.
+     */
+    static String roleFor(Optional<AuthenticatedUser> user) {
+        if (user.isEmpty()) {
+            return SYSTEM_ROLE;
+        }
+        return user.get().primaryRole().map(Role::realmRoleName).orElse(NO_ROLE);
     }
 }

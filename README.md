@@ -123,9 +123,10 @@ All ports bind to `127.0.0.1` only. If a port clashes with another local service
 
 ### Internal SSO (optional)
 
-Set `ENTRA_TENANT_ID` / `ENTRA_CLIENT_ID` / `ENTRA_CLIENT_SECRET` and/or `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-in `.env` and re-run `make keycloak-bootstrap`. SSO users are provisioned just in time with the least-privileged
-role (`OBSERVER`) until an administrator assigns their role.
+Set `ENTRA_TENANT_ID` / `ENTRA_CLIENT_ID` / `ENTRA_CLIENT_SECRET` and/or `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` /
+`GOOGLE_HOSTED_DOMAIN` in `.env` and re-run `make keycloak-bootstrap`. The tenant id and the hosted domain are
+required, so only the firm's own accounts can sign in. An SSO user's first sign-in creates the account (listed in
+User administration) without a role; the web app and the API refuse it until a Super Admin assigns one.
 
 ## Development
 

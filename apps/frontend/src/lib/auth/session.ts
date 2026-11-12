@@ -10,7 +10,13 @@ import { serverEnv } from "@/lib/config/env";
 import { oidcConfiguration } from "./oidc";
 import { canAccess, type NavKey } from "./permissions";
 import { decodeJwtPayload, rolesFromRealmAccess } from "./roles";
-import { readSession, updateSession, type SessionData, type SessionUser } from "./session-store";
+import {
+  deleteSession,
+  readSession,
+  updateSession,
+  type SessionData,
+  type SessionUser,
+} from "./session-store";
 
 export const SESSION_COOKIE = "diligence_sid";
 const REFRESH_LEEWAY_SECONDS = 30;
@@ -46,6 +52,14 @@ export function userFromTokens(
   };
 }
 
+/**
+ * Whether the user holds at least one application role. Accounts without one (e.g. imported by an SSO broker before an
+ * administrator assigned a role) get no session: the backend refuses them anyway (#152).
+ */
+export function hasApplicationRole(user: SessionUser): boolean {
+  return user.roles.length > 0;
+}
+
 /** Current session, refreshing the access token when it is about to expire. `null` when signed out. */
 export async function getSession(): Promise<SessionData | null> {
   const { sid } = await sessionCookie();
@@ -72,6 +86,10 @@ export async function getSession(): Promise<SessionData | null> {
       expiresAt: Math.floor(Date.now() / 1000) + (tokens.expires_in ?? 60),
       user: userFromTokens(tokens.access_token, tokens.claims()),
     };
+    if (!hasApplicationRole(refreshed.user)) {
+      await deleteSession(sid); // the role was removed meanwhile
+      return null;
+    }
     await updateSession(sid, refreshed);
     return refreshed;
   } catch {

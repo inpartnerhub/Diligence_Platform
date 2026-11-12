@@ -135,7 +135,9 @@ export function UsersView({
             render: (_, u) => (
               <Select<Role>
                 size="small"
-                value={u.role}
+                value={u.role ?? undefined}
+                placeholder={t("users.noRole")}
+                status={u.role ? undefined : "warning"}
                 options={roleOptions}
                 style={{ width: 200 }}
                 onChange={(role) =>

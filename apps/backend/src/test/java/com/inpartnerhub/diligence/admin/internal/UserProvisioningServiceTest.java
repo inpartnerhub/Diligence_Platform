@@ -57,7 +57,8 @@ class UserProvisioningServiceTest {
 
         var saved = ArgumentCaptor.forClass(UserAccount.class);
         verify(users).save(saved.capture());
-        assertThat(saved.getValue().getGlobalRole()).isEqualTo(Role.OBSERVER); // least privilege until assigned
+        assertThat(saved.getValue().getGlobalRole()).isNull(); // no role until an administrator assigns one (#152)
+        assertThat(saved.getValue().isMfaEnabled()).isFalse();
         assertThat(saved.getValue().getEmail()).isEqualTo("sso.user@example.com");
         assertThat(saved.getValue().getStatus()).isEqualTo(UserAccount.Status.ACTIVE);
     }

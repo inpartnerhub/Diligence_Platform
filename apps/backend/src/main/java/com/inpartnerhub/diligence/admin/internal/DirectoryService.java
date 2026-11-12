@@ -54,7 +54,9 @@ class DirectoryService implements Directory {
     }
 
     Page<UserSummary> searchActiveUsers(UUID organizationId, String query, Pageable pageable) {
-        Specification<UserAccount> spec = (root, q, cb) -> cb.notEqual(root.get("status"), UserAccount.Status.DISABLED);
+        // Accounts without a role yet (#152) cannot join projects, so they are not offered.
+        Specification<UserAccount> spec = (root, q, cb) -> cb.and(
+                cb.notEqual(root.get("status"), UserAccount.Status.DISABLED), cb.isNotNull(root.get("globalRole")));
         if (organizationId != null) {
             spec = spec.and((root, q, cb) -> cb.equal(root.get("organizationId"), organizationId));
         }

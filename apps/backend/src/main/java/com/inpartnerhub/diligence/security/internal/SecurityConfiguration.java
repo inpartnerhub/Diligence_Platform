@@ -57,6 +57,8 @@ public class SecurityConfiguration {
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .jwtAuthenticationConverter(new KeycloakJwtAuthenticationConverter(properties.clientId()))))
                 .addFilterAfter(new UserAuthenticationEventFilter(events), BearerTokenAuthenticationFilter.class)
+                // Registered after the login event filter, so it runs after it (#152).
+                .addFilterAfter(new ApplicationRoleFilter(), BearerTokenAuthenticationFilter.class)
                 .build();
     }
 

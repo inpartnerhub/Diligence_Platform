@@ -7,7 +7,7 @@ import * as client from "openid-client";
 import { LOCALE_COOKIE, toLocale } from "@/i18n/locales";
 import { oidcConfiguration } from "@/lib/auth/oidc";
 import { loginTransaction } from "@/lib/auth/login-transaction";
-import { sessionCookie, userFromTokens } from "@/lib/auth/session";
+import { hasApplicationRole, sessionCookie, userFromTokens } from "@/lib/auth/session";
 import { writeSession } from "@/lib/auth/session-store";
 import { serverEnv } from "@/lib/config/env";
 import { logError } from "@/lib/log";
@@ -36,8 +36,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login", serverEnv.appBaseUrl));
   }
 
-  const sessionId = randomUUID();
   const user = userFromTokens(tokens.access_token, tokens.claims());
+  if (!hasApplicationRole(user)) {
+    // No session for an account without a role (#152); end the identity provider session so the user can sign in
+    // with another account, then explain why.
+    const endSession = client.buildEndSessionUrl(oidcConfiguration(), {
+      client_id: serverEnv.oidcClientId,
+      post_logout_redirect_uri: `${serverEnv.appBaseUrl}/auth/no-access`,
+      ...(tokens.id_token && { id_token_hint: tokens.id_token }),
+    });
+    return NextResponse.redirect(endSession);
+  }
+
+  const sessionId = randomUUID();
   const refreshLifetime = Number((tokens as Record<string, unknown>).refresh_expires_in ?? 1800);
   await writeSession(
     sessionId,

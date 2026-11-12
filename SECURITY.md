@@ -25,7 +25,7 @@ Only the latest release deployed from `main` receives security fixes.
 | Session expiry on inactivity | Keycloak `ssoSessionIdleTimeout` 30 min, max 10 h; access tokens 5 min; BFF session bounded by the refresh token | ✅ |
 | Strong passwords, brute-force protection | Realm password policy (length 12, history 5, not username/e-mail, blacklist of 100,000 common/breached passwords from SecLists: `infrastructure/docker/keycloak/password-blacklists`), lockout after 5 failures | ✅ |
 | Step-up for sensitive actions | `@RequiresRecentSignIn`: report release/issue, project purge, IP allow-list changes, webhook changes and role changes need a sign-in with MFA within 10 min (`auth_time`, `STEP_UP_MAX_AGE`); the web app re-authenticates with `prompt=login` | ✅ |
-| Internal SSO | Microsoft Entra ID / Google brokering via `make keycloak-bootstrap` (credentials from env/Vault) | ✅ |
+| Internal SSO | Microsoft Entra ID / Google brokering via `make keycloak-bootstrap` (credentials from env/Vault), limited to the firm's tenant / Workspace domain; imported accounts have no role until assigned (#152) | ✅ |
 | Server-side RBAC, tested against cross-project access (IDOR) | `@PreAuthorize`, ABAC `AccessPolicy`, PostgreSQL RLS per project; `AdminEndpointSecurityTest`, `rowLevelSecurityEnforcesInformationBarrier` | ✅ foundation |
 | Information barriers (Bab 3) | RLS: target never sees findings and only sees data-room folders granted to it; client has no data room and sees released findings / issued reports / own questions only | ✅ |
 | Immutable audit log, stored separately, exportable | `audit` schema, insert-only grants + triggers rejecting UPDATE/DELETE/TRUNCATE; search API indexed by user, object and action; CSV export streamed in batches (#116) | ✅ |
@@ -87,7 +87,7 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 | Tokens | Never stored in the browser: the frontend is a BFF; tokens live in Redis, the cookie holds a sealed session id (`HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS) |
 | CSRF | Server actions are origin-checked by Next.js; logout is POST + same-origin; the API accepts bearer tokens only |
 | Redirects | Post-login targets must be same-origin relative paths (`safeReturnTo`) |
-| Authorization | Deny by default at every layer; admin API requires `SUPER_ADMIN` |
+| Authorization | Deny by default at every layer; admin API requires `SUPER_ADMIN`; accounts without an application role (e.g. new SSO accounts) get no web session and 403 from the API until a Super Admin assigns a role (#152) |
 | Request size | Uploads and imports (multipart) up to 100 MB at Kong, Spring and clamd; every other request body is capped at `HTTP_MAX_BODY_SIZE` (1 MB) by `RequestBodyLimitFilter` before authentication and parsing, chunked bodies included (413, #117) |
 | Input | Bean Validation on every request DTO; problem details (RFC 9457) without stack traces |
 | Headers | HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`; nonce-based Content-Security-Policy on pages (`src/proxy.ts`), `default-src 'none'; sandbox` on route handlers |

@@ -20,7 +20,8 @@ export interface User {
   email: string;
   displayName: string;
   organizationId: string | null;
-  role: Role;
+  /** `null` for an SSO account that has no role yet (#152): it cannot use the platform until one is assigned. */
+  role: Role | null;
   locale: "id" | "en";
   status: UserStatus;
   mfaEnabled: boolean;
