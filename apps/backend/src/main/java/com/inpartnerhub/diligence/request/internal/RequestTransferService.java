@@ -21,7 +21,9 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
@@ -62,6 +64,9 @@ class RequestTransferService {
             WorkstreamType workstream, RequestPriority priority, int wave, RequestItem existing) {
     }
 
+    // The PDF export calls Gotenberg (up to the service timeout): it runs without a transaction and reads and audits
+    // in a short one, so no pooled connection waits on the conversion (#141).
+    private final TransactionOperations transactions;
     private final RequestItemRepository items;
     private final RequestStatusChangeRepository history;
     private final RequestService requests;
@@ -75,7 +80,9 @@ class RequestTransferService {
 
     RequestTransferService(RequestItemRepository items, RequestStatusChangeRepository history, RequestService requests, RequestAccess access,
             ProjectDirectory projects, Directory directory, PreviewRenderer renderer, CurrentUserProvider currentUser,
-            ApplicationEventPublisher events, @Value("${diligence.request.reminder-zone:Asia/Jakarta}") ZoneId zone) {
+            ApplicationEventPublisher events, @Value("${diligence.request.reminder-zone:Asia/Jakarta}") ZoneId zone,
+            TransactionOperations transactions) {
+        this.transactions = transactions;
         this.items = items;
         this.history = history;
         this.requests = requests;
@@ -91,10 +98,20 @@ class RequestTransferService {
     // ------------------------------------------------------------------ export
 
     /**
-     * The caller's view of the list (target: released items only) as Excel or PDF. Not read-only: the audit event
-     * of the export is written to the event outbox in this transaction.
+     * The caller's view of the list (target: released items only) as Excel or PDF. The workbook is built and the
+     * export audited in one short transaction; the PDF conversion runs after it (#141).
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     TemporaryFile export(UUID projectId, Format format) {
+        var workbook = transactions.execute(status -> workbook(projectId, format));
+        if (format == Format.XLSX) {
+            return workbook;
+        }
+        var base = workbook.fileName().substring(0, workbook.fileName().length() - ".xlsx".length());
+        return new TemporaryFile(base + ".pdf", "application/pdf", toPdf(workbook.path(), workbook.fileName()));
+    }
+
+    private TemporaryFile workbook(UUID projectId, Format format) {
         var context = access.project(projectId);
         var project = projects.summary(projectId).orElseThrow();
         var list = requests.list(projectId, RequestService.ItemFilter.ALL);
@@ -113,7 +130,7 @@ class RequestTransferService {
                 i.getUpdatedAt())).toList();
         var baseName = "request-list-" + context.code().toLowerCase(Locale.ROOT) + "-" + Instant.now()
                 .atZone(zone).toLocalDate();
-        // Written to temporary files, never held in memory as a whole (#129); the response deletes them once sent.
+        // Written to a temporary file, never held in memory as a whole (#129); the response deletes it once sent.
         var xlsx = TemporaryFile.create("request-list", ".xlsx");
         try {
             try (var out = new BufferedOutputStream(Files.newOutputStream(xlsx))) {
@@ -121,11 +138,7 @@ class RequestTransferService {
             }
             events.publishEvent(new RequestListTransferred(projectId, "exported", format.name(), rows.size(),
                     RequestMetadata.capture()));
-            return switch (format) {
-                case XLSX -> new TemporaryFile(baseName + ".xlsx", RequestSpreadsheet.CONTENT_TYPE, xlsx);
-                case PDF -> new TemporaryFile(baseName + ".pdf", "application/pdf",
-                        toPdf(xlsx, baseName + ".xlsx"));
-            };
+            return new TemporaryFile(baseName + ".xlsx", RequestSpreadsheet.CONTENT_TYPE, xlsx);
         } catch (IOException | RuntimeException ex) {
             TemporaryFile.delete(xlsx);
             throw ex instanceof IOException io ? new UncheckedIOException(io) : (RuntimeException) ex;

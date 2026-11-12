@@ -25,7 +25,9 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
 import com.inpartnerhub.diligence.qna.QnaEvents.QnaExported;
@@ -49,6 +51,9 @@ class QnaExportService {
     /** Rows of a streamed export kept in memory before they are flushed to disk (#129). */
     static final int ROW_WINDOW = 100;
 
+    // The PDF export calls Gotenberg (up to the service timeout): it runs without a transaction and reads and audits
+    // in a short one, so no pooled connection waits on the conversion (#141).
+    private final TransactionOperations transactions;
     private final QuestionService questions;
     private final QnaAccess access;
     private final PreviewRenderer renderer;
@@ -56,7 +61,9 @@ class QnaExportService {
     private final ZoneId zone;
 
     QnaExportService(QuestionService questions, QnaAccess access, PreviewRenderer renderer,
-            ApplicationEventPublisher events, @Value("${diligence.request.reminder-zone:Asia/Jakarta}") ZoneId zone) {
+            ApplicationEventPublisher events, @Value("${diligence.request.reminder-zone:Asia/Jakarta}") ZoneId zone,
+            TransactionOperations transactions) {
+        this.transactions = transactions;
         this.questions = questions;
         this.access = access;
         this.renderer = renderer;
@@ -64,7 +71,18 @@ class QnaExportService {
         this.zone = zone;
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     TemporaryFile export(UUID projectId, QuestionService.QuestionFilter filter, Format format) {
+        var workbook = transactions.execute(status -> workbook(projectId, filter, format));
+        if (format == Format.XLSX) {
+            return workbook;
+        }
+        var base = workbook.fileName().substring(0, workbook.fileName().length() - ".xlsx".length());
+        return new TemporaryFile(base + ".pdf", "application/pdf", pdf(workbook.path(), workbook.fileName()));
+    }
+
+    /** Reads the log, writes the workbook and audits the export, in the caller's (short) transaction. */
+    private TemporaryFile workbook(UUID projectId, QuestionService.QuestionFilter filter, Format format) {
         var context = access.project(projectId);
         var list = questions.list(projectId, filter);
         var answers = questions.answers(list);
@@ -76,10 +94,7 @@ class QnaExportService {
                 workbook(context.code(), list, answers, out);
             }
             events.publishEvent(new QnaExported(projectId, format.name(), list.size(), RequestMetadata.capture()));
-            return switch (format) {
-                case XLSX -> new TemporaryFile(base + ".xlsx", XLSX, xlsx);
-                case PDF -> new TemporaryFile(base + ".pdf", "application/pdf", pdf(xlsx, base + ".xlsx"));
-            };
+            return new TemporaryFile(base + ".xlsx", XLSX, xlsx);
         } catch (IOException | RuntimeException ex) {
             TemporaryFile.delete(xlsx);
             throw ex instanceof IOException io ? new UncheckedIOException(io) : (RuntimeException) ex;

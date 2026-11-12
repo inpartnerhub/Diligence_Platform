@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.context.ApplicationEventPublisher;
 
 import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
@@ -122,7 +123,8 @@ class QnaNotificationsAndExportTest {
         var access = mock(QnaAccess.class);
         var renderer = mock(PreviewRenderer.class);
         var events = mock(ApplicationEventPublisher.class);
-        var service = new QnaExportService(questions, access, renderer, events, ZoneId.of("Asia/Jakarta"));
+        var service = new QnaExportService(questions, access, renderer, events, ZoneId.of("Asia/Jakarta"),
+                TransactionOperations.withoutTransaction());
         when(access.project(PROJECT)).thenReturn(new ProjectContext(PROJECT, "DD-1", false,
                 Set.of(ProjectRole.PROJECT_MANAGER), Set.of()));
         var q = new Question(PROJECT, "Q-001", PM, QuestionStatus.DRAFT);

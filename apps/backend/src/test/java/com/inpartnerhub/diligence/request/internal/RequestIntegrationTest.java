@@ -1,11 +1,15 @@
 package com.inpartnerhub.diligence.request.internal;
 
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -14,6 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -30,6 +35,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
 import com.inpartnerhub.diligence.TestContainersConfiguration;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory;
 import com.inpartnerhub.diligence.dataroom.DocumentDirectory.DocumentSummary;
@@ -77,6 +83,9 @@ class RequestIntegrationTest {
 
     @MockitoBean
     EmailSender email;
+
+    @MockitoBean
+    PreviewRenderer renderer;
 
     private final UUID clientOrg = UUID.randomUUID();
     private final UUID targetOrg = UUID.randomUUID();
@@ -191,6 +200,16 @@ class RequestIntegrationTest {
         var export = transfers.export(projectId, RequestTransferService.Format.XLSX);
         assertThat(export.size()).isPositive();
         TemporaryFile.delete(export.path());
+        // #141: the PDF conversion (Gotenberg) runs after the export's transaction, holding no pooled connection.
+        var inTransaction = new java.util.concurrent.atomic.AtomicBoolean(true);
+        doAnswer(inv -> {
+            inTransaction.set(TransactionSynchronizationManager.isActualTransactionActive());
+            return Files.write((Path) inv.getArgument(3), "%PDF-1.7".getBytes());
+        }).when(renderer).renderPdf(any(), anyString(), anyString(), any());
+        var pdf = transfers.export(projectId, RequestTransferService.Format.PDF);
+        assertThat(inTransaction).isFalse();
+        assertThat(pdf.fileName()).endsWith(".pdf");
+        TemporaryFile.delete(pdf.path());
         await(() -> jdbc.queryForObject("select count(*) from audit.audit_log where action = 'request.exported' "
                 + "and object_id = ?", Integer.class, projectId.toString()) == 1);
 

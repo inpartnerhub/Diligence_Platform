@@ -4,7 +4,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.time.Instant;
@@ -23,7 +25,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.admin.Directory.OrganizationSummary;
@@ -43,6 +49,7 @@ import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
+import com.inpartnerhub.diligence.shared.web.TemporaryFile;
 import com.inpartnerhub.diligence.shared.web.UpstreamServiceException;
 
 /**
@@ -86,21 +93,28 @@ class ReportService {
     private final ApplicationEventPublisher events;
     private final ZoneId zone;
     private final Clock clock;
+    // Report generation calls Gotenberg (up to the service timeout) and S3: it runs without a transaction and uses
+    // these for its short database steps, so no pooled connection waits on the conversion (#141).
+    private final TransactionOperations transactions;
+    private final TransactionOperations readTransactions;
 
     @Autowired
     ReportService(ReportRepository reports, ReportFindingRepository reportFindings,
             ReportStatusHistoryRepository statusHistories, ProjectDirectory projects, Directory directory,
             FindingDirectory findings, DocumentStorage storage, PreviewRenderer renderer, PdfWatermark watermark,
             CurrentUserProvider currentUser, ApplicationEventPublisher events,
-            @Value("${diligence.dataroom.watermark-zone:Asia/Jakarta}") ZoneId zone) {
+            @Value("${diligence.dataroom.watermark-zone:Asia/Jakarta}") ZoneId zone,
+            PlatformTransactionManager transactionManager) {
         this(reports, reportFindings, statusHistories, projects, directory, findings, storage, renderer, watermark,
-                currentUser, events, zone, Clock.systemDefaultZone());
+                currentUser, events, zone, Clock.systemDefaultZone(), new TransactionTemplate(transactionManager),
+                readOnly(transactionManager));
     }
 
     ReportService(ReportRepository reports, ReportFindingRepository reportFindings,
             ReportStatusHistoryRepository statusHistories, ProjectDirectory projects, Directory directory,
             FindingDirectory findings, DocumentStorage storage, PreviewRenderer renderer, PdfWatermark watermark,
-            CurrentUserProvider currentUser, ApplicationEventPublisher events, ZoneId zone, Clock clock) {
+            CurrentUserProvider currentUser, ApplicationEventPublisher events, ZoneId zone, Clock clock,
+            TransactionOperations transactions, TransactionOperations readTransactions) {
         this.reports = reports;
         this.reportFindings = reportFindings;
         this.statusHistories = statusHistories;
@@ -114,6 +128,14 @@ class ReportService {
         this.events = events;
         this.zone = zone;
         this.clock = clock;
+        this.transactions = transactions;
+        this.readTransactions = readTransactions;
+    }
+
+    private static TransactionTemplate readOnly(PlatformTransactionManager transactionManager) {
+        var template = new TransactionTemplate(transactionManager);
+        template.setReadOnly(true);
+        return template;
     }
 
     /** Report versions visible to the caller: the internal team sees all, client sees released reports only. */
@@ -130,22 +152,26 @@ class ReportService {
         return statusHistories.findByProjectIdAndReportIdOrderByChangedAtAsc(projectId, reportId);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     Report generate(UUID projectId, String title, String language) {
         return generate(projectId, title, language, null);
     }
 
     /** @param findingIds released findings to include (PRD RPT-01 "pilih temuan"); {@code null} includes all. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     Report generate(UUID projectId, String title, String language, List<UUID> findingIds) {
         return createReport(projectId, title, language, 1, 0, "v1.0", null, findingIds);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     Report generateRevision(UUID projectId, UUID previousReportId, String title, boolean major, String language) {
         return generateRevision(projectId, previousReportId, title, major, language, null);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     Report generateRevision(UUID projectId, UUID previousReportId, String title, boolean major, String language,
             List<UUID> findingIds) {
-        var prev = report(projectId, previousReportId);
+        var prev = readTransactions.execute(status -> report(projectId, previousReportId));
         int newMajor = major ? prev.getMajorVersion() + 1 : prev.getMajorVersion();
         int newMinor = major ? 0 : prev.getMinorVersion() + 1;
         String versionLabel = "v" + newMajor + "." + newMinor;
@@ -155,8 +181,56 @@ class ReportService {
                 "Revision " + versionLabel + " created from " + prev.getVersionLabel(), findingIds);
     }
 
+    private record Draft(String projectCode, String title, String language, int versionNumber,
+            List<ReleasedFinding> findings, ReportDocumentWriter.Content content) {
+    }
+
+    /**
+     * Three steps (#141): read and validate in a short read-only transaction; write the DOCX, convert it to PDF with
+     * Gotenberg and store both without a transaction; record the report in a second short transaction. A failure
+     * after the files were stored removes them again.
+     */
     private Report createReport(UUID projectId, String title, String language, int majorVersion, int minorVersion,
             String versionLabel, String note, List<UUID> findingIds) {
+        var draft = readTransactions.execute(status -> draft(projectId, title, language, findingIds));
+        var id = UUID.randomUUID();
+        var docx = ReportDocumentWriter.write(draft.content());
+        var pdf = toPdf(docx, id + ".docx");
+        var base = "projects/%s/reports/%s".formatted(projectId, id);
+        storage.put(base + ".docx", new ByteArrayInputStream(docx), docx.length, DOCX);
+        try {
+            var size = Files.size(pdf);
+            try (var content = Files.newInputStream(pdf)) {
+                storage.put(base + ".pdf", content, size, "application/pdf");
+            }
+            var authorId = me();
+            return transactions.execute(status -> {
+                var released = draft.findings();
+                var report = reports.saveAndFlush(new Report(id, projectId, null, draft.versionNumber(), majorVersion,
+                        minorVersion, versionLabel, draft.title(), draft.language(), released.size(), base + ".docx",
+                        base + ".pdf", size, authorId));
+                for (var i = 0; i < released.size(); i++) {
+                    reportFindings.save(new ReportFinding(id, released.get(i).id(), projectId, i + 1));
+                }
+                statusHistories.save(new ReportStatusHistory(UUID.randomUUID(), id, projectId, null, "DRAFT",
+                        authorId, note != null ? note : "Initial draft " + versionLabel + " generated"));
+                events.publishEvent(new ReportChanged(projectId, draft.projectCode(), id, draft.versionNumber(),
+                        draft.title(), "generated", Map.of("findings", String.valueOf(released.size()), "language",
+                                draft.language(), "versionLabel", versionLabel),
+                        RequestMetadata.capture()));
+                return report;
+            });
+        } catch (IOException | RuntimeException ex) {
+            storage.delete(base + ".docx");
+            storage.delete(base + ".pdf");
+            throw ex instanceof IOException io ? new UncheckedIOException(io) : (RuntimeException) ex;
+        } finally {
+            TemporaryFile.delete(pdf);
+        }
+    }
+
+    /** Validation and everything the document needs, read in one transaction. */
+    private Draft draft(UUID projectId, String title, String language, List<UUID> findingIds) {
         var context = writable(project(projectId));
         if (!context.canManage()) {
             throw new AccessDeniedException("Only partners and project managers generate reports");
@@ -173,35 +247,12 @@ class ReportService {
         var summary = projects.summary(projectId).orElseThrow();
         var workstreams = projects.workstreams(projectId).stream()
                 .collect(Collectors.toMap(WorkstreamSummary::id, WorkstreamSummary::type));
-        var id = UUID.randomUUID();
         var versionNumber = reports.lastVersion(projectId) + 1;
-        var now = Instant.now(clock);
         var target = Optional.ofNullable(summary.targetOrganizationId()).flatMap(directory::findOrganization)
                 .map(OrganizationSummary::name).orElse(null);
-        var docx = ReportDocumentWriter.write(new ReportDocumentWriter.Content(summary.code(), summary.name(), target,
-                name, versionNumber, lang, now, zone, workstreams, released, findings.riskMatrix()));
-        var pdf = toPdf(docx, id + ".docx");
-        var base = "projects/%s/reports/%s".formatted(projectId, id);
-        storage.put(base + ".docx", new ByteArrayInputStream(docx), docx.length, DOCX);
-        try {
-            storage.put(base + ".pdf", new ByteArrayInputStream(pdf), pdf.length, "application/pdf");
-            var authorId = me();
-            var report = reports.saveAndFlush(new Report(id, projectId, null, versionNumber, majorVersion, minorVersion,
-                    versionLabel, name, lang, released.size(), base + ".docx", base + ".pdf", pdf.length, authorId));
-            for (var i = 0; i < released.size(); i++) {
-                reportFindings.save(new ReportFinding(id, released.get(i).id(), projectId, i + 1));
-            }
-            statusHistories.save(new ReportStatusHistory(UUID.randomUUID(), id, projectId, null, "DRAFT", authorId,
-                    note != null ? note : "Initial draft " + versionLabel + " generated"));
-            events.publishEvent(new ReportChanged(projectId, context.code(), id, versionNumber, name, "generated",
-                    Map.of("findings", String.valueOf(released.size()), "language", lang, "versionLabel", versionLabel),
-                    RequestMetadata.capture()));
-            return report;
-        } catch (RuntimeException ex) {
-            storage.delete(base + ".docx");
-            storage.delete(base + ".pdf");
-            throw ex;
-        }
+        var content = new ReportDocumentWriter.Content(summary.code(), summary.name(), target, name, versionNumber,
+                lang, Instant.now(clock), zone, workstreams, released, findings.riskMatrix());
+        return new Draft(context.code(), name, lang, versionNumber, released, content);
     }
 
     /** The released findings chosen for a new report version, in register order. */
@@ -426,16 +477,14 @@ class ReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("Report", reportId));
     }
 
-    private byte[] toPdf(byte[] docx, String fileName) {
+    /** Converts the DOCX with Gotenberg into a temporary file, which the caller deletes. */
+    private Path toPdf(byte[] docx, String fileName) {
+        var target = TemporaryFile.create("report", ".pdf");
         try {
-            var target = Files.createTempFile("report", ".pdf");
-            try {
-                renderer.renderPdf(new ByteArrayInputStream(docx), fileName, DOCX, target);
-                return Files.readAllBytes(target);
-            } finally {
-                Files.deleteIfExists(target);
-            }
-        } catch (IOException | RuntimeException ex) {
+            renderer.renderPdf(new ByteArrayInputStream(docx), fileName, DOCX, target);
+            return target;
+        } catch (RuntimeException ex) {
+            TemporaryFile.delete(target);
             throw new UpstreamServiceException("The PDF rendition is not available right now", ex);
         }
     }
