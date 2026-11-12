@@ -22,7 +22,7 @@
   "dependencies": {
     "@ant-design/cssinjs": "^2.0.0",
     "@ant-design/icons": "^6.3.4",
-    "@sentry/nextjs": "^11.10.0",
+    "@sentry/nextjs": "^11.11.0",
     "antd": "^6.7.0",
     "dayjs": "^1.11.23",
     "iron-session": "^9.0.1",
