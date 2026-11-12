@@ -28,9 +28,13 @@ class DirectoryService implements Directory {
 
     static final String ORGANIZATIONS_CACHE = "organizations";
 
-    /** Organization names are resolved for almost every project response; cached (issue #60), evicted on change. */
+    /**
+     * Organization names are resolved for almost every project response; cached (issue #60), evicted on change. Only
+     * found organizations are cached: row-level security (#154) hides some organizations from external users, and their
+     * "not found" must not be served to the next caller.
+     */
     @Override
-    @Cacheable(cacheNames = ORGANIZATIONS_CACHE, key = "#id")
+    @Cacheable(cacheNames = ORGANIZATIONS_CACHE, key = "#id", unless = "#result == null")
     public Optional<OrganizationSummary> findOrganization(UUID id) {
         return organizations.findById(id).map(DirectoryService::summary);
     }

@@ -114,7 +114,11 @@ Enforcement is layered so a UI bug cannot leak data:
    never reads `fnd.*`, the client reads only `RELEASED` findings, `ISSUED` reports and its own questions, the target
    reads only `SENT`/`ANSWERED` questions, released request items (V9) and never internal request notes. Finding
    review notes, history and source links are internal only, and released findings are immutable (V10). Answers sit
-   in `qna.answer`, which the client reads only for its own closed questions; issued reports are immutable (V11). The integration test `rowLevelSecurityEnforcesInformationBarrier` proves it.
+   in `qna.answer`, which the client reads only for its own closed questions; issued reports are immutable (V11). The identity tables (`adm.user_account`, `adm.organization`, `adm.invitation`,
+   groups) are row-level secured too (#154): the internal team sees the whole directory; an external user sees their
+   own account and organization, the consultant team, the people they share a project with and the organizations of
+   their projects. The integration tests `rowLevelSecurityEnforcesInformationBarrier` and
+   `identityTablesFollowTheProjectsAUserBelongsTo` prove it.
 4. **Audit**: `audit.audit_log` accepts only INSERT/SELECT from the runtime role and triggers reject UPDATE, DELETE
    and TRUNCATE for everyone.
 
