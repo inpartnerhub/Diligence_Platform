@@ -161,7 +161,7 @@ class IngestionPipeline {
                 try (var content = read(event.objectKey())) {
                     Files.copy(content, image);
                 }
-                PageRasterizer.imagesToPdf(image, pdf);
+                PageRasterizer.imagesToPdf(image, pdf, properties.previewMaxPages());
             } else {
                 try (var content = read(event.objectKey())) {
                     renderer.renderPdf(content, event.fileName(), type, pdf);
