@@ -46,6 +46,19 @@ jobs:
               -schema-location default \
               -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
           done
+      - name: Rate-limiting plugins have a counter store Kong accepts
+        # Kong rejects policy "redis" without config.redis.host, and the ingress then runs without a per-address
+        # limit (#139). kubeconform cannot see this: the KongPlugin config is free-form.
+        run: |
+          for dir in overlays/dev overlays/staging overlays/prod; do
+            bad=$(kubectl kustomize "infrastructure/kubernetes/$dir" | yq ea -N 'select(.kind == "KongPlugin" and
+              (.plugin == "rate-limiting" or .plugin == "rate-limiting-advanced") and .config.policy == "redis"
+              and (.config.redis.host // "") == "") | .metadata.name')
+            if [ -n "$bad" ]; then
+              echo "::error::$dir: rate-limiting plugin(s) with policy redis but no config.redis.host: $bad"
+              exit 1
+            fi
+          done
 
   compose:
     runs-on: ubuntu-latest
