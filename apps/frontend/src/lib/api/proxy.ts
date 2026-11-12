@@ -58,10 +58,11 @@ export async function proxyMultipart(request: Request, path: string): Promise<Re
     body: request.body,
     duplex: "half",
   } as RequestInit & { duplex: "half" });
-  return new Response(upstream.body, {
-    status: upstream.status,
-    headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
-  });
+  const headers = new Headers({ "Content-Type": upstream.headers.get("content-type") ?? "application/json" });
+  // A 503 from the backend's upload limit says when to retry (#142); the upload area follows it.
+  const retryAfter = upstream.headers.get("retry-after");
+  if (retryAfter) headers.set("Retry-After", retryAfter);
+  return new Response(upstream.body, { status: upstream.status, headers });
 }
 
 export const segment = (value: string) => encodeURIComponent(value);
