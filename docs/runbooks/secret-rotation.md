@@ -13,6 +13,12 @@ Secrets come from HashiCorp Vault via the Vault Secrets Operator (ADR-0002); non
 
 Rotating `SESSION_SECRET` signs every user out of the web application; announce it.
 
+The Redis AUTH token (`REDIS_PASSWORD`, written by Terraform) is also read by Kong for its shared rate-limit counters
+(#150): the operator refreshes the `diligence-gateway-redis` secret and the Kong Ingress Controller picks it up on its
+next sync. Until then Kong cannot reach Redis and lets requests through (no per-address limit for that short window;
+the backend's per-user limit still applies). Check afterwards that the Kong proxy logs show no Redis authentication
+errors.
+
 ## Webhook signing keys (ADM-07)
 
 `/admin/webhooks` → key button → *Generate new signing key*. The key is shown once; give it to the receiver's owner

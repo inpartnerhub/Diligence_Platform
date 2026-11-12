@@ -29,6 +29,11 @@ patches:
       - op: replace
         path: /spec/path
         value: diligence/prod/backend/infrastructure
+  - target: { kind: VaultStaticSecret, name: diligence-gateway-redis }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: diligence/prod/backend/infrastructure
   - target: { kind: VaultStaticSecret, name: diligence-backend-application }
     patch: |-
       - op: replace

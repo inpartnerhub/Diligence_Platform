@@ -42,7 +42,7 @@ entry then shows the pod, and all users share one rate-limit bucket.
 
 ## Known limits
 
-- Users behind one corporate NAT share a rate-limit bucket (600 requests/minute per Kong proxy replica; the counters are local to each replica, #139). Tune `minute` from the load
+- Users behind one corporate NAT share a rate-limit bucket (600 requests/minute; the counters are shared by all Kong proxy replicas through Redis, #150). Tune `minute` from the load
   tests (`tests/performance`) before go-live.
 - If client addresses are themselves private (an on-premises deployment, ADR-0003), narrow
   `SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES` and Kong's `trusted_ips` to the actual proxy subnets.
