@@ -82,7 +82,7 @@ class RequestTransferServiceTest {
     }
 
     @Test
-    void exportedWorkbooksCanBeImportedAgain() {
+    void exportedWorkbooksCanBeImportedAgain() throws IOException {
         var deed = item("LEG-001", RequestStatus.REQUESTED);
         var assignee = UUID.randomUUID();
         deed.assign(assignee);
@@ -96,7 +96,7 @@ class RequestTransferServiceTest {
         assertThat(file.fileName()).startsWith("request-list-dd-1-").endsWith(".xlsx");
         assertThat(file.contentType()).isEqualTo(RequestSpreadsheet.CONTENT_TYPE);
         verify(events).publishEvent(any(RequestListTransferred.class));
-        var rows = RequestSpreadsheet.read(new ByteArrayInputStream(file.content()));
+        var rows = RequestSpreadsheet.read(Files.newInputStream(file.path()));
         assertThat(rows).singleElement().satisfies(row -> {
             assertThat(row.get(RequestSpreadsheet.Column.NUMBER)).isEqualTo("LEG-001");
             assertThat(row.get(RequestSpreadsheet.Column.WORKSTREAM)).isEqualTo("LEGAL");
@@ -105,14 +105,15 @@ class RequestTransferServiceTest {
     }
 
     @Test
-    void itemsWithoutAssigneeExport() {
+    void itemsWithoutAssigneeExport() throws IOException {
         when(requests.list(PROJECT, RequestService.ItemFilter.ALL)).thenReturn(List.of(item("LEG-001",
                 RequestStatus.NOT_REQUESTED)));
         when(requests.documentCounts(PROJECT)).thenReturn(Map.of());
 
         var file = service.export(PROJECT, RequestTransferService.Format.XLSX);
 
-        assertThat(RequestSpreadsheet.read(new ByteArrayInputStream(file.content()))).hasSize(1);
+        assertThat(RequestSpreadsheet.read(Files.newInputStream(file.path()))).hasSize(1);
+        Files.delete(file.path());
     }
 
     @Test
@@ -123,7 +124,8 @@ class RequestTransferServiceTest {
 
         var file = service.export(PROJECT, RequestTransferService.Format.PDF);
         assertThat(file.contentType()).isEqualTo("application/pdf");
-        assertThat(new String(file.content())).isEqualTo("%PDF-1.7");
+        assertThat(Files.readString(file.path())).isEqualTo("%PDF-1.7");
+        Files.delete(file.path());
 
         doThrow(new IllegalStateException("down")).when(renderer).renderPdf(any(), anyString(), anyString(), any());
         assertThatThrownBy(() -> service.export(PROJECT, RequestTransferService.Format.PDF))

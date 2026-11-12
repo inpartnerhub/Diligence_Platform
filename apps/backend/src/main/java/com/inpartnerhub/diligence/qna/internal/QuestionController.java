@@ -1,6 +1,5 @@
 package com.inpartnerhub.diligence.qna.internal;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -12,10 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.inpartnerhub.diligence.admin.Directory;
 import com.inpartnerhub.diligence.project.ProjectDirectory.ProjectContext;
@@ -223,7 +220,8 @@ class QuestionController {
 
     @GetMapping("/export")
     @Operation(summary = "The Q&A log the caller can see as Excel (xlsx) or PDF; audited — QNA-03")
-    ResponseEntity<byte[]> export(@PathVariable UUID projectId, @RequestParam(defaultValue = "xlsx") String format,
+    ResponseEntity<StreamingResponseBody> export(@PathVariable UUID projectId,
+            @RequestParam(defaultValue = "xlsx") String format,
             @RequestParam(required = false) QuestionStatus status, @RequestParam(required = false) UUID workstreamId,
             @RequestParam(required = false) String q) {
         var parsed = switch (format.toLowerCase(Locale.ROOT)) {
@@ -231,13 +229,8 @@ class QuestionController {
             case "pdf" -> QnaExportService.Format.PDF;
             default -> throw new InvalidRequestException("Format must be xlsx or pdf");
         };
-        var file = exports.export(projectId, new QuestionService.QuestionFilter(status, workstreamId, q), parsed);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename(file.fileName(), StandardCharsets.UTF_8).build().toString())
-                .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .contentType(MediaType.parseMediaType(file.contentType()))
-                .body(file.content());
+        return exports.export(projectId, new QuestionService.QuestionFilter(status, workstreamId, q), parsed)
+                .response();
     }
 
     private QuestionResponse single(UUID projectId, Question q) {

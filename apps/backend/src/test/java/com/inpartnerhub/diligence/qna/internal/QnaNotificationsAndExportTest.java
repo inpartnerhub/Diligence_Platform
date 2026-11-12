@@ -132,7 +132,7 @@ class QnaNotificationsAndExportTest {
         when(questions.answers(List.of(q))).thenReturn(Map.of(q.getId(), new Answer(q, "Registered", TARGET)));
 
         var file = service.export(PROJECT, QuestionService.QuestionFilter.ALL, QnaExportService.Format.XLSX);
-        try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(file.content()))) {
+        try (var workbook = new XSSFWorkbook(Files.newInputStream(file.path()))) {
             var row = workbook.getSheetAt(0).getRow(1);
             assertThat(row.getCell(0).getStringCellValue()).isEqualTo("Q-001");
             assertThat(row.getCell(3).getStringCellValue()).isEqualTo("2026-11-20 10:00");
