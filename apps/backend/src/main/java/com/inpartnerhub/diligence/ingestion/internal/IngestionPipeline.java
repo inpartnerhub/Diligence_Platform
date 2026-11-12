@@ -7,7 +7,6 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 
 import org.slf4j.Logger;
@@ -89,39 +88,66 @@ class IngestionPipeline {
     }
 
     /**
+     * The stored object is downloaded once into a work directory (#143) and every step (scan, type detection, text
+     * extraction, rendering) reads that local copy: a 100 MB document used to be fetched from S3 four times.
+     *
      * @param lastAttempt  on the last attempt a transient enrichment failure degrades the result instead of retrying
      */
     void process(DocumentUploaded event, boolean lastAttempt) {
+        Path work = null;
+        try {
+            work = workDirectory();
+            var original = work.resolve("original");
+            try (var content = read(event.objectKey())) {
+                Files.copy(content, original);
+            } catch (IOException ex) {
+                throw new ScanException("Could not read the stored object: " + ex.getMessage(), true, ex);
+            }
+            process(event, lastAttempt, original, work);
+        } finally {
+            delete(work);
+        }
+    }
+
+    private void process(DocumentUploaded event, boolean lastAttempt, Path original, Path work) {
         ContentScanner.ScanResult scan;
-        try (var content = read(event.objectKey())) {
+        try (var content = Files.newInputStream(original)) {
             scan = scanner.scan(content);
         } catch (IOException ex) {
-            throw new ScanException("Could not read the stored object: " + ex.getMessage(), true, ex);
+            throw new ScanException("Could not read the downloaded object: " + ex.getMessage(), true, ex);
         }
         if (!scan.clean()) {
             results.record(event.versionId(), Outcome.INFECTED, null, scan.signature());
             return;
         }
         String detected;
-        try (var content = read(event.objectKey())) {
+        try (var content = Files.newInputStream(original)) {
             detected = detector.detect(content, event.fileName());
         } catch (IOException ex) {
-            throw new ScanException("Could not read the stored object: " + ex.getMessage(), true, ex);
+            throw new ScanException("Could not read the downloaded object: " + ex.getMessage(), true, ex);
         }
         if (!properties.isAllowed(detected)) {
             results.record(event.versionId(), Outcome.REJECTED, detected,
                     "File type " + detected + " is not allowed in the data room");
             return;
         }
-        var textExtracted = extractText(event, detected, lastAttempt);
-        var rendition = render(event, detected, lastAttempt);
+        var textExtracted = extractText(event, detected, lastAttempt, original);
+        var rendition = render(event, detected, lastAttempt, original, work);
         results.recordClean(event.versionId(), detected, new Rendition(rendition.preview(), rendition.pageCount(),
                 rendition.pdfRendition(), textExtracted));
     }
 
-    private boolean extractText(DocumentUploaded event, String detected, boolean lastAttempt) {
+    private static Path workDirectory() {
+        try {
+            return Files.createTempDirectory("ingestion-");
+        } catch (IOException ex) {
+            throw new ScanException("No temporary directory for ingestion: " + ex.getMessage(), true, ex);
+        }
+    }
+
+    private boolean extractText(DocumentUploaded event, String detected, boolean lastAttempt, Path original) {
         String text;
-        try (var content = read(event.objectKey())) {
+        try (var content = Files.newInputStream(original)) {
             text = extractor.extract(content, detected, properties.maxTextChars());
         } catch (ScanException ex) {
             if (ex.isTransientFailure() && !lastAttempt) {
@@ -141,29 +167,24 @@ class IngestionPipeline {
         return true;
     }
 
-    private Rendition render(DocumentUploaded event, String detected, boolean lastAttempt) {
+    private Rendition render(DocumentUploaded event, String detected, boolean lastAttempt, Path original,
+            Path work) {
         var type = IngestionProperties.baseType(detected);
         var isPdf = PDF.equals(type);
         var isImage = type.startsWith("image/");
         if (!isPdf && !isImage && !renderer.supports(type)) {
             return Rendition.NONE;
         }
-        Path work = null;
         try {
-            work = Files.createTempDirectory("rendition-");
-            var pdf = work.resolve("document.pdf");
+            Path pdf;
             if (isPdf) {
-                try (var content = read(event.objectKey())) {
-                    Files.copy(content, pdf, StandardCopyOption.REPLACE_EXISTING);
-                }
+                pdf = original;
             } else if (isImage) {
-                var image = work.resolve("image");
-                try (var content = read(event.objectKey())) {
-                    Files.copy(content, image);
-                }
-                PageRasterizer.imagesToPdf(image, pdf, properties.previewMaxPages());
+                pdf = work.resolve("document.pdf");
+                PageRasterizer.imagesToPdf(original, pdf, properties.previewMaxPages());
             } else {
-                try (var content = read(event.objectKey())) {
+                pdf = work.resolve("document.pdf");
+                try (var content = Files.newInputStream(original)) {
                     renderer.renderPdf(content, event.fileName(), type, pdf);
                 }
             }
@@ -190,8 +211,6 @@ class IngestionPipeline {
             // Corrupt, encrypted or unreadable content: the document stays available for download only.
             log.warn("No preview for version {}: {}", event.versionId(), ex.toString());
             return new Rendition(PreviewStatus.FAILED, 0, false, false);
-        } finally {
-            delete(work);
         }
     }
 
@@ -216,7 +235,7 @@ class IngestionPipeline {
                 }
             });
         } catch (IOException | UncheckedIOException ex) {
-            log.warn("Could not delete temporary rendition files in {}", directory);
+            log.warn("Could not delete temporary ingestion files in {}", directory);
         }
     }
 

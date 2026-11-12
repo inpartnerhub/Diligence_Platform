@@ -87,6 +87,8 @@ class IngestionPipelineTest {
         // The original is the PDF: no second copy is stored.
         verify(storage, never()).put(eq(RenditionKeys.pdf(event.projectId(), event.versionId())), any(), anyLong(),
                 any());
+        // Downloaded once for scan, detection, extraction and rendering (#143).
+        verify(storage, times(1)).get("key");
     }
 
     @Test
@@ -155,7 +157,41 @@ class IngestionPipelineTest {
         verify(extractor, times(IngestionPipeline.MAX_ATTEMPTS)).extract(any(), any(), anyInt());
         verify(results).recordClean(event.versionId(), "text/plain",
                 new Rendition(PreviewStatus.FAILED, 0, false, false));
+        // One download per attempt, not one per step (#143).
+        verify(storage, times(IngestionPipeline.MAX_ATTEMPTS)).get("key");
         verify(results, never()).record(any(), eq(Outcome.FAILED), any(), any());
+    }
+
+    @Test
+    void everyStepReadsTheSameLocalCopyWhichIsRemovedAfterwards() throws Exception {
+        var content = "Laporan keuangan 2025".getBytes();
+        when(storage.get("key")).thenAnswer(inv -> new ByteArrayInputStream(content));
+        var seen = new java.util.ArrayList<byte[]>();
+        when(scanner.scan(any())).thenAnswer(inv -> {
+            seen.add(((java.io.InputStream) inv.getArgument(0)).readAllBytes());
+            return new ContentScanner.ScanResult(true, null);
+        });
+        when(detector.detect(any(), any())).thenAnswer(inv -> {
+            seen.add(((java.io.InputStream) inv.getArgument(0)).readAllBytes());
+            return "text/plain";
+        });
+        when(extractor.extract(any(), any(), anyInt())).thenAnswer(inv -> {
+            seen.add(((java.io.InputStream) inv.getArgument(0)).readAllBytes());
+            return "Laporan keuangan 2025";
+        });
+        var before = temporaryIngestionDirectories();
+
+        pipeline.onDocumentUploaded(event);
+
+        verify(storage, times(1)).get("key");
+        assertThat(seen).hasSize(3).allSatisfy(bytes -> assertThat(bytes).isEqualTo(content));
+        assertThat(temporaryIngestionDirectories()).isEqualTo(before);
+    }
+
+    private static long temporaryIngestionDirectories() throws java.io.IOException {
+        try (var entries = java.nio.file.Files.list(java.nio.file.Path.of(System.getProperty("java.io.tmpdir")))) {
+            return entries.filter(p -> p.getFileName().toString().startsWith("ingestion-")).count();
+        }
     }
 
     @Test
