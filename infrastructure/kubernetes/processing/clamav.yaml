@@ -18,6 +18,14 @@ data:
     # The platform's 100 MB upload limit (clamd's default is 25 MB).
     StreamMaxLength 100M
     MaxFileSize 100M
+    # Content clamd could not inspect is not reported clean (#140): parts beyond the scan limits (size, recursion,
+    # file count) and encrypted archives, e.g. a password-protected ZIP attached to an uploaded e-mail, come back as
+    # Heuristics.Limits.Exceeded.* / Heuristics.Encrypted.* and the upload is refused like malware. Encrypted PDFs
+    # and Office documents stay allowed (AlertEncryptedDoc no): data rooms often hold password-protected documents;
+    # they cannot be previewed or searched either way.
+    AlertExceedsMax yes
+    AlertEncryptedArchive yes
+    AlertEncryptedDoc no
     SelfCheck 600
     # Reload in place: scans wait during a reload, memory stays at one copy of the signatures.
     ConcurrentDatabaseReload no
