@@ -92,7 +92,8 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 ## 4. Roles and information barriers (PRD Bab 3)
 
 Global roles live in Keycloak (realm roles); per-project roles live in `prj.project_member` (optionally per
-workstream, with an expiry for external access).
+workstream, with an expiry for external access). A CLIENT or TARGET member must belong to the project's client or
+target organization; `MemberService` checks it and a database trigger refuses it as well (#155).
 
 | Role | Group | MFA | NDA | Sees |
 |------|-------|-----|-----|------|
