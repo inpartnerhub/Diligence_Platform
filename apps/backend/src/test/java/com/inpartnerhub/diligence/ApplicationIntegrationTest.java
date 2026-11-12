@@ -78,6 +78,55 @@ class ApplicationIntegrationTest {
         assertThat(projectsVisibleTo(target)).isEqualTo(1);
     }
 
+    @Test
+    void identityTablesFollowTheProjectsAUserBelongsTo() {
+        // #154: external users see themselves, the consultant team, people they share a project with, and the
+        // organizations of their projects; never other organizations' people.
+        var clientOrg = UUID.randomUUID();
+        var targetOrg = UUID.randomUUID();
+        var otherOrg = UUID.randomUUID();
+        for (var org : new Object[][] { { clientOrg, "CLIENT" }, { targetOrg, "TARGET" }, { otherOrg, "CLIENT" } }) {
+            jdbc.update("insert into adm.organization (id, name, type) values (?, ?, ?)", org[0], "Org " + org[0],
+                    org[1]);
+        }
+        var analyst = account(null, "ANALYST");
+        var client = account(clientOrg, "CLIENT");
+        var target = account(targetOrg, "TARGET");
+        var stranger = account(otherOrg, "CLIENT");
+        var project = UUID.randomUUID();
+        jdbc.update("insert into prj.project (id, code, name, client_organization_id, target_organization_id, created_by) "
+                + "values (?, ?, 'P', ?, ?, ?)", project, "ADM-" + project, clientOrg, targetOrg, analyst);
+        for (var member : new Object[][] { { analyst, "ANALYST" }, { client, "CLIENT" }, { target, "TARGET" } }) {
+            jdbc.update("insert into prj.project_member (id, project_id, user_id, project_role) values (?, ?, ?, ?)",
+                    UUID.randomUUID(), project, member[0], member[1]);
+        }
+        var users = "select count(*) from adm.user_account where id in ('%s', '%s', '%s', '%s')"
+                .formatted(analyst, client, target, stranger);
+        var orgs = "select count(*) from adm.organization where id in ('%s', '%s', '%s')"
+                .formatted(clientOrg, targetOrg, otherOrg);
+
+        assertThat(asUser(client, "client", users)).isEqualTo(3);       // not the other organization's client
+        assertThat(asUser(stranger, "client", users)).isEqualTo(2);     // itself and the consultant
+        assertThat(asUser(analyst, "analyst", users)).isEqualTo(4);     // internal team: whole directory
+        assertThat(asUser(client, "client", orgs)).isEqualTo(2);
+        assertThat(asUser(stranger, "client", orgs)).isEqualTo(1);      // only its own organization
+        assertThat(asUser(stranger, "client", "select count(*) from adm.invitation")).isZero();
+        assertThat(asUser(client, "client", "select count(*) from adm.user_group")).isZero();
+        assertThat(asUser(client, "client",
+                "with u as (update adm.user_account set locale = 'en' where id = '%s' returning 1) select count(*) from u"
+                        .formatted(stranger))).isZero();                   // cannot change someone else
+        assertThat(asUser(client, "client",
+                "with u as (update adm.user_account set locale = 'en' where id = '%s' returning 1) select count(*) from u"
+                        .formatted(client))).isEqualTo(1);                 // own profile
+    }
+
+    private UUID account(UUID organization, String role) {
+        var id = UUID.randomUUID();
+        jdbc.update("insert into adm.user_account (id, organization_id, email, display_name, global_role, status) "
+                + "values (?, ?, ?, 'U', ?, 'ACTIVE')", id, organization, id + "@example.com", role);
+        return id;
+    }
+
     private int findingsVisibleTo(UUID user, String role) {
         return asUser(user, role, "select count(*) from fnd.finding");
     }
