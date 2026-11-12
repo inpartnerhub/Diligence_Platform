@@ -38,6 +38,7 @@ import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -88,7 +89,8 @@ class ReportServiceTest {
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final ReportService service = new ReportService(reports, reportFindings, statusHistories, projects, directory, findings,
             storage, renderer, watermark, currentUser, events, ZoneId.of("Asia/Jakarta"),
-            Clock.fixed(Instant.parse("2026-12-01T02:00:00Z"), ZoneOffset.UTC));
+            Clock.fixed(Instant.parse("2026-12-01T02:00:00Z"), ZoneOffset.UTC), TransactionOperations.withoutTransaction(),
+            TransactionOperations.withoutTransaction());
 
     private final Map<String, byte[]> stored = new HashMap<>();
 

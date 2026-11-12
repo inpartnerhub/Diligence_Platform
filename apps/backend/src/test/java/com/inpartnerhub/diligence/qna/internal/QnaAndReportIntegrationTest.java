@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +32,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.inpartnerhub.diligence.TestContainersConfiguration;
@@ -81,6 +83,8 @@ class QnaAndReportIntegrationTest {
     @MockitoBean
     PreviewRenderer renderer;
 
+    private final List<Boolean> conversionsInTransaction = new CopyOnWriteArrayList<>();
+
     private final UUID clientOrg = UUID.randomUUID();
     private final UUID targetOrg = UUID.randomUUID();
     private final UUID pm = UUID.randomUUID();
@@ -101,8 +105,11 @@ class QnaAndReportIntegrationTest {
             ((InputStream) inv.getArgument(1)).readAllBytes();
             return null;
         }).when(storage).put(anyString(), any(), anyLong(), anyString());
-        doAnswer(inv -> Files.write((Path) inv.getArgument(3), "%PDF-1.7".getBytes()))
-                .when(renderer).renderPdf(any(), anyString(), anyString(), any());
+        doAnswer(inv -> {
+            // #141: Gotenberg is never called while a database transaction (and a pooled connection) is held.
+            conversionsInTransaction.add(TransactionSynchronizationManager.isActualTransactionActive());
+            return Files.write((Path) inv.getArgument(3), "%PDF-1.7".getBytes());
+        }).when(renderer).renderPdf(any(), anyString(), anyString(), any());
     }
 
     @AfterEach
@@ -176,6 +183,7 @@ class QnaAndReportIntegrationTest {
                 UUID.randomUUID(), projectId, legal, pm);
         signIn(pm, Role.PROJECT_MANAGER);
         var reportId = reports.generate(projectId, "Due diligence report");
+        assertThat(conversionsInTransaction).isNotEmpty().containsOnly(false);
         signIn(client, Role.CLIENT);
         assertThat(reports.versions(projectId)).isZero();
         signIn(pm, Role.PROJECT_MANAGER);

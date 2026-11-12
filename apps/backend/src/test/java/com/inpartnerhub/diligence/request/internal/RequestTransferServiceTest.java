@@ -35,6 +35,7 @@ import java.util.UUID;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.context.ApplicationEventPublisher;
 
 import com.inpartnerhub.diligence.admin.Directory;
@@ -62,7 +63,8 @@ class RequestTransferServiceTest {
     private final CurrentUserProvider currentUser = mock(CurrentUserProvider.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final RequestTransferService service = new RequestTransferService(items, history, requests, access,
-            projects, directory, renderer, currentUser, events, ZoneId.of("Asia/Jakarta"));
+            projects, directory, renderer, currentUser, events, ZoneId.of("Asia/Jakarta"),
+            TransactionOperations.withoutTransaction());
 
     private final List<RequestItem> saved = new ArrayList<>();
 
