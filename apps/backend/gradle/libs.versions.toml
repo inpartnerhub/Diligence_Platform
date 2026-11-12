@@ -8,7 +8,7 @@ aws-sdk = "2.57.11"
 opensearch-java = "3.10.0"
 pdfbox = "3.0.8"
 poi = "6.0.0"
-shedlock = "7.10.1"
+shedlock = "7.11.0"
 sonarqube = "7.5.0.8588"
 
 [libraries]
