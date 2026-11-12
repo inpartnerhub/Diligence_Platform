@@ -77,6 +77,7 @@ import {
   type SearchResponse,
   type UploadResponse,
 } from "./types";
+import { MAX_BUSY_RETRIES, retryDelayMs, runUpload } from "./uploadQueue";
 
 const STATUS_COLORS: Record<ScanStatus, string> = {
   PENDING: "processing",
@@ -554,28 +555,49 @@ function UploadArea({ projectId, folder }: Readonly<{ projectId: string; folder:
 
   const customRequest: UploadProps["customRequest"] = ({ file, onProgress, onSuccess, onError }) => {
     const upload = file as File;
-    const body = new FormData();
-    body.append("file", upload);
-    if (upload.webkitRelativePath) {
-      body.append("relativePath", upload.webkitRelativePath);
-    }
-    // XMLHttpRequest instead of fetch for upload progress events.
-    const xhr = new XMLHttpRequest();
-    xhr.open(
-      "POST",
-      `/api/projects/${encodeURIComponent(projectId)}/folders/${encodeURIComponent(folder.id)}/documents`,
-    );
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress?.({ percent: (event.loaded / event.total) * 100 });
+    const url = `/api/projects/${encodeURIComponent(projectId)}/folders/${encodeURIComponent(folder.id)}/documents`;
+
+    // One attempt; resolves with the finished request (any status), rejects on a network error.
+    const send = () =>
+      new Promise<XMLHttpRequest>((resolve, reject) => {
+        const body = new FormData();
+        body.append("file", upload);
+        if (upload.webkitRelativePath) {
+          body.append("relativePath", upload.webkitRelativePath);
+        }
+        // XMLHttpRequest instead of fetch for upload progress events.
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) onProgress?.({ percent: (event.loaded / event.total) * 100 });
+        };
+        xhr.onload = () => resolve(xhr);
+        xhr.onerror = () => reject(new Error("network"));
+        xhr.send(body);
+      });
+
+    // At most UPLOAD_CONCURRENCY files at a time; a 503 (the backend is at its upload limit) is retried (#142).
+    const sendWithRetry = async () => {
+      for (let attempt = 0; ; attempt++) {
+        const xhr = await send();
+        if (xhr.status !== 503 || attempt >= MAX_BUSY_RETRIES) return xhr;
+        onProgress?.({ percent: 0 });
+        await new Promise((resolve) =>
+          setTimeout(resolve, retryDelayMs(xhr.getResponseHeader("Retry-After"), attempt)),
+        );
+      }
     };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const result = JSON.parse(xhr.responseText) as UploadResponse;
-        if (result.unchanged) message.info(t("unchanged", { name: upload.name }));
-        else if (result.duplicateOf.length > 0) message.warning(t("duplicate", { name: upload.name }));
-        onSuccess?.(result);
-        router.refresh();
-      } else {
+
+    runUpload(sendWithRetry).then(
+      (xhr) => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const result = JSON.parse(xhr.responseText) as UploadResponse;
+          if (result.unchanged) message.info(t("unchanged", { name: upload.name }));
+          else if (result.duplicateOf.length > 0) message.warning(t("duplicate", { name: upload.name }));
+          onSuccess?.(result);
+          router.refresh();
+          return;
+        }
         const problem = (() => {
           try {
             return JSON.parse(xhr.responseText) as { detail?: string };
@@ -587,13 +609,12 @@ function UploadArea({ projectId, folder }: Readonly<{ projectId: string; folder:
           problem.detail ? `${upload.name}: ${problem.detail}` : t("uploadFailed", { name: upload.name }),
         );
         onError?.(new Error(problem.detail ?? `HTTP ${xhr.status}`));
-      }
-    };
-    xhr.onerror = () => {
-      message.error(t("uploadFailed", { name: upload.name }));
-      onError?.(new Error("network"));
-    };
-    xhr.send(body);
+      },
+      () => {
+        message.error(t("uploadFailed", { name: upload.name }));
+        onError?.(new Error("network"));
+      },
+    );
   };
 
   return (

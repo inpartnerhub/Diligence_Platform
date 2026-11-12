@@ -148,6 +148,9 @@ diligence:
   http:
     # Largest request body that is not a multipart upload (#117); uploads keep spring.servlet.multipart.* (100 MB).
     max-body-size: ${HTTP_MAX_BODY_SIZE:1MB}
+    # Multipart uploads one instance accepts at a time (#142): each is buffered in /tmp (up to 100 MB) until the
+    # request ends. Keep max × 100 MB well below the pod's /tmp limit (deployment.yaml); more get 503 + Retry-After.
+    max-concurrent-uploads: ${HTTP_MAX_CONCURRENT_UPLOADS:8}
   # Per-user API rate limit (#63), on top of Kong's per-IP limit: requests per user and minute, and a stricter limit
   # for search, downloads and exports. Counted in Redis; load tests that reuse one account switch it off.
   rate-limit:

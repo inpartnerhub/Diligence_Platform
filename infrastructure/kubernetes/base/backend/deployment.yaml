@@ -45,7 +45,8 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=$(APP_ENVIRONMENT)
           resources:
-            requests: { cpu: 500m, memory: 1Gi }
+            # ephemeral-storage: the /tmp volume below counts against it, so the scheduler reserves room for it.
+            requests: { cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi }
             limits: { cpu: "2", memory: 1Gi }
           startupProbe:
             httpGet: { path: /actuator/health/liveness, port: management }
@@ -66,5 +67,9 @@ spec:
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
       volumes:
+        # Temporary files (#142): multipart uploads are buffered here until the request ends (at most
+        # HTTP_MAX_CONCURRENT_UPLOADS = 8 at a time × 100 MB), plus document ingestion (original, PDF rendition,
+        # PDFBox cache), bulk ZIP downloads and exports. Exceeding the limit evicts the pod, so keep it well above
+        # 8 × 100 MB.
         - name: tmp
-          emptyDir: { sizeLimit: 1Gi }
+          emptyDir: { sizeLimit: 4Gi }
