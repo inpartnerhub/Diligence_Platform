@@ -16,9 +16,14 @@ module "eks" {
   cloudwatch_log_group_kms_key_id        = var.log_kms_key_arn
 
   addons = {
-    coredns                = {}
-    kube-proxy             = {}
-    vpc-cni                = { before_compute = true }
+    coredns    = {}
+    kube-proxy = {}
+    # Network policy enforcement (#157): without it every NetworkPolicy in infrastructure/kubernetes (default deny,
+    # backend only from Kong, the diligence-processing isolation) is accepted by the API server but not applied.
+    vpc-cni = {
+      before_compute       = true
+      configuration_values = jsonencode({ enableNetworkPolicy = "true" })
+    }
     eks-pod-identity-agent = { before_compute = true }
   }
 

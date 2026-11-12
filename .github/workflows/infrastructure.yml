@@ -61,6 +61,11 @@ jobs:
               exit 1
             fi
           done
+      - name: The cluster enforces NetworkPolicies
+        # Without VPC CNI network policy the API server accepts every NetworkPolicy and nothing applies it (#157).
+        run: |
+          grep -q 'enableNetworkPolicy = "true"' infrastructure/terraform/modules/kubernetes-cluster/main.tf \
+            || { echo "::error::vpc-cni add-on must set enableNetworkPolicy (modules/kubernetes-cluster)"; exit 1; }
 
   compose:
     runs-on: ubuntu-latest
