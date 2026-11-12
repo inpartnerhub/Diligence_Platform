@@ -65,9 +65,19 @@ class DataRoomAccess {
         return all.stream().filter(f -> context.coversWorkstream(effective.get(f.getId()))).toList();
     }
 
+    /**
+     * One folder the caller can see, with analysts limited to their workstreams. Loads only the folder and its
+     * ancestors (#128): this runs for every document, viewer page and download request, and loading every folder of a
+     * large data room each time (with the row-level-security check per folder) was the main cost of those requests.
+     */
     Folder folder(ProjectContext context, UUID folderId) {
-        return visibleFolders(context).stream().filter(f -> f.getId().equals(folderId)).findFirst()
+        var chain = folders.findWithAncestors(context.projectId(), folderId);
+        var folder = chain.stream().filter(f -> f.getId().equals(folderId)).findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Folder", folderId));
+        if (!context.coversWorkstream(effectiveWorkstreams(chain).get(folderId))) {
+            throw new ResourceNotFoundException("Folder", folderId);
+        }
+        return folder;
     }
 
     boolean canUpload(ProjectContext context, Folder folder) {

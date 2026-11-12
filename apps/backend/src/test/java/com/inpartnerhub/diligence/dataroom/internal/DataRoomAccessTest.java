@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -66,14 +68,39 @@ class DataRoomAccessTest {
                 .containsExactly(legalRoot, legalSub, general);
         assertThat(access.visibleFolders(context(ProjectRole.ANALYST))).hasSize(4);
         assertThat(access.visibleFolders(scoped(ProjectRole.PROJECT_MANAGER, legal))).hasSize(4);
+    }
+
+    @Test
+    void singleFolderChecksUseOnlyTheFolderAndItsAncestors() {
+        var legal = UUID.randomUUID();
+        var tax = UUID.randomUUID();
+        var legalRoot = new Folder(PROJECT, null, "Legal", legal);
+        var legalSub = new Folder(PROJECT, legalRoot.getId(), "Contracts", null);
+        var taxRoot = new Folder(PROJECT, null, "Tax", tax);
+        var general = new Folder(PROJECT, null, "General", null);
+        when(folders.findWithAncestors(PROJECT, legalSub.getId())).thenReturn(List.of(legalSub, legalRoot));
+        when(folders.findWithAncestors(PROJECT, taxRoot.getId())).thenReturn(List.of(taxRoot));
+        when(folders.findWithAncestors(PROJECT, general.getId())).thenReturn(List.of(general));
+
+        // The workstream is inherited from the ancestor.
+        assertThat(access.folder(scoped(ProjectRole.ANALYST, legal), legalSub.getId())).isSameAs(legalSub);
+        assertThatThrownBy(() -> access.folder(scoped(ProjectRole.ANALYST, tax), legalSub.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
         assertThatThrownBy(() -> access.folder(scoped(ProjectRole.ANALYST, legal), taxRoot.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+        assertThat(access.folder(scoped(ProjectRole.ANALYST, legal), general.getId())).isSameAs(general);
+        assertThat(access.folder(scoped(ProjectRole.PROJECT_MANAGER, legal), taxRoot.getId())).isSameAs(taxRoot);
+
+        // Hidden by row-level security (or another project's folder): not found.
+        assertThatThrownBy(() -> access.folder(context(ProjectRole.TARGET), UUID.randomUUID()))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(folders, never()).findByProjectIdOrderByName(any());
     }
 
     @Test
     void uploadRightsByRole() {
         var folder = new Folder(PROJECT, null, "Inbox", null);
-        when(folders.findByProjectIdOrderByName(PROJECT)).thenReturn(List.of(folder));
+        when(folders.findWithAncestors(PROJECT, folder.getId())).thenReturn(List.of(folder));
 
         assertThat(access.canUpload(context(ProjectRole.ANALYST), folder)).isTrue();
         assertThat(access.canUpload(context(ProjectRole.OBSERVER), folder)).isFalse();
