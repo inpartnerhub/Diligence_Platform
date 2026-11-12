@@ -56,9 +56,16 @@ class ApplicationIntegrationTest {
         var target = UUID.randomUUID();
         var client = UUID.randomUUID();
         var outsider = UUID.randomUUID();
-        // Seed as the owner (RLS not applied to the login user outside the runtime role).
+        // Seed as the owner (RLS not applied to the login user outside the runtime role). External members need an
+        // account in the project's client/target organization (#155).
+        var clientOrg = UUID.randomUUID();
+        var targetOrg = UUID.randomUUID();
+        jdbc.update("insert into adm.organization (id, name, type) values (?, ?, 'CLIENT'), (?, ?, 'TARGET')",
+                clientOrg, "C " + clientOrg, targetOrg, "T " + targetOrg);
+        accountWithId(client, clientOrg, "CLIENT");
+        accountWithId(target, targetOrg, "TARGET");
         jdbc.update("insert into prj.project (id, code, name, client_organization_id, target_organization_id, created_by) "
-                + "values (?, ?, 'P', ?, ?, ?)", project, "RLS-" + project, UUID.randomUUID(), UUID.randomUUID(), analyst);
+                + "values (?, ?, 'P', ?, ?, ?)", project, "RLS-" + project, clientOrg, targetOrg, analyst);
         var workstream = UUID.randomUUID();
         jdbc.update("insert into prj.workstream (id, project_id, type) values (?, ?, 'LEGAL')", workstream, project);
         for (var member : new Object[][] { { analyst, "ANALYST" }, { target, "TARGET" }, { client, "CLIENT" } }) {
@@ -124,8 +131,36 @@ class ApplicationIntegrationTest {
                 .rootCause().hasMessageContaining("only the Super Admin"); // never its own role
     }
 
+    @Test
+    void externalMembersMustBelongToTheProjectsOrganizations() {
+        // #155: enforced by the database, not only by MemberService.
+        var clientOrg = UUID.randomUUID();
+        var targetOrg = UUID.randomUUID();
+        var otherOrg = UUID.randomUUID();
+        jdbc.update("insert into adm.organization (id, name, type) values (?, ?, 'CLIENT'), (?, ?, 'TARGET'), "
+                + "(?, ?, 'TARGET')", clientOrg, "C " + clientOrg, targetOrg, "T " + targetOrg, otherOrg, "O " + otherOrg);
+        var project = UUID.randomUUID();
+        jdbc.update("insert into prj.project (id, code, name, client_organization_id, target_organization_id, created_by) "
+                + "values (?, ?, 'P', ?, ?, ?)", project, "ORG-" + project, clientOrg, targetOrg, UUID.randomUUID());
+        var target = account(targetOrg, "TARGET");
+        var foreignTarget = account(otherOrg, "TARGET");
+        var insert = "insert into prj.project_member (id, project_id, user_id, project_role) values (?, ?, ?, ?)";
+
+        jdbc.update(insert, UUID.randomUUID(), project, target, "TARGET");
+        assertThatThrownBy(() -> jdbc.update(insert, UUID.randomUUID(), project, foreignTarget, "TARGET"))
+                .rootCause().hasMessageContaining("project's target organization");
+        assertThatThrownBy(() -> jdbc.update(insert, UUID.randomUUID(), project, target, "CLIENT"))
+                .rootCause().hasMessageContaining("project's client organization");
+        assertThatThrownBy(() -> jdbc.update(insert, UUID.randomUUID(), project, UUID.randomUUID(), "CLIENT"))
+                .rootCause().hasMessageContaining("project's client organization"); // no account at all
+        jdbc.update(insert, UUID.randomUUID(), project, foreignTarget, "OBSERVER");      // auditors are not bound
+    }
+
     private UUID account(UUID organization, String role) {
-        var id = UUID.randomUUID();
+        return accountWithId(UUID.randomUUID(), organization, role);
+    }
+
+    private UUID accountWithId(UUID id, UUID organization, String role) {
         jdbc.update("insert into adm.user_account (id, organization_id, email, display_name, global_role, status) "
                 + "values (?, ?, ?, 'U', ?, 'ACTIVE')", id, organization, id + "@example.com", role);
         return id;
