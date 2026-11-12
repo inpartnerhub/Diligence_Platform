@@ -88,6 +88,44 @@ module "object_storage" {
   tags        = local.tags
 }
 
+# Backend access to the documents bucket and its key (#158): Pod Identity for diligence-<env>/diligence-backend, limited
+# to what DocumentStorage does — read, write and delete objects, list them, and remove every version on a project
+# purge (ListBucketVersions, DeleteObjectVersion; SECURITY.md "Retention").
+data "aws_iam_policy_document" "backend_documents" {
+  statement {
+    sid       = "DocumentObjects"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion"]
+    resources = ["${module.object_storage.bucket_arn}/*"]
+  }
+  statement {
+    sid       = "DocumentListing"
+    actions   = ["s3:ListBucket", "s3:ListBucketVersions"]
+    resources = [module.object_storage.bucket_arn]
+  }
+  statement {
+    sid       = "DocumentKey"
+    actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"]
+    resources = [module.object_storage.kms_key_arn]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["s3.${data.aws_region.current.region}.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_region" "current" {}
+
+module "backend_identity" {
+  source          = "../../modules/workload-identity"
+  name            = "${local.name}-backend"
+  cluster_name    = module.cluster.cluster_name
+  namespace       = "diligence-${var.environment}"
+  service_account = "diligence-backend"
+  policy_json     = data.aws_iam_policy_document.backend_documents.json
+  tags            = local.tags
+}
+
 # Terraform owns kv/diligence/<env>/backend/infrastructure exclusively (a KV v2 write replaces the whole secret).
 # Operator-managed values (DB_USERNAME, DB_PASSWORD, SENTRY_DSN) live in kv/diligence/<env>/backend/application.
 resource "vault_kv_secret_v2" "backend_infrastructure" {
