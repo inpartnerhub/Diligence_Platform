@@ -53,6 +53,10 @@ class MemberService {
         var user = directory.findUser(command.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", command.userId()));
         checkEligible(project, user, command.role());
+        if (command.role().isExternal() && user.organizationId() != null && directory.findOrganization(
+                user.organizationId()).filter(Directory.OrganizationSummary::active).isEmpty()) {
+            throw new InvalidRequestException(user.displayName() + "'s organization is inactive"); // #156
+        }
         if (command.workstreamId() != null && workstreams.findById(command.workstreamId())
                 .filter(w -> w.getProjectId().equals(projectId)).isEmpty()) {
             throw new InvalidRequestException("Workstream does not belong to this project");

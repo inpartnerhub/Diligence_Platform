@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationCreated;
+import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationDeactivated;
 import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationUpdated;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
@@ -53,6 +54,7 @@ class OrganizationService {
 
     Organization update(UUID id, String name, Organization.Status status, Integer defaultRetentionDays) {
         var organization = get(id);
+        var wasActive = organization.getStatus() == Organization.Status.ACTIVE;
         if (name != null && !name.isBlank()) {
             organization.rename(name.strip());
         }
@@ -63,6 +65,9 @@ class OrganizationService {
             organization.updateRetentionDays(defaultRetentionDays);
         }
         events.publishEvent(new OrganizationUpdated(organization.getId(), organization.getName(), RequestMetadata.capture()));
+        if (wasActive && organization.getStatus() == Organization.Status.INACTIVE) {
+            events.publishEvent(new OrganizationDeactivated(organization.getId()));
+        }
         return organization;
     }
 

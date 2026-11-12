@@ -2,7 +2,9 @@ package com.inpartnerhub.diligence.project.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +28,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.inpartnerhub.diligence.TestContainersConfiguration;
+import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationDeactivated;
 import com.inpartnerhub.diligence.project.ProjectRole;
 import com.inpartnerhub.diligence.project.WorkstreamType;
 import com.inpartnerhub.diligence.security.Role;
@@ -51,6 +54,9 @@ class ProjectIntegrationTest {
     MemberService members;
 
     @Autowired
+    OrganizationAccessListener organizationAccess;
+
+    @Autowired
     DashboardService dashboards;
 
     @Autowired
@@ -64,7 +70,7 @@ class ProjectIntegrationTest {
 
     @BeforeEach
     void seedDirectory() {
-        // adm.* has no row-level security; seeding runs as the login (owner) role outside the RLS context.
+        // Seeding runs as the login (owner) role outside the RLS context, so row-level security does not apply.
         jdbc.update("insert into adm.organization (id, name, type) values (?, ?, 'CLIENT'), (?, ?, 'TARGET')",
                 clientOrg, "Client " + clientOrg, targetOrg, "Target " + targetOrg);
         seedUser(pm, null, Role.PROJECT_MANAGER);
@@ -170,6 +176,31 @@ class ProjectIntegrationTest {
         var request = new MockHttpServletRequest("GET", "/api/v1/projects");
         request.setRemoteAddr(ip);
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+    }
+
+    @Test
+    void deactivatingAnOrganizationEndsItsMembersProjectAccess() {
+        // #156
+        signIn(pm, Role.PROJECT_MANAGER);
+        var project = projects.create(new ProjectService.CreateCommand("ORG-" + pm.toString().substring(0, 8),
+                "Atlas", clientOrg, targetOrg, LocalDate.now(), LocalDate.now().plusMonths(3), null,
+                Set.of(WorkstreamType.LEGAL)));
+        members.add(project.getId(), new MemberService.AddCommand(target, ProjectRole.TARGET, null, null));
+        SecurityContextHolder.clearContext(); // the listener runs without a user (system context)
+
+        organizationAccess.on(new OrganizationDeactivated(targetOrg)); // @ApplicationModuleListener: asynchronous
+
+        await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(250)).untilAsserted(() -> assertThat(
+                jdbc.queryForObject("select count(*) from prj.project_member where project_id = ? and user_id = ? "
+                        + "and access_expires_at <= now()", Integer.class, project.getId(), target)).isEqualTo(1));
+        await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofMillis(250)).untilAsserted(() -> assertThat(
+                jdbc.queryForObject("select count(*) from audit.audit_log where action = 'project.member-access-revoked' "
+                        + "and object_id = ?", Integer.class, project.getId().toString())).isEqualTo(1));
+        assertThat(jdbc.queryForObject("select count(*) from prj.project_member where project_id = ? "
+                + "and project_role = 'PROJECT_MANAGER' and access_expires_at is null", Integer.class,
+                project.getId())).isEqualTo(1); // the consultant team keeps access
+        signIn(target, Role.TARGET);
+        assertThatThrownBy(() -> projects.get(project.getId())).isInstanceOf(ResourceNotFoundException.class);
     }
 
     private void seedUser(UUID id, UUID organizationId, Role role) {

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
+import com.inpartnerhub.diligence.admin.AdminEvents;
 import com.inpartnerhub.diligence.admin.AdminEvents.OrganizationCreated;
 import com.inpartnerhub.diligence.shared.web.ResourceConflictException;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
@@ -62,6 +64,18 @@ class OrganizationAndGroupServiceTest {
         assertThat(organization.getName()).isEqualTo("New");
         assertThat(organization.getStatus()).isEqualTo(Organization.Status.INACTIVE);
         assertThat(organization.getDefaultRetentionDays()).isEqualTo(90);
+    }
+
+    @Test
+    void announcesADeactivationOnlyWhenTheOrganizationBecomesInactive() {
+        // #156: the project module ends the organization's project access on this event.
+        var organization = new Organization("Acme", Organization.Type.TARGET);
+        when(organizationRepository.findById(organization.getId())).thenReturn(Optional.of(organization));
+
+        organizations.update(organization.getId(), "Acme", Organization.Status.INACTIVE);
+        organizations.update(organization.getId(), "Acme", Organization.Status.INACTIVE);
+
+        verify(events, times(1)).publishEvent(new AdminEvents.OrganizationDeactivated(organization.getId()));
     }
 
     @Test

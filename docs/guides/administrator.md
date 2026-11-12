@@ -28,7 +28,9 @@ the project's partner or manager grants (**Team** tab), optionally per workstrea
 - **Target**: sell side.
 
 Projects link one client and one target organization, and external users can only join a project from those two.
-Deactivate organizations that are no longer engaged.
+Deactivate organizations that are no longer engaged. Deactivating one immediately ends the project access of its
+client and target users (recorded in the audit log as `project.member-access-revoked`); they cannot be added to
+projects while it is inactive. Reactivating it does not restore access: add the members again.
 
 ## Users
 
