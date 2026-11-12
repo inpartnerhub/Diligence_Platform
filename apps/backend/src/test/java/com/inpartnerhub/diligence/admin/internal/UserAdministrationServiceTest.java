@@ -114,6 +114,22 @@ class UserAdministrationServiceTest {
     }
 
     @Test
+    void assignsTheFirstRoleOfAnSsoAccount() {
+        // #152: SSO accounts arrive without a role; the first assignment must reach Keycloak, Observer included.
+        var account = UserAccount.provisioned(keycloakId, "sso@x.test", "S", null);
+        when(users.findById(keycloakId)).thenReturn(Optional.of(account));
+
+        service.changeRole(keycloakId, Role.OBSERVER);
+
+        assertThat(account.getGlobalRole()).isEqualTo(Role.OBSERVER);
+        assertThat(account.isMfaEnabled()).isTrue();
+        verify(identity).replaceRole(keycloakId, Role.OBSERVER);
+        var event = org.mockito.ArgumentCaptor.forClass(UserRoleChanged.class);
+        verify(events).publishEvent(event.capture());
+        assertThat(event.getValue().auditDetails()).containsEntry("previousRole", "NONE");
+    }
+
+    @Test
     void unchangedRoleIsANoOp() {
         var account = UserAccount.invited(keycloakId, organizationId, "a@x.test", "A", Role.ANALYST, "id");
         when(users.findById(keycloakId)).thenReturn(Optional.of(account));

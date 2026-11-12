@@ -80,6 +80,14 @@ class MemberServiceTest {
     }
 
     @Test
+    void usersWithoutARoleCannotJoin() {
+        var withoutRole = new UserSummary(UUID.randomUUID(), "n@x.test", "N", null, null, true);
+        assertThatThrownBy(() -> MemberService.checkEligible(project, withoutRole, ProjectRole.OBSERVER))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("no role yet");
+    }
+
+    @Test
     void disabledUsersCannotJoin() {
         var disabled = new UserSummary(UUID.randomUUID(), "d@x.test", "D", null, Role.ANALYST, false);
         assertThatThrownBy(() -> MemberService.checkEligible(project, disabled, ProjectRole.ANALYST))

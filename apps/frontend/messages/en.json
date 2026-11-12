@@ -121,6 +121,7 @@
     "inviteExtraMfa": ", set up two-factor authentication",
     "inviteExtraNda": " and accept the NDA",
     "lastLogin": "Last login",
+    "noRole": "No role yet — assign one",
     "changeRole": "Change role",
     "disable": "Disable",
     "enable": "Enable",

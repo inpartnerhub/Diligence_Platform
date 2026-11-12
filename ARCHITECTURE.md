@@ -139,7 +139,9 @@ endpoints from `OIDC_INTERNAL_ISSUER`, so container networks and the token `iss`
 
 The backend is a stateless resource server: it validates signature (JWKS), issuer and audience (`diligence-api`)
 of every token, maps realm and client roles to `ROLE_*`, and publishes `UserAuthenticated` (throttled per user) so
-the admin module records the login, activates invited users and provisions SSO users just in time.
+the admin module records the login, activates invited users and provisions SSO users just in time. A token without
+any application role is refused with 403 (`ApplicationRoleFilter`, #152); the trusted `system` database context is
+used only for work without a user (listeners, schedulers), never for a user without a role.
 
 ### Invitations (ADM-01)
 

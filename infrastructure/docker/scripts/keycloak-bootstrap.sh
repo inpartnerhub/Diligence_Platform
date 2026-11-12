@@ -76,9 +76,19 @@ add_idp() { # alias providerId clientId clientSecret extra...
     -s 'config.syncMode=IMPORT' -s "config.clientId=$id" -s "config.clientSecret=$secret" "$@"
   echo "Configured SSO identity provider $alias."
 }
+# Brokers are limited to the firm's own directory (#152): without a tenant Entra ID accepts any Microsoft account and
+# without a hosted domain Google accepts any Google account. Imported accounts get no application role; the backend
+# and the web app refuse them until a Super Admin assigns one (User administration).
 if [ -n "${ENTRA_CLIENT_ID:-}" ]; then
+  case "${ENTRA_TENANT_ID:-}" in
+    "" | common | organizations | consumers)
+      echo "ENTRA_TENANT_ID must be the firm's tenant id (not empty, common, organizations or consumers)." >&2; exit 1 ;;
+  esac
   add_idp microsoft microsoft "$ENTRA_CLIENT_ID" "$ENTRA_CLIENT_SECRET" -s "config.tenant=$ENTRA_TENANT_ID"
 fi
 if [ -n "${GOOGLE_CLIENT_ID:-}" ]; then
-  add_idp google google "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" -s "config.hostedDomain=${GOOGLE_HOSTED_DOMAIN:-}"
+  if [ -z "${GOOGLE_HOSTED_DOMAIN:-}" ]; then
+    echo "GOOGLE_HOSTED_DOMAIN must be set to the firm's Google Workspace domain." >&2; exit 1
+  fi
+  add_idp google google "$GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_SECRET" -s "config.hostedDomain=$GOOGLE_HOSTED_DOMAIN"
 fi

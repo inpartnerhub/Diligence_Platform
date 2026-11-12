@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.inpartnerhub.diligence.admin.AdminEvents.UserLoggedIn;
-import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.security.UserAuthenticated;
 import com.inpartnerhub.diligence.shared.audit.RequestMetadata;
 
@@ -52,7 +51,7 @@ class UserProvisioningService {
             }
             account = users.save(UserAccount.provisioned(user.id(), email,
                     user.displayName() == null ? user.username() : user.displayName(),
-                    user.primaryRole().orElse(Role.OBSERVER)));
+                    user.primaryRole().orElse(null)));
         }
         account.recordLogin(event.authenticatedAt());
         invitations.findByUserIdAndStatus(user.id(), Invitation.Status.PENDING)

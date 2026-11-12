@@ -25,6 +25,7 @@ public interface Directory {
         }
     }
 
+    /** {@code role} is {@code null} for an SSO account that has no application role yet (#152). */
     record UserSummary(UUID id, String email, String displayName, UUID organizationId, Role role, boolean active) {
     }
 

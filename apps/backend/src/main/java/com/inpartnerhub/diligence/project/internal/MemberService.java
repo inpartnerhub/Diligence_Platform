@@ -99,6 +99,9 @@ class MemberService {
         if (!user.active()) {
             throw new InvalidRequestException(user.displayName() + " is disabled");
         }
+        if (user.role() == null) {
+            throw new InvalidRequestException(user.displayName() + " has no role yet; an administrator assigns it first");
+        }
         if (!ProjectRole.allowedFor(user.role()).contains(role)) {
             throw new InvalidRequestException("A user with global role " + user.role() + " cannot be " + role
                     + " in a project");

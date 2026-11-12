@@ -84,16 +84,18 @@ class KeycloakAdminClient implements IdentityAdminClient {
         var obsolete = Stream.of(current == null ? new RoleRepresentation[0] : current)
                 .filter(r -> APPLICATION_ROLES.contains(r.name()) && !r.name().equals(role.realmRoleName()))
                 .toList();
-        if (!obsolete.isEmpty()) {
-            call(() -> http.method(org.springframework.http.HttpMethod.DELETE).uri(mappingsPath)
-                    .headers(this::authorize).contentType(MediaType.APPLICATION_JSON).body(obsolete)
-                    .retrieve().toBodilessEntity());
-        }
+        // Add the new role before removing the old ones (#152): if a call fails in between, the user keeps a role
+        // instead of being left without any.
         var target = call(() -> http.get().uri(adminPath("/roles/" + role.realmRoleName()))
                 .headers(this::authorize).retrieve().body(RoleRepresentation.class));
         call(() -> http.post().uri(mappingsPath).headers(this::authorize)
                 .contentType(MediaType.APPLICATION_JSON).body(List.of(target))
                 .retrieve().toBodilessEntity());
+        if (!obsolete.isEmpty()) {
+            call(() -> http.method(org.springframework.http.HttpMethod.DELETE).uri(mappingsPath)
+                    .headers(this::authorize).contentType(MediaType.APPLICATION_JSON).body(obsolete)
+                    .retrieve().toBodilessEntity());
+        }
     }
 
     @Override

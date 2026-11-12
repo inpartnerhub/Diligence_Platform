@@ -33,7 +33,7 @@ class UserAccount {
     private String displayName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "global_role", nullable = false)
+    @Column(name = "global_role")
     private Role globalRole;
 
     @Column(nullable = false)
@@ -67,7 +67,7 @@ class UserAccount {
         this.globalRole = role;
         this.locale = locale;
         this.status = status;
-        this.mfaEnabled = role.requiresMfa();
+        this.mfaEnabled = role != null && role.requiresMfa();
         this.createdAt = Instant.now();
     }
 
@@ -76,7 +76,10 @@ class UserAccount {
         return new UserAccount(id, organizationId, email, displayName, role, locale, Status.INVITED);
     }
 
-    /** Just-in-time account for users who arrive through SSO without an invitation. */
+    /**
+     * Just-in-time account for users who arrive through SSO without an invitation. {@code role} is {@code null} when the
+     * token carries no application role (#152): the account is listed for administrators but has no access yet.
+     */
     static UserAccount provisioned(UUID id, String email, String displayName, Role role) {
         return new UserAccount(id, null, email, displayName, role, "id", Status.ACTIVE);
     }

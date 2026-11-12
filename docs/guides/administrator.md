@@ -41,7 +41,8 @@ Deactivate organizations that are no longer engaged.
 - **Disable.** The user is signed out of new sessions immediately. Prefer it to deletion: the audit trail keeps
   their name. **Enable** restores access.
 - Internal users who sign in through the company's Microsoft or Google account (SSO) are created automatically at
-  their first sign-in, with the least-privileged role. Assign their role afterwards.
+  their first sign-in, **without a role** ("No role yet"). They cannot use the platform until you assign one; until
+  then they see a "No access yet" page after signing in.
 - A user who lost their phone: reset the authenticator in Keycloak (realm *diligence* → Users → Credentials) after
   verifying their identity out of band.
 

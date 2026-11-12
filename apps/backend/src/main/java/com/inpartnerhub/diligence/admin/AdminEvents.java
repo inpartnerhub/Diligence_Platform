@@ -105,7 +105,8 @@ public final class AdminEvents {
 
         @Override
         public Map<String, String> auditDetails() {
-            return Map.of("previousRole", String.valueOf(previousRole), "newRole", newRole.name());
+            // previousRole is null for an SSO account that gets its first role (#152).
+            return Map.of("previousRole", previousRole == null ? "NONE" : previousRole.name(), "newRole", newRole.name());
         }
     }
 
