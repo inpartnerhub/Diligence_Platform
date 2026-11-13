@@ -15,7 +15,7 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       # The gitleaks GitHub Action needs a paid license for organization repositories; the CLI does not.
       # The official image pinned by digest (multi-arch index of v8.30.1) instead of the release download, whose
@@ -27,6 +27,22 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" -w /repo "$GITLEAKS_IMAGE" \
             git --config .gitleaks.toml --redact --verbose --exit-code 1 .
 
+  # Every action is pinned to a commit SHA with its version as a comment (#168); Dependabot updates both. A tag can
+  # be moved to other code, a commit cannot. Local actions (./.github/...) and docker:// references are not affected.
+  pinned-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Actions are pinned to commit SHAs
+        run: |
+          unpinned=$(grep -rnE '^\s*-?\s*uses:\s*[^ ./][^ ]*@' .github/workflows \
+            | grep -vE '@[0-9a-f]{40}([[:space:]]|$)' || true)
+          if [ -n "$unpinned" ]; then
+            echo "$unpinned"
+            echo "::error::Pin these actions to a full commit SHA (with the version as a comment)"
+            exit 1
+          fi
+
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -34,8 +50,8 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/dependency-review-action@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
@@ -46,7 +62,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
@@ -56,6 +72,6 @@ jobs:
           severity: CRITICAL,HIGH
           format: sarif
           output: trivy-fs.sarif
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         if: always()
         with: { sarif_file: trivy-fs.sarif, category: trivy-fs }

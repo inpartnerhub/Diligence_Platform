@@ -21,7 +21,7 @@ jobs:
       run:
         working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
       - run: terraform fmt -check -recursive ../..
       - run: terraform init -backend=false -input=false
@@ -35,7 +35,7 @@ jobs:
   kubernetes:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5
       - name: Render and validate overlays
         run: |
@@ -83,7 +83,7 @@ jobs:
   compose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cp .env.example .env && docker compose --profile app --profile observability config -q
       - name: clamd reports unscannable content in compose and Kubernetes (#140)
         run: |
@@ -98,7 +98,7 @@ jobs:
   alert-rules:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check alert rules (compose and Kubernetes) and that both files hold the same rules
         run: |
           image=$(grep -o 'prom/prometheus:[^ "]*' compose.yaml | head -1)
