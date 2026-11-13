@@ -40,3 +40,8 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    # Actions are pinned to commit SHAs (#168); new releases wait two weeks before Dependabot proposes them.
+    cooldown: { default-days: 14 }
+    groups:
+      # init, analyze and upload-sarif must run the same version, or every CodeQL job fails (#216, #222).
+      codeql: { patterns: ["github/codeql-action*"] }
