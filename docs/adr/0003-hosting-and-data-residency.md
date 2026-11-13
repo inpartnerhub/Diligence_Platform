@@ -1,7 +1,7 @@
 # ADR-0003: Hosting model and data residency
 
-- **Status:** Proposed — recommendation below, awaiting the steering committee and Legal (PRD 15.2, #69)
-- **Date:** 2026-10-30, recommendation added 2026-11-13
+- **Status:** Accepted (technical decision, 2026-11-13) — the Legal questions below remain open (PRD 15.2, #69)
+- **Date:** 2026-10-30, decided 2026-11-13
 - **Deciders:** Steering committee (Partner, Product Owner, Tech Lead), Security Officer, Legal
 
 ## Context
@@ -40,44 +40,62 @@ Data that already leaves the primary environment, or may, by design:
 | SSO (Microsoft Entra ID / Google, optional) | Sign-in of internal users | The identity provider |
 | Webhooks (ADM-07) | Event payloads configured by the Super Admin | Receivers' own hosting |
 
-## Recommendation
+## Recommendation considered
 
-**Option A, AWS ap-southeast-3, for every environment that holds real client data**, with Option D kept open
-commercially (the cloud-neutral layers allow a dedicated on-prem deployment later without changing the application).
+The draft recommended Option A (AWS ap-southeast-3, the existing Terraform) with backups in a separate AWS account in
+the same region. The decision below chose Option B instead.
 
-1. **Primary data stays in Indonesia**: database, object storage, search index, queues, caches, backups and logs in
-   ap-southeast-3 (already enforced for staging and prod, #163).
-2. **Backups (#178)**: a locked AWS Backup vault in a **separate AWS account in ap-southeast-3**, not a copy to another
-   country. It protects against a compromised production account and deletion; it does not protect against a loss of
-   the whole region.
-3. **Regional outage**: accepted as a residual risk and written into the DR runbook (RTO ≤ 4 h holds only for failures
-   inside the region). If a client contract requires a second site, the second site is in Indonesia (another
-   provider's Jakarta region or on-prem), restored from exported backups, never a foreign AWS region by default.
-4. **Cross-border flows** listed above are kept to what is necessary and recorded in the subprocessor list (#187):
-   Sentry without personal data or in an in-country/self-hosted setup, SES in ap-southeast-3 if available there
-   (otherwise the nearest region, recorded as a transfer), SSO only for the firm's own staff.
-5. **Keycloak (#169)** runs in the same region and account boundary as the application.
-
-## Questions for Legal (to settle before *Accepted*)
+## Open questions for Legal
 
 - Do any target client segments (banks and other OJK-supervised institutions, state-owned enterprises, public
   sector) require their data, or their electronic systems, to be in Indonesia, or need regulator approval otherwise?
 - For the flows above that leave Indonesia: is the UU PDP transfer basis (adequate protection in the receiving
   country, appropriate safeguards such as contractual clauses, or consent) in place for each, and what must the
   privacy notice say?
-- Is accepting the regional-outage risk (point 3) compatible with the client contracts and the PRD's RPO/RTO?
+- Do client contracts or regulators accept two cloud providers (Azure primary, AWS for backup copies) as processors,
+  and must both be named to clients?
 
 ## Decision
 
-Pending. Until decided: use `ap-southeast-3` for any shared environment that holds real client data, and keep new
-infrastructure code behind the existing module interfaces so the target can change.
+1. **Primary platform: Microsoft Azure, region Indonesia Central (Option B)**, for every environment that holds real
+   client data (dev may use it too). Dedicated on-premise deployments for specific clients stay possible (Option D):
+   everything above the infrastructure layer remains cloud-neutral.
+2. **Second site for backups and disaster recovery: AWS ap-southeast-3 (Jakarta)**, in an account used only for this.
+   Backups of the database and of the document storage are copied there and kept immutable. Data stays in Indonesia;
+   a loss of the Azure region is recovered from the AWS copies. Restore procedure and targets (RPO ≤ 1 h,
+   RTO ≤ 4 h) are proven by the restore test (#68) against this setup.
+3. **No production data outside Indonesia.** The flows in the table above that leave the country (Sentry, the e-mail
+   relay, SSO brokers, webhooks) are minimised and recorded in the subprocessor list (#187); each needs the transfer
+   basis Legal confirms.
+4. The Legal questions above stay open and are tracked in #187; they may add constraints but do not change the
+   platform choice unless Legal finds a blocker.
 
-## Consequences (if the recommendation is accepted)
+## Consequences
 
-- #178: AWS Backup plan with Vault Lock into a backup account in ap-southeast-3; the account id becomes a Terraform
-  variable.
-- #187: the subprocessor list starts from the flow table above.
-- #183: EKS stays (the region offers it; no change of orchestrator needed for residency).
-- #169: Keycloak deployment designed for ap-southeast-3.
-- `infrastructure/terraform` keeps its single-provider modules; SECURITY.md and the backup/DR runbook name the region
-  and the residual regional risk.
+The AWS reference implementation in `infrastructure/terraform` no longer describes the target platform. Moving to
+Azure is a project of its own (new issues, planned before go-live):
+
+| Area | AWS implementation today | Azure target (availability in Indonesia Central to confirm per service) |
+|------|--------------------------|--------------------------------------------------------------------------|
+| Kubernetes | EKS (`modules/kubernetes-cluster`), ADR-0007 | AKS; ADR-0007 must be revised (EKS → AKS) |
+| Network policies (#157) | VPC CNI network policy | Azure CNI with a network policy engine (Cilium or Azure NPM) |
+| Workload identity (#158) | EKS Pod Identity | Microsoft Entra Workload ID |
+| Deploy identity (#164) | GitHub OIDC → IAM role | GitHub OIDC → Entra federated credential + AKS RBAC |
+| Node disk encryption (#176) | CMK on EBS | Disk encryption set with a customer-managed key (Key Vault) |
+| PostgreSQL | RDS | Azure Database for PostgreSQL Flexible Server |
+| Redis (#171) | ElastiCache Valkey with RBAC users | Azure Cache for Redis / Azure Managed Redis with per-workload access policies (key patterns), or Valkey in the cluster |
+| RabbitMQ | Amazon MQ | No managed RabbitMQ on Azure: RabbitMQ in the cluster (operator) or a change of broker |
+| OpenSearch | Amazon OpenSearch Service | No managed OpenSearch on Azure: OpenSearch in the cluster or a third-party service |
+| Object storage | S3 (AWS SDK in `S3DocumentStorage`, Object Lock for #179) | Blob Storage is not S3-compatible: an S3-compatible gateway or a storage adapter in the backend (decision needed); immutability via Blob immutability policies |
+| E-mail | SMTP relay (SES assumed) | Azure Communication Services e-mail or another relay (record in #187) |
+| Region guard (#163) | staging/prod refuse regions other than ap-southeast-3 | the same guard for Indonesia Central |
+| Images and admission (#166, #167) | GHCR + cosign + Kyverno | unchanged (cloud-neutral) |
+| Secrets (ADR-0002, #170) | Vault + Vault Secrets Operator | unchanged; Vault topology per ADR-0010 |
+| Backups (#178) | — | Azure backups in Indonesia Central plus immutable copies to the AWS Jakarta account |
+
+Other consequences:
+
+- #183 (container platform), #169 (Keycloak) and #170 (Vault) are decided against Azure.
+- #184 sizes Azure resources; #61 runs on the Azure staging environment.
+- Until the Azure implementation exists, the AWS Terraform stays as the reference and is not applied for real client
+  data.
