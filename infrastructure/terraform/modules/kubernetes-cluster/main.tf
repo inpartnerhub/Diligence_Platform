@@ -33,6 +33,13 @@ module "eks" {
       min_size       = var.node_min_size
       max_size       = var.node_max_size
       desired_size   = var.node_min_size
+      # IMDSv2 with one hop: pods cannot reach the node's instance profile, so workloads get AWS access only through
+      # their own Pod Identity role (#158).
+      metadata_options = {
+        http_endpoint               = "enabled"
+        http_tokens                 = "required"
+        http_put_response_hop_limit = 1
+      }
     }
   }
 

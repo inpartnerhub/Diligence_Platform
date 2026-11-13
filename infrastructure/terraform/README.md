@@ -30,6 +30,8 @@ terraform apply tfplan
   The RDS master password is managed by RDS in Secrets Manager. Application secrets never appear in Kubernetes manifests.
 - Cluster add-ons (Kong Ingress Controller, Vault Secrets Operator, cert-manager, kube-prometheus-stack,
   OpenTelemetry Collector, Tika and ClamAV workloads) are installed via GitOps/Helm, not by this Terraform.
+- Workload access to AWS uses EKS Pod Identity (`modules/workload-identity`): one role per service account, least
+  privilege (the backend: documents bucket and its key only). No static AWS keys in Vault or Kubernetes.
 - Encryption: customer-managed KMS keys (rotation on) for documents (S3), PostgreSQL storage and Performance
   Insights, and one shared key for CloudWatch log groups.
 - Logging: VPC flow logs, all EKS control-plane log types, OpenSearch audit/application/slow logs, S3 server access
