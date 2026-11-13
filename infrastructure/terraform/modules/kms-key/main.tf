@@ -36,11 +36,38 @@ data "aws_iam_policy_document" "this" {
   }
 }
 
+data "aws_iam_policy_document" "autoscaling" {
+  source_policy_documents = [data.aws_iam_policy_document.this.json]
+  statement {
+    sid       = "AutoScalingEbsEncryption"
+    actions   = ["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${local.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"]
+    }
+  }
+  statement {
+    sid       = "AutoScalingEbsGrants"
+    actions   = ["kms:CreateGrant"]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${local.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "kms:GrantIsForAWSResource"
+      values   = ["true"]
+    }
+  }
+}
+
 resource "aws_kms_key" "this" {
   description             = var.description
   enable_key_rotation     = true
   deletion_window_in_days = 30
-  policy                  = data.aws_iam_policy_document.this.json
+  policy                  = var.allow_ec2_autoscaling ? data.aws_iam_policy_document.autoscaling.json : data.aws_iam_policy_document.this.json
   tags                    = var.tags
 }
 

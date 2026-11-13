@@ -1,3 +1,13 @@
+# Node root volumes hold the pods' emptyDir volumes, e.g. uploaded documents during ingestion (#176): encrypted with
+# a customer-managed key, like documents and the database.
+module "node_volume_key" {
+  source                = "../kms-key"
+  alias                 = "${var.name}-node-volumes"
+  description           = "Encryption key for the ${var.name} EKS node volumes"
+  allow_ec2_autoscaling = true
+  tags                  = var.tags
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.0"
@@ -39,6 +49,18 @@ module "eks" {
         http_endpoint               = "enabled"
         http_tokens                 = "required"
         http_put_response_hop_limit = 1
+      }
+      block_device_mappings = {
+        root = {
+          device_name = "/dev/xvda"
+          ebs = {
+            volume_size           = 50
+            volume_type           = "gp3"
+            encrypted             = true
+            kms_key_id            = module.node_volume_key.arn
+            delete_on_termination = true
+          }
+        }
       }
     }
   }
