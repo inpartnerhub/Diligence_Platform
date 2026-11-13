@@ -21,6 +21,8 @@ export interface SessionData {
   idToken?: string;
   /** Access token expiry, epoch seconds. */
   expiresAt: number;
+  /** Sign-in time, epoch seconds; bounds the session's lifetime (#174). Missing in sessions created before. */
+  createdAt?: number;
   user: SessionUser;
 }
 
@@ -50,9 +52,9 @@ export async function writeSession(sessionId: string, data: SessionData, ttlSeco
   await (await redis()).set(KEY_PREFIX + sessionId, JSON.stringify(data), { EX: Math.max(ttlSeconds, 60) });
 }
 
-/** Keeps the current TTL (bounded by the refresh token lifetime set at login). */
-export async function updateSession(sessionId: string, data: SessionData): Promise<void> {
-  await (await redis()).set(KEY_PREFIX + sessionId, JSON.stringify(data), { KEEPTTL: true });
+/** Replaces the session and sets its lifetime to that of the latest refresh token (#174). */
+export async function updateSession(sessionId: string, data: SessionData, ttlSeconds: number): Promise<void> {
+  await (await redis()).set(KEY_PREFIX + sessionId, JSON.stringify(data), { EX: Math.max(ttlSeconds, 1) });
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
