@@ -40,7 +40,7 @@ jobs:
       - name: Render and validate overlays
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
-          for dir in overlays/dev overlays/staging overlays/prod processing; do
+          for dir in overlays/dev overlays/staging overlays/prod processing rbac/dev rbac/staging rbac/prod; do
             kubectl kustomize "infrastructure/kubernetes/$dir" | ./kubeconform -strict -summary \
               -ignore-missing-schemas \
               -schema-location default \

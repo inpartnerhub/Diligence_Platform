@@ -33,8 +33,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5
-      # Configure cluster access here, e.g. aws-actions/configure-aws-credentials with role-to-assume
-      # followed by `aws eks update-kubeconfig --name diligence-${{ inputs.environment }}`.
+      # Cluster access without stored credentials (#164): the job's OIDC token for this GitHub environment is exchanged
+      # for the environment's deploy role (Terraform output deploy_role_arn, stored as the environment variable
+      # AWS_DEPLOY_ROLE_ARN together with AWS_REGION). In the cluster that role may only apply the overlay's kinds in
+      # diligence-<env> (infrastructure/kubernetes/rbac).
+      - name: Check the environment's deploy settings
+        env:
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          REGION: ${{ vars.AWS_REGION }}
+        run: |
+          if [ -z "$ROLE" ] || [ -z "$REGION" ]; then
+            echo "::error::Set the variables AWS_DEPLOY_ROLE_ARN and AWS_REGION on the GitHub environment"
+            exit 1
+          fi
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: deploy-${{ github.run_id }}
+      - name: Cluster credentials
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          REGION: ${{ vars.AWS_REGION }}
+        run: aws eks update-kubeconfig --name "diligence-$ENVIRONMENT" --region "$REGION"
       # A fixed kustomize release, verified against the checksum published with it (#165). This job can mint cloud
       # credentials, so it never runs an installer script fetched from a branch. Update version and checksum together
       # (checksums.txt of the release).
