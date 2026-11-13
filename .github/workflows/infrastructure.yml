@@ -61,6 +61,19 @@ jobs:
               exit 1
             fi
           done
+      - name: Images are pinned, never a moving tag
+        # Processing images are pinned by digest in the repository; backend/frontend are pinned by digest at deploy
+        # time (deploy.yml) and carry a placeholder version in the overlays (#166).
+        run: |
+          rendered=$(for dir in overlays/dev overlays/staging overlays/prod processing; do
+            kubectl kustomize "infrastructure/kubernetes/$dir"; done | grep -E '^ *image: ' | sort -u)
+          echo "$rendered"
+          if echo "$rendered" | grep -E ':(main|latest)$'; then
+            echo "::error::An image uses a moving tag (main/latest); pin it by digest"; exit 1
+          fi
+          if echo "$rendered" | grep -E 'diligence-(clamav|gotenberg|tika)' | grep -v '@sha256:'; then
+            echo "::error::Processing images must be pinned by digest (infrastructure/kubernetes/processing)"; exit 1
+          fi
       - name: The cluster enforces NetworkPolicies
         # Without VPC CNI network policy the API server accepts every NetworkPolicy and nothing applies it (#157).
         run: |

@@ -18,6 +18,7 @@ on:
 permissions:
   contents: read
   id-token: write # OIDC federation to the cloud provider; no long-lived credentials
+  packages: read # resolve image tags to digests in GHCR (#166)
 
 concurrency:
   group: deploy-${{ inputs.environment }}
@@ -70,14 +71,25 @@ jobs:
           echo "$KUSTOMIZE_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
           mkdir -p "$RUNNER_TEMP/bin" && tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/bin" kustomize
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - name: Pin images
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Deploy by digest (#166): the tag is resolved once, here, and the cluster runs exactly that image even if the tag
+      # were moved later. The resolved digests are printed in the job log as the deployment record.
+      - name: Pin images by digest
         working-directory: ${{ env.OVERLAY }}
         env:
           IMAGE_TAG: ${{ inputs.image-tag }} # through the environment, not interpolated into the script
         run: |
-          kustomize edit set image \
-            "ghcr.io/inpartnerhub/diligence-backend=$REGISTRY/diligence-backend:$IMAGE_TAG" \
-            "ghcr.io/inpartnerhub/diligence-frontend=$REGISTRY/diligence-frontend:$IMAGE_TAG"
+          for app in backend frontend; do
+            digest=$(docker buildx imagetools inspect "$REGISTRY/diligence-$app:$IMAGE_TAG" --format '{{json .Manifest}}' \
+              | jq -r .digest)
+            case "$digest" in sha256:*) ;; *) echo "::error::No digest for diligence-$app:$IMAGE_TAG"; exit 1 ;; esac
+            echo "diligence-$app:$IMAGE_TAG -> $digest"
+            kustomize edit set image "ghcr.io/inpartnerhub/diligence-$app=$REGISTRY/diligence-$app@$digest"
+          done
       - name: Diff
         run: kubectl diff -k "$OVERLAY" || true
       - name: Apply
