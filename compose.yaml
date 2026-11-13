@@ -76,7 +76,7 @@ services:
 
   # ---------------------------------------------------------------- processing & integration
   rabbitmq:
-    image: rabbitmq:4.1-management-alpine
+    image: rabbitmq:4.4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
