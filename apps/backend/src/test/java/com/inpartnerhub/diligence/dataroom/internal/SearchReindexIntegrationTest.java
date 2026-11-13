@@ -244,7 +244,7 @@ class SearchReindexIntegrationTest {
 
     private static void signIn(UUID userId, Instant authTime) {
         var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(userId.toString())
-                .claim("auth_time", authTime.getEpochSecond()).build();
+                .claim("auth_time", authTime.getEpochSecond()).claim("amr", List.of("pwd", "otp")).build(); // #160
         var authorities = new ArrayList<SimpleGrantedAuthority>();
         authorities.add(new SimpleGrantedAuthority(Role.SUPER_ADMIN.authority()));
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt, authorities,
