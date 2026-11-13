@@ -1,7 +1,7 @@
 # ADR-0009: Production Keycloak — self-hosted on the cluster, realm as code per environment
 
-- **Status:** Proposed — awaiting the Tech Lead / Architect and the Security Officer (#169)
-- **Date:** 2026-11-13
+- **Status:** Accepted (2026-11-14); implementation in #169
+- **Date:** 2026-11-13, decided 2026-11-14
 - **Deciders:** Tech Lead / Architect, Security Officer, cluster owner (ADR-0007)
 
 ## Context
@@ -48,9 +48,17 @@ The platform is Azure Indonesia Central (ADR-0003), on AKS as proposed in ADR-00
 
 ## Decision
 
-Pending.
+1. **Keycloak 26.x self-hosted on AKS** in Azure Indonesia Central: its own namespace, at least 2 replicas across
+   availability zones, its own database and login on the Azure Database for PostgreSQL server (in its backups and the
+   copies to the AWS site), TLS at the Kong ingress, management port for health and metrics only.
+2. **Admin console internal only**: the `master` realm and `/admin` never on the public ingress.
+3. **Realm as code with keycloak-config-cli**: the `diligence` realm file in this repository plus per-environment
+   variables (redirect and post-logout URIs, web origins, SMTP, brokers) in the overlays, applied by a Job on every
+   deploy; client secrets and SMTP passwords from Vault (ADR-0010). A CI check refuses `localhost` URIs in staging and
+   prod values. The manual realm steps of #160, #161 and #175 move into this configuration.
+4. **Owner**: irsalshydiq, the platform owner of ADR-0007, also owns Keycloak upgrades.
 
-## Consequences (if the recommendation is accepted)
+## Consequences
 
 - New work, in this order: Keycloak manifests (overlay per environment) and its database; the realm configuration as
   code with the `localhost` check; the internal admin route; a runbook update (`docs/runbooks/keycloak-outage.md`) for
