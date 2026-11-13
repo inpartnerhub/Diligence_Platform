@@ -222,7 +222,8 @@
           "userSetupAllowed": false,
           "authenticator": "auth-username-password-form",
           "authenticatorFlow": false,
-          "autheticatorFlow": false
+          "autheticatorFlow": false,
+          "authenticatorConfig": "amr-pwd"
         },
         {
           "requirement": "CONDITIONAL",
@@ -256,7 +257,8 @@
           "userSetupAllowed": false,
           "authenticator": "auth-otp-form",
           "authenticatorFlow": false,
-          "autheticatorFlow": false
+          "autheticatorFlow": false,
+          "authenticatorConfig": "amr-otp-browser-mfa"
         }
       ]
     },
@@ -299,7 +301,8 @@
           "userSetupAllowed": false,
           "authenticator": "auth-otp-form",
           "authenticatorFlow": false,
-          "autheticatorFlow": false
+          "autheticatorFlow": false,
+          "authenticatorConfig": "amr-otp-post-broker-mfa"
         }
       ]
     }
@@ -317,6 +320,24 @@
       "config": {
         "condUserRole": "mfa_required",
         "negate": "false"
+      }
+    },
+    {
+      "alias": "amr-pwd",
+      "config": {
+        "default.reference.value": "pwd"
+      }
+    },
+    {
+      "alias": "amr-otp-browser-mfa",
+      "config": {
+        "default.reference.value": "otp"
+      }
+    },
+    {
+      "alias": "amr-otp-post-broker-mfa",
+      "config": {
+        "default.reference.value": "otp"
       }
     }
   ],
@@ -363,6 +384,17 @@
             "user.session.note": "AUTH_TIME",
             "claim.name": "auth_time",
             "jsonType.label": "long",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "amr",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-amr-mapper",
+          "consentRequired": false,
+          "config": {
             "access.token.claim": "true",
             "id.token.claim": "true",
             "introspection.token.claim": "true"

@@ -243,7 +243,7 @@ class QnaAndReportIntegrationTest {
     /** {@code authTime}: when the user last signed in with MFA ({@code auth_time}, step-up checks). */
     private static void signIn(UUID userId, Role role, Instant authTime) {
         var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(userId.toString())
-                .claim("auth_time", authTime).build();
+                .claim("auth_time", authTime).claim("amr", List.of("pwd", "otp")).build(); // with MFA (#160)
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,
                 List.of(new SimpleGrantedAuthority(role.authority())), userId.toString()));
     }

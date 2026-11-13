@@ -50,7 +50,7 @@ class RecentSignInInterceptorTest {
         var userProvider = (ObjectProvider<CurrentUserProvider>) mock(ObjectProvider.class);
         when(userProvider.getObject()).thenReturn(users);
         var properties = (ObjectProvider<StepUpProperties>) mock(ObjectProvider.class);
-        when(properties.getObject()).thenReturn(new StepUpProperties(Duration.ofMinutes(10)));
+        when(properties.getObject()).thenReturn(new StepUpProperties(Duration.ofMinutes(10), null));
         var factory = new ProxyFactory(new Actions());
         factory.setProxyTargetClass(true);
         factory.addAdvisor(new DefaultPointcutAdvisor(
