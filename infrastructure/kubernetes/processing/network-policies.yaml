@@ -36,7 +36,9 @@ spec:
   ingress:
     - from:
         - namespaceSelector: { matchLabels: { app.kubernetes.io/part-of: diligence } }
-          podSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
+          podSelector:
+            matchExpressions: # the API (exports via Gotenberg) and the ingestion worker (#162)
+              - { key: app.kubernetes.io/name, operator: In, values: [diligence-backend, diligence-ingestion] }
       ports:
         - { protocol: TCP, port: 3310 } # ClamAV
         - { protocol: TCP, port: 9998 } # Tika

@@ -44,6 +44,8 @@ spec:
           env:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=$(APP_ENVIRONMENT)
+            - name: INGESTION_LISTENER_ENABLED # uploads are processed by diligence-ingestion (#162)
+              value: "false"
           resources:
             # ephemeral-storage: the /tmp volume below counts against it, so the scheduler reserves room for it.
             requests: { cpu: 500m, memory: 1Gi, ephemeral-storage: 2Gi }
