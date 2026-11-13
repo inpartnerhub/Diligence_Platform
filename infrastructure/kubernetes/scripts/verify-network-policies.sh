@@ -47,6 +47,21 @@ else
   failures=$((failures + 1))
 fi
 
+# The managed data stores are reachable only through the VPC CIDR set per overlay (backend-egress-vpc-data, #180): a
+# wrong CIDR shows up here, not as a failing deployment later.
+# shellcheck disable=SC2016 # the host expressions are expanded inside the pod, from its environment
+for store in 'PostgreSQL|${DB_URL#*//}|5432' 'Redis|${REDIS_HOST}|${REDIS_PORT:-6379}' 'RabbitMQ|${RABBITMQ_HOST}|5671'; do
+  IFS='|' read -r name host port <<<"$store"
+  # Expanded inside the pod, from its own environment; the host part stops at the first ':' or '/'.
+  script="host=$host; host=\${host%%[:/]*}; exec 3<>/dev/tcp/\$host/$port"
+  if within 10 kubectl -n "$app_ns" exec deploy/diligence-backend -- bash -c "$script"; then
+    echo "ok    backend reaches $name (VPC CIDR)"
+  else
+    echo "FAIL  backend cannot reach $name: check the VPC CIDR in backend-egress-vpc-data"
+    failures=$((failures + 1))
+  fi
+done
+
 if [ "$failures" -gt 0 ]; then
   echo "$failures check(s) failed: NetworkPolicies are not (fully) enforced."
   exit 1

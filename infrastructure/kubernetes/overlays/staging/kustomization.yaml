@@ -59,5 +59,15 @@ patches:
       - op: replace
         path: /spec/egress/0/to/0/ipBlock/cidr
         value: 10.20.0.0/16 # vpc_cidr in infrastructure/terraform/environments/staging/main.tf
+  - target: { kind: NetworkPolicy, name: backend-egress-vpc-data }
+    patch: |-
+      - op: replace
+        path: /spec/egress/0/to/0/ipBlock/cidr
+        value: 10.20.0.0/16 # vpc_cidr in infrastructure/terraform/environments/staging/main.tf
+  - target: { kind: NetworkPolicy, name: frontend-egress-vpc-redis }
+    patch: |-
+      - op: replace
+        path: /spec/egress/0/to/0/ipBlock/cidr
+        value: 10.20.0.0/16 # vpc_cidr in infrastructure/terraform/environments/staging/main.tf
   - path: config.yaml
   - path: frontend-config.yaml
