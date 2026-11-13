@@ -16,7 +16,7 @@
 All scenarios also require fewer than 1% failed requests and more than 99% passed checks.
 
 Sign-in uses the real flows, in `setup()`. App sessions come from `/auth/login` → Keycloak → `/auth/callback`, one
-per browsing VU. The API token comes from Authorization Code + PKCE against the public `diligence-web` client. No
+per browsing VU. The API token comes from Authorization Code + PKCE against the confidential `diligence-web` client (with its secret, #175). No
 test-only client or grant is needed.
 
 ## Running locally
@@ -56,6 +56,7 @@ tests/performance/seed/seed.sh cleanup
 | `APP_URL` | `http://localhost:3000` | Frontend (BFF) |
 | `API_URL` | `http://localhost:18080` | Backend, or Kong in deployed environments |
 | `OIDC_ISSUER` | `http://localhost:8180/realms/diligence` | Keycloak realm |
+| `OIDC_CLIENT_SECRET` | — | Secret of the confidential `diligence-web` client (#175), for the API token: `OIDC_CLIENT_SECRET` from `.env` locally |
 | `PROJECT_ID` | — | Project the pages and API calls load (a seeded `PERF-*` project) |
 | `PREVIEW_PROJECT_ID` | `PROJECT_ID` | Project with rendered documents. Seeded documents have no stored files. |
 | `PREVIEW_FOLDER_ID` | — | Only look for rendered documents in this folder, e.g. the one `upload.js` filled. Use it with a large seeded project. |
@@ -146,7 +147,8 @@ The **Performance** workflow (`.github/workflows/performance.yml`, manual) runs 
 `grafana/k6` image against `dev` or `staging`. It needs these settings in the GitHub environment:
 
 - variables `PERF_APP_URL`, `PERF_API_URL`, `PERF_OIDC_ISSUER`;
-- secrets `PERF_USER`, `PERF_PASSWORD` for a test user without OTP that manages the project.
+- secrets `PERF_USER`, `PERF_PASSWORD` for a test user without OTP that manages the project, and
+  `PERF_OIDC_CLIENT_SECRET`, the environment's `diligence-web` client secret (#175).
 
 The summary is uploaded as an artifact. The job may take up to 5 hours, the limit of an upload run.
 

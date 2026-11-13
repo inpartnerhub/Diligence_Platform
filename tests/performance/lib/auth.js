@@ -1,5 +1,6 @@
 // Sign-in helpers for setup(). They use the real flows: the browser login through the BFF and Authorization Code +
-// PKCE against the public "diligence-web" client for an API token, so no test-only client is needed.
+// PKCE against the confidential "diligence-web" client (with its secret, #175) for an API token, so no test-only
+// client is needed.
 //
 // Keycloak treats two password logins of one user less than a second apart as brute force and locks the user for a
 // minute (quickLoginCheckMilliSeconds). So the password is entered once; every further app session and the API
@@ -49,7 +50,7 @@ const base64url = (bytes) => encoding.b64encode(bytes, "rawurl");
  * Tokens for direct API calls (Authorization Code + PKCE). The access token lives for the realm's token lifespan
  * (5 min); pass the result to {@link bearer}, which refreshes it for runs that last longer.
  */
-export async function apiTokens({ issuer, clientId, redirectUri, username, password }) {
+export async function apiTokens({ issuer, clientId, clientSecret, redirectUri, username, password }) {
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)).buffer);
   const ascii = new Uint8Array(verifier.length);
   for (let i = 0; i < verifier.length; i++) ascii[i] = verifier.charCodeAt(i);
@@ -73,6 +74,7 @@ export async function apiTokens({ issuer, clientId, redirectUri, username, passw
     {
       grant_type: "authorization_code",
       client_id: clientId,
+      client_secret: clientSecret,
       code: decodeURIComponent(code[1]),
       redirect_uri: redirectUri,
       code_verifier: verifier,
@@ -80,7 +82,7 @@ export async function apiTokens({ issuer, clientId, redirectUri, username, passw
     loginParams,
   );
   if (token.status !== 200) fail(`token exchange failed: ${token.status}`);
-  return { issuer, clientId, ...tokenFields(token) };
+  return { issuer, clientId, clientSecret, ...tokenFields(token) };
 }
 
 function tokenFields(res) {
@@ -101,7 +103,12 @@ export function bearer(tokens) {
   if (Date.now() > current.expiresAt - 60000) {
     const res = http.post(
       `${current.issuer}/protocol/openid-connect/token`,
-      { grant_type: "refresh_token", client_id: current.clientId, refresh_token: current.refresh },
+      {
+        grant_type: "refresh_token",
+        client_id: current.clientId,
+        client_secret: current.clientSecret,
+        refresh_token: current.refresh,
+      },
       loginParams,
     );
     if (res.status !== 200) fail(`token refresh failed: ${res.status}`);

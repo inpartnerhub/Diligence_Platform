@@ -76,7 +76,7 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 - Deployed environments receive secrets only from **HashiCorp Vault** via the Vault Secrets Operator
   ([ADR-0002](docs/adr/0002-secrets-via-vault-operator.md)): backend (`kv/diligence/<env>/backend/*`, including
   `KEYCLOAK_ADMIN_CLIENT_SECRET` and SMTP credentials) and frontend (`kv/diligence/<env>/frontend`: `SESSION_SECRET`,
-  `SESSION_ENCRYPTION_KEY`, `REDIS_URL`).
+  `SESSION_ENCRYPTION_KEY`, `OIDC_CLIENT_SECRET`, `REDIS_URL`).
 - CI authenticates to clouds with **OIDC federation**; no long-lived cloud keys in GitHub.
 - If a secret is committed: treat it as compromised, **rotate it immediately**, then remove it from history.
 

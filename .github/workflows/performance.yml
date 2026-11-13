@@ -64,6 +64,7 @@ jobs:
           APP_URL: ${{ vars.PERF_APP_URL }}
           API_URL: ${{ vars.PERF_API_URL }}
           OIDC_ISSUER: ${{ vars.PERF_OIDC_ISSUER }}
+          OIDC_CLIENT_SECRET: ${{ secrets.PERF_OIDC_CLIENT_SECRET }}
           PROJECT_ID: ${{ inputs.project-id }}
           PREVIEW_PROJECT_ID: ${{ inputs.preview-project-id }}
           PREVIEW_FOLDER_ID: ${{ inputs.preview-folder-id }}
@@ -74,7 +75,7 @@ jobs:
           TEST: ${{ inputs.test }}
         run: |
           docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/scripts" -w /scripts \
-            -e APP_URL -e API_URL -e OIDC_ISSUER -e PROJECT_ID -e PREVIEW_PROJECT_ID -e PREVIEW_FOLDER_ID -e K6_USER -e K6_PASSWORD \
+            -e APP_URL -e API_URL -e OIDC_ISSUER -e OIDC_CLIENT_SECRET -e PROJECT_ID -e PREVIEW_PROJECT_ID -e PREVIEW_FOLDER_ID -e K6_USER -e K6_PASSWORD \
             -e PROFILE -e UPLOAD_FILES \
             grafana/k6:2.3.0 run --summary-export summary.json "$TEST.js"
       - name: Upload summary

@@ -236,6 +236,7 @@ services:
       OIDC_ISSUER: http://localhost:8180/realms/diligence
       OIDC_INTERNAL_ISSUER: http://keycloak:8180/realms/diligence
       OIDC_CLIENT_ID: diligence-web
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set OIDC_CLIENT_SECRET in .env and run make keycloak-bootstrap}
       OIDC_ALLOW_HTTP: "true"
       SESSION_SECRET: ${SESSION_SECRET}
       SESSION_ENCRYPTION_KEY: ${SESSION_ENCRYPTION_KEY:?set SESSION_ENCRYPTION_KEY in .env (openssl rand -base64 32)}

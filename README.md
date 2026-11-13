@@ -80,7 +80,7 @@ make up                         # PostgreSQL, Redis, RabbitMQ, SeaweedFS (S3), O
                                 # Keycloak, Kong, Vault, Mailpit
 make keycloak-bootstrap         # admin-api client secret + local admin and PM users from .env
 make backend-run                # backend on http://localhost:8080 (second terminal)
-cp apps/frontend/.env.example apps/frontend/.env.local   # set SESSION_SECRET, SESSION_ENCRYPTION_KEY and the Redis password
+cp apps/frontend/.env.example apps/frontend/.env.local   # set SESSION_SECRET, SESSION_ENCRYPTION_KEY, OIDC_CLIENT_SECRET, Redis password
 make frontend-install && make frontend-run                # frontend on http://localhost:3000
 ```
 

@@ -114,12 +114,15 @@ const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const withProject = (path) => path.replace("{p}", PROJECT);
 
 export async function setup() {
-  if (!PROJECT || !USER || !PASSWORD) throw new Error("Set PROJECT_ID, K6_USER and K6_PASSWORD");
+  if (!PROJECT || !USER || !PASSWORD || !__ENV.OIDC_CLIENT_SECRET) {
+    throw new Error("Set PROJECT_ID, K6_USER, K6_PASSWORD and OIDC_CLIENT_SECRET");
+  }
   // One app session per browsing VU (see lib/auth.js for why they are all opened here).
   const sessions = appSessions(APP_URL, USER, PASSWORD, SESSIONS);
   const tokens = await apiTokens({
     issuer: ISSUER,
     clientId: __ENV.OIDC_CLIENT_ID || "diligence-web",
+    clientSecret: __ENV.OIDC_CLIENT_SECRET,
     redirectUri: `${APP_URL}/auth/callback`,
     username: USER,
     password: PASSWORD,

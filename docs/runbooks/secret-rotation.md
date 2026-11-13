@@ -13,6 +13,18 @@ Secrets come from HashiCorp Vault via the Vault Secrets Operator (ADR-0002); non
 
 Rotating `SESSION_SECRET` signs every user out of the web application; announce it.
 
+## Web client secret (#175)
+
+`OIDC_CLIENT_SECRET` (in `diligence/base/frontend`) authenticates the frontend to Keycloak as the confidential
+client `diligence-web`. Keycloak holds one secret per client, so a rotation briefly fails sign-ins and token refreshes
+until the frontend has restarted with the new value:
+
+1. Keycloak admin console → Clients → `diligence-web` → Credentials → *Regenerate*; copy the new secret.
+2. Write it to Vault as `OIDC_CLIENT_SECRET`; the operator restarts the frontend.
+3. Update the GitHub secret `PERF_OIDC_CLIENT_SECRET` of that environment (performance tests).
+
+Sessions whose refresh fails sign in again. Rotate outside business hours.
+
 ## Session encryption key (#172)
 
 The frontend encrypts the session records it keeps in Redis (access, refresh and ID tokens) with
