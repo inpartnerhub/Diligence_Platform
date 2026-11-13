@@ -35,6 +35,14 @@ export const serverEnv = {
     }
     return secret;
   },
+  /** AES-256 key (base64, 32 bytes) for session records in Redis (#172). */
+  get sessionEncryptionKey(): string {
+    return required("SESSION_ENCRYPTION_KEY", process.env.SESSION_ENCRYPTION_KEY);
+  },
+  /** The key being replaced, set only while rotating: sessions it encrypted stay readable. */
+  get sessionEncryptionKeyPrevious(): string | undefined {
+    return process.env.SESSION_ENCRYPTION_KEY_PREVIOUS || undefined;
+  },
   get redisUrl(): string {
     return required("REDIS_URL", process.env.REDIS_URL);
   },

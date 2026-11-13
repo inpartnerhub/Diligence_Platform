@@ -13,6 +13,20 @@ Secrets come from HashiCorp Vault via the Vault Secrets Operator (ADR-0002); non
 
 Rotating `SESSION_SECRET` signs every user out of the web application; announce it.
 
+## Session encryption key (#172)
+
+The frontend encrypts the session records it keeps in Redis (access, refresh and ID tokens) with
+`SESSION_ENCRYPTION_KEY` (base64, 32 bytes, in `diligence/base/frontend`). Each record names the key it was written
+with. To rotate it without signing users out:
+
+1. In Vault, copy the current value to `SESSION_ENCRYPTION_KEY_PREVIOUS` and set a new `SESSION_ENCRYPTION_KEY`
+   (`openssl rand -base64 32`). The operator restarts the frontend; new and refreshed sessions use the new key, existing
+   ones stay readable with the previous key.
+2. After 10 hours (the maximum session age) no session written with the old key is left: remove
+   `SESSION_ENCRYPTION_KEY_PREVIOUS`.
+
+After a suspected exposure skip the waiting: set a new key without `_PREVIOUS`, which signs every user out.
+
 The Redis AUTH token (`REDIS_PASSWORD`, written by Terraform) is also read by Kong for its shared rate-limit counters
 (#150): the operator refreshes the `diligence-gateway-redis` secret and the Kong Ingress Controller picks it up on its
 next sync. Until then Kong cannot reach Redis and lets requests through (no per-address limit for that short window;
