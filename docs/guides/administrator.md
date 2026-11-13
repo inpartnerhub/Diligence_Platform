@@ -40,7 +40,8 @@ projects while it is inactive. Reactivating it does not restore access: add the 
   - External roles accept the NDA.
   - The user shows as **Invited** until their first sign-in, then **Active**.
 - **Change role.** This takes effect within a few minutes, when the user's session next refreshes.
-- **Disable.** The user is signed out of new sessions immediately. Prefer it to deletion: the audit trail keeps
+- **Disable.** The user is signed out at once: their Keycloak sessions end and the API refuses every further request,
+  even with a token issued before (#173). Prefer it to deletion: the audit trail keeps
   their name. **Enable** restores access.
 - Internal users who sign in through the company's Microsoft or Google account (SSO) are created automatically at
   their first sign-in, **without a role** ("No role yet"). They cannot use the platform until you assign one; until
