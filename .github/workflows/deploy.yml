@@ -35,17 +35,28 @@ jobs:
       - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5
       # Configure cluster access here, e.g. aws-actions/configure-aws-credentials with role-to-assume
       # followed by `aws eks update-kubeconfig --name diligence-${{ inputs.environment }}`.
+      # A fixed kustomize release, verified against the checksum published with it (#165). This job can mint cloud
+      # credentials, so it never runs an installer script fetched from a branch. Update version and checksum together
+      # (checksums.txt of the release).
+      - name: Install kustomize
+        env:
+          KUSTOMIZE_VERSION: v5.8.3
+          KUSTOMIZE_SHA256: cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61
+        run: |
+          archive="kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/$archive"
+          echo "$KUSTOMIZE_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/bin" && tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/bin" kustomize
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: Pin images
         working-directory: ${{ env.OVERLAY }}
+        env:
+          IMAGE_TAG: ${{ inputs.image-tag }} # through the environment, not interpolated into the script
         run: |
-          kustomize_bin=$(command -v kustomize || true)
-          if [ -z "$kustomize_bin" ]; then
-            curl -sSL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-            kustomize_bin=./kustomize
-          fi
-          $kustomize_bin edit set image \
-            "ghcr.io/inpartnerhub/diligence-backend=$REGISTRY/diligence-backend:${{ inputs.image-tag }}" \
-            "ghcr.io/inpartnerhub/diligence-frontend=$REGISTRY/diligence-frontend:${{ inputs.image-tag }}"
+          kustomize edit set image \
+            "ghcr.io/inpartnerhub/diligence-backend=$REGISTRY/diligence-backend:$IMAGE_TAG" \
+            "ghcr.io/inpartnerhub/diligence-frontend=$REGISTRY/diligence-frontend:$IMAGE_TAG"
       - name: Diff
         run: kubectl diff -k "$OVERLAY" || true
       - name: Apply
