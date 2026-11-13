@@ -32,7 +32,7 @@ jobs:
       OVERLAY: infrastructure/kubernetes/overlays/${{ inputs.environment }}
       REGISTRY: ghcr.io/${{ github.repository_owner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5
       # Cluster access without stored credentials (#164): the job's OIDC token for this GitHub environment is exchanged
       # for the environment's deploy role (Terraform output deploy_role_arn, stored as the environment variable
