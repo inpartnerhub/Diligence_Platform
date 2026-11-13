@@ -16,22 +16,26 @@ realm JSON has only `localhost` redirect URIs, so production HA, TLS, admin-cons
 be reviewed (AUD-10). Several merged changes (#160, #161, #175) need realm changes in every environment, applied by
 hand today.
 
+The platform is Azure Indonesia Central (ADR-0003), on AKS as proposed in ADR-0007.
+
 ## Options
 
 | Option | Pros | Cons |
 |--------|------|------|
-| A. Keycloak on the EKS cluster (Keycloak Operator or the official image as a Deployment), its own database on the RDS instance, realm as code | Keeps every feature the platform relies on; same region and operating model as the application (ADR-0003, ADR-0007); realm reviewable in Git | The team operates Keycloak upgrades and its clustering |
-| B. Managed Keycloak (a hosted Keycloak provider) | No Keycloak operations | Data with another subprocessor, possibly outside Indonesia (ADR-0003, #187); less control over extensions and versions |
-| C. Replace Keycloak with a cloud IdP (Amazon Cognito, Entra External ID) | Fully managed | Re-implements OTP-for-every-role, `amr`-based step-up, breached-password list, the admin integration and the BFF client: application changes and new risks |
+| A. Keycloak on the AKS cluster (Keycloak Operator or the official image as a Deployment), its own database on the Azure Database for PostgreSQL server, realm as code | Keeps every feature the platform relies on; same region and operating model as the application; realm reviewable in Git | The team operates Keycloak upgrades and its clustering |
+| B. Managed Keycloak (a hosted Keycloak provider) | No Keycloak operations | Another subprocessor, possibly outside Indonesia (ADR-0003, #187); less control over extensions and versions |
+| C. Replace Keycloak with Microsoft Entra External ID | Fully managed, native to Azure | Re-implements OTP-for-every-role, `amr`-based step-up, the breached-password list, the admin integration and the BFF client: application changes and new risks; tenant data location to verify against ADR-0003 |
 
 ## Recommendation
 
 **Option A.**
 
-1. **Deployment**: Keycloak 26.x (the version tested locally) in its own namespace, at least 2 replicas spread over
-   zones, distributed cache between them, `KC_HOSTNAME` = the public sign-in host, TLS at the Kong ingress, health and
-   metrics on the management port only (the existing `DiligenceKeycloakDown` alert and login-failure rules apply).
-2. **Database**: a separate database and login on the RDS instance (not the application's schema), backed up with it.
+1. **Deployment**: Keycloak 26.x (the version tested locally) in its own namespace on AKS, at least 2 replicas spread
+   over availability zones, distributed cache between them, `KC_HOSTNAME` = the public sign-in host, TLS at the Kong
+   ingress, health and metrics on the management port only (the existing `DiligenceKeycloakDown` alert and
+   login-failure rules apply).
+2. **Database**: a separate database and login on the Azure Database for PostgreSQL Flexible Server (not the
+   application's schema), included in its backups and in the backup copies to the AWS site (ADR-0003).
 3. **Admin console not public**: the `master` realm and `/admin` are served only on an internal host (VPN or
    `kubectl port-forward`), never through the public ingress; the public route allows `/realms/diligence/*` and the
    resources it needs.
@@ -39,7 +43,8 @@ hand today.
    per-environment values (redirect and post-logout URIs, web origins, SMTP, brokers) in the overlays; client secrets
    and SMTP passwords from Vault. A CI check refuses `localhost` URIs in staging and prod values. The realm changes of
    #160, #161 and #175 become part of this configuration instead of manual steps.
-5. **Owner**: the cluster owner of ADR-0007 also owns Keycloak upgrades.
+5. **Entra ID brokering** for the firm's own staff stays optional, as today.
+6. **Owner**: the cluster owner of ADR-0007 also owns Keycloak upgrades.
 
 ## Decision
 
