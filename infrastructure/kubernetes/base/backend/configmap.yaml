@@ -11,7 +11,7 @@ data:
   REDIS_SSL_ENABLED: "true"
   RABBITMQ_PORT: "5671"
   SPRING_RABBITMQ_SSL_ENABLED: "true"
-  S3_REGION: eu-central-1
+  S3_REGION: ap-southeast-3 # ADR-0003: Jakarta until the hosting decision is made (#163)
   S3_BUCKET: diligence-documents
   S3_PATH_STYLE: "false"
   IDP_BASE_URL: https://auth.example.com
