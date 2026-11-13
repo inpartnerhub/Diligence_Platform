@@ -35,7 +35,9 @@ terraform apply tfplan
 - Encryption: customer-managed KMS keys (rotation on) for documents (S3), PostgreSQL storage and Performance
   Insights, and one shared key for CloudWatch log groups.
 - Logging: VPC flow logs, all EKS control-plane log types, OpenSearch audit/application/slow logs, S3 server access
-  logs (separate bucket). OpenSearch runs with fine-grained access control; its master credentials go to Vault.
+  logs (separate bucket). OpenSearch runs with fine-grained access control. The backend uses its own internal user, limited to the
+  `diligence-*` indices (`OPENSEARCH_USERNAME/PASSWORD` in `backend/infrastructure`); the master credential is written
+  only to `kv/diligence/<env>/opensearch-admin`, read by the `opensearch-bootstrap` Job that creates that user (#159).
 - RDS deletion protection is on in every environment; disable it explicitly to tear an environment down.
 - Trivy findings that cannot be fixed in code are documented in `.trivyignore.yaml` or inline `#trivy:ignore`
   comments with the reason.

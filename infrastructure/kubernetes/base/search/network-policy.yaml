@@ -1,0 +1,14 @@
+# The bootstrap Job only talks to the OpenSearch domain (HTTPS inside the VPC). Each overlay sets its VPC CIDR; the
+# base value matches nothing. DNS comes from allow-dns-egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opensearch-bootstrap-egress
+  namespace: diligence
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: opensearch-bootstrap } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 192.0.2.0/32 } # TEST-NET-1 placeholder, replaced per overlay
+      ports: [{ protocol: TCP, port: 443 }]

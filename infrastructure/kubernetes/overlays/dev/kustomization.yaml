@@ -44,6 +44,16 @@ patches:
       - op: replace
         path: /spec/path
         value: diligence/dev/frontend
+  - target: { kind: VaultStaticSecret, name: opensearch-admin }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: diligence/dev/opensearch-admin
+  - target: { kind: NetworkPolicy, name: opensearch-bootstrap-egress }
+    patch: |-
+      - op: replace
+        path: /spec/egress/0/to/0/ipBlock/cidr
+        value: 10.10.0.0/16 # vpc_cidr in infrastructure/terraform/environments/dev/main.tf
   - target: { kind: NetworkPolicy, name: backend-egress-vpc-https }
     patch: |-
       - op: replace

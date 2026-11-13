@@ -28,6 +28,18 @@ resource "random_password" "master" {
   min_special      = 2
 }
 
+# The backend's own internal user (#159): created with this password by the opensearch-bootstrap Job
+# (infrastructure/kubernetes/base/search), limited to the backend's index. Characters are JSON- and shell-safe.
+resource "random_password" "backend" {
+  length           = 32
+  special          = true
+  override_special = "!#%^*_-"
+  min_upper        = 2
+  min_lower        = 2
+  min_numeric      = 2
+  min_special      = 2
+}
+
 resource "aws_cloudwatch_log_group" "this" {
   for_each          = toset(local.log_types)
   name              = "/aws/opensearch/${var.name}/${lower(each.key)}"

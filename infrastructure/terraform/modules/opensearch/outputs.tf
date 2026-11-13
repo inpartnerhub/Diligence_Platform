@@ -5,3 +5,8 @@ output "master_user_password" {
   value     = random_password.master.result
   sensitive = true
 }
+output "backend_user_name" { value = var.backend_user_name }
+output "backend_user_password" {
+  value     = random_password.backend.result
+  sensitive = true
+}
