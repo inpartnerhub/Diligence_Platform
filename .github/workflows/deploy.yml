@@ -52,4 +52,5 @@ jobs:
         run: |
           kubectl apply -k "$OVERLAY"
           kubectl -n diligence-${{ inputs.environment }} rollout status deploy/diligence-backend --timeout=10m
+          kubectl -n diligence-${{ inputs.environment }} rollout status deploy/diligence-ingestion --timeout=10m
           kubectl -n diligence-${{ inputs.environment }} rollout status deploy/diligence-frontend --timeout=5m

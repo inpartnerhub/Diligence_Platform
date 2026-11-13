@@ -1,0 +1,70 @@
+# Ingestion worker (#162): the backend image with only the upload listener doing work. Uploaded files are scanned,
+# type-checked, text-extracted and rendered (PDFBox, ImageIO) here instead of in the pods that serve the API, so a
+# parser bug or a hostile file can exhaust this pod's memory or CPU without taking the API down. It has no Service:
+# it pulls from RabbitMQ and only exposes the management port to monitoring (ingestion-ingress). Same service account
+# as the backend for its S3 Pod Identity role (#158).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diligence-ingestion
+  namespace: diligence
+  labels: { app.kubernetes.io/name: diligence-ingestion, app.kubernetes.io/component: worker }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: { app.kubernetes.io/name: diligence-ingestion }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: diligence-ingestion, app.kubernetes.io/component: worker }
+    spec:
+      serviceAccountName: diligence-backend
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120 # let a document in progress finish; unacknowledged ones are redelivered
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ingestion
+          image: ghcr.io/inpartnerhub/diligence-backend:0.1.0 # same image as the API; pinned per overlay
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: management, containerPort: 8081 }
+          envFrom:
+            - configMapRef: { name: diligence-backend-config }
+            - secretRef: { name: diligence-backend-infrastructure }
+            - secretRef: { name: diligence-backend-application }
+          env:
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=$(APP_ENVIRONMENT),service.instance.role=ingestion
+            - name: INGESTION_LISTENER_ENABLED
+              value: "true"
+          resources:
+            # Page rendering of large PDFs (≤ 300 pages, ≤ 2400 px) needs more than the API's 1 GiB.
+            requests: { cpu: 500m, memory: 2Gi, ephemeral-storage: 2Gi }
+            limits: { cpu: "2", memory: 2Gi }
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 4Gi }

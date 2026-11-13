@@ -207,6 +207,8 @@ diligence:
     password: ${OPENSEARCH_PASSWORD:}
     index-prefix: ${OPENSEARCH_INDEX_PREFIX:diligence}
   ingestion:
+    # Consume the upload queue in this process (#162): false on the API pods, true on diligence-ingestion.
+    listener-enabled: ${INGESTION_LISTENER_ENABLED:true}
     tika-url: ${TIKA_URL:http://localhost:9998}
     gotenberg-url: ${GOTENBERG_URL:http://localhost:3002}
     clamav-host: ${CLAMAV_HOST:localhost}

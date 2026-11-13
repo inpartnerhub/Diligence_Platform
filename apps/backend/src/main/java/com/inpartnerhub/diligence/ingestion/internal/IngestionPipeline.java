@@ -64,7 +64,10 @@ class IngestionPipeline {
         this.properties = properties;
     }
 
-    @RabbitListener(queues = MessagingTopology.INGESTION_QUEUE)
+    // Off on the API pods, on in the diligence-ingestion Deployment (#162): untrusted files are then parsed (PDFBox,
+    // ImageIO) only in pods that serve no API traffic. Locally one process does both (default on).
+    @RabbitListener(queues = MessagingTopology.INGESTION_QUEUE,
+            autoStartup = "${diligence.ingestion.listener-enabled:true}")
     void onDocumentUploaded(DocumentUploaded event) {
         ScanException last = null;
         for (var attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

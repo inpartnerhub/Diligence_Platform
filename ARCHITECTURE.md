@@ -187,8 +187,10 @@ trained data (`ind`) needs a derived image with `tesseract-ocr-ind`. Viewer wate
 (default Asia/Jakarta).
 
 Unexpected errors in the worker are retried by the listener container, then dead-lettered to
-`diligence.ingestion.document-uploaded.dlq`. The worker can be scaled separately later by running the same image
-with only the ingestion listener enabled.
+`diligence.ingestion.document-uploaded.dlq`. In Kubernetes the worker runs as its own Deployment,
+`diligence-ingestion` (same image, `INGESTION_LISTENER_ENABLED=true`, 2 GiB, no Service), and the API pods do not
+consume the queue (#162): untrusted files are parsed and rendered only in pods that serve no API traffic. Locally one
+process does both.
 
 ## 7. Request list and notifications (PRD REQ-01…REQ-06, ADM-05; sprint 9–10)
 

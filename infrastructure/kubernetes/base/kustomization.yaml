@@ -9,6 +9,7 @@ resources:
   - common/namespace.yaml
   - common/network-policies.yaml
   - backend
+  - ingestion
   - frontend
   - gateway
   - search
