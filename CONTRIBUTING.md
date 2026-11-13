@@ -6,12 +6,8 @@ One issue, one branch, one pull request.
 
 1. Create a branch from `origin/main`: `feat/<issue>-<short-description>`, `fix/...`, `chore/...`, `docs/...`
    (e.g. `fix/152-refuse-roleless-tokens`).
-2. Make focused commits using [Conventional Commits](https://www.conventionalcommits.org/) and end the subject with
-   the issue number: `fix(security): refuse accounts without an application role (#152)`. Mention the PRD requirement
-   ID when there is one (`feat(admin): ADM-01 invite external users (#12)`).
-   Scopes are module or area names: `admin`, `audit`, `notification`, `project`, `request`, `dataroom`,
-   `ingestion`, `search`, `finding`, `qna`, `report`, `security`, `shared`, `frontend`, `database`, `infra`,
-   `ops`, `ci`, `deps`, `e2e`, `performance`, `docs`.
+2. Make focused commits following [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) as
+   described in [Commit messages](#commit-messages), with the issue number at the end of the description.
 3. Before pushing run `make verify`; also `make backend-it` when the change touches persistence, migrations,
    messaging, security filters or anything a Testcontainers test covers. Report the commands and results in the PR;
    never claim a check that was not run.
@@ -25,6 +21,53 @@ One issue, one branch, one pull request.
 `main` is not branch-protected and `.github/CODEOWNERS` still holds placeholder teams. Before go-live: protect `main`
 (required status checks, at least one approving review from someone other than the author) and replace the
 placeholders with real teams; this section then changes to "merge requires an approving review".
+
+## Commit messages
+
+[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```
+<type>[(scope)][!]: <description> (#<issue>)
+
+[body: why and what, wrapped at about 80 characters]
+
+[footers]
+```
+
+- **Type** (lower case, required):
+
+  | Type | Use for | Version impact |
+  |------|---------|----------------|
+  | `feat` | A new capability for users, operators or integrators (endpoint, screen, workflow, deployable) | minor |
+  | `fix` | Something that does not work as intended — a bug, or a security weakness found by a review, audit or scan | patch |
+  | `perf` | Faster or lighter, same behaviour | patch |
+  | `refactor` | Restructuring without a change in behaviour | — |
+  | `docs` | Documentation only | — |
+  | `test` | Tests only | — |
+  | `ci` | GitHub Actions workflows | — |
+  | `build` | Gradle/npm build, Dockerfiles | — |
+  | `chore` | Maintenance, including Dependabot's `chore(deps): bump …` | — |
+  | `revert` | Reverts an earlier commit; body names the reverted SHA (`Refs: <sha>`) | as reverted |
+
+  Pick the type by the main intent; when a change is both a fix and a new feature, split it into two commits.
+- **Scope** (optional): a noun naming the part of the codebase — a module (`admin`, `audit`, `notification`,
+  `project`, `request`, `dataroom`, `ingestion`, `search`, `finding`, `qna`, `report`, `security`, `shared`) or an
+  area (`frontend`, `database`, `infra`, `ops`, `ci`, `deps`, `e2e`, `performance`, `docs`).
+- **Description**: imperative or present tense, lower case first word, no full stop, ends with the issue number;
+  mention the PRD requirement ID when there is one (`feat(admin): ADM-01 invite external users (#12)`).
+- **Body** (optional, after one blank line): the reason for the change and what it does; free-form paragraphs or
+  bullets.
+- **Footers** (optional, after one blank line, `Token: value` or `Token #value`, tokens with `-` instead of spaces):
+  `Refs: #123`, `Closes: #123`, `Reviewed-by: …`. No AI or tool attribution footers.
+- **Breaking changes**: add `!` before the colon (`feat(admin)!: …`) and/or a `BREAKING CHANGE: <what to do>` footer
+  (upper case). For this repository a change is breaking when it:
+  - changes the API in a way an existing client notices (removed or renamed field, a field that can now be `null`,
+    stricter validation, different status code) — `/api/v1` stays compatible, so such changes need `/api/v2`;
+  - removes or renames a configuration property, environment variable, Vault key or Kubernetes resource that a
+    deployment sets;
+  - needs a step outside the repository before or with the deployment, without which the system stops working
+    (a Keycloak realm change, a Vault role, `terraform apply`, a data migration).
+- Squash merges keep this format: the PR title is the commit subject, and GitHub appends `(#<PR>)`.
 
 ### Pre-commit hook and `--no-verify`
 
