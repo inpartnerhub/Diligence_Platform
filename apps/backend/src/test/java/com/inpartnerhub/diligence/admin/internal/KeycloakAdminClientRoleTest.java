@@ -27,6 +27,7 @@ class KeycloakAdminClientRoleTest {
     private final List<String> calls = new CopyOnWriteArrayList<>();
     private HttpServer server;
     private volatile boolean failAdd;
+    private volatile boolean failLogout;
 
     @BeforeEach
     void start() throws Exception {
@@ -60,6 +61,36 @@ class KeycloakAdminClientRoleTest {
         assertThat(calls).noneMatch(call -> call.startsWith("DELETE "));
     }
 
+    @Test
+    void disablingAUserEndsItsSessions() {
+        // #173: refresh tokens die at once, not when they would expire.
+        var userId = UUID.randomUUID();
+
+        client().setEnabled(userId, false);
+
+        assertThat(calls).containsSubsequence("PUT /admin/realms/diligence/users/" + userId,
+                "POST /admin/realms/diligence/users/" + userId + "/logout");
+    }
+
+    @Test
+    void aFailedLogoutDoesNotUndoTheDisable() {
+        failLogout = true;
+        var userId = UUID.randomUUID();
+
+        client().setEnabled(userId, false); // no exception: the account is disabled, sign-ins and refreshes stop
+
+        assertThat(calls).contains("PUT /admin/realms/diligence/users/" + userId);
+    }
+
+    @Test
+    void enablingAUserDoesNotLogItOut() {
+        var userId = UUID.randomUUID();
+
+        client().setEnabled(userId, true);
+
+        assertThat(calls).noneMatch(call -> call.endsWith("/logout"));
+    }
+
     private KeycloakAdminClient client() {
         var properties = new IdentityProperties(URI.create("http://127.0.0.1:" + server.getAddress().getPort()),
                 "diligence", "admin", "secret", "diligence-web", null, null, Duration.ofSeconds(2),
@@ -83,6 +114,8 @@ class KeycloakAdminClientRoleTest {
             body = "{\"id\":\"2\",\"name\":\"partner\"}";
             status = 200;
         } else if (path.endsWith("/role-mappings/realm") && method.equals("POST") && failAdd) {
+            status = 500;
+        } else if (path.endsWith("/logout") && failLogout) {
             status = 500;
         }
         if (!path.endsWith("/openid-connect/token")) {

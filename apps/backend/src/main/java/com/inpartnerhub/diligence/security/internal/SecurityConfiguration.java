@@ -20,6 +20,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.inpartnerhub.diligence.security.AccountStatus;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
@@ -36,7 +38,8 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain apiSecurityFilterChain(HttpSecurity http, SecurityProperties properties,
             ApplicationEventPublisher events, RateLimitProperties rateLimits,
-            ObjectProvider<StringRedisTemplate> redis, ObjectProvider<MeterRegistry> meters) throws Exception {
+            ObjectProvider<StringRedisTemplate> redis, ObjectProvider<MeterRegistry> meters,
+            ObjectProvider<AccountStatus> accounts) throws Exception {
         // Per-user rate limit after authentication (#63); absent in web slice tests, which have no Redis.
         var template = redis.getIfAvailable();
         if (template != null) {
@@ -59,6 +62,7 @@ public class SecurityConfiguration {
                 .addFilterAfter(new UserAuthenticationEventFilter(events), BearerTokenAuthenticationFilter.class)
                 // Registered after the login event filter, so it runs after it (#152).
                 .addFilterAfter(new ApplicationRoleFilter(), BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new DisabledAccountFilter(accounts), BearerTokenAuthenticationFilter.class) // #173
                 .build();
     }
 

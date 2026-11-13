@@ -9,6 +9,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -29,6 +31,8 @@ import com.inpartnerhub.diligence.shared.web.UpstreamServiceException;
  */
 @Component
 class KeycloakAdminClient implements IdentityAdminClient {
+
+    private static final Logger log = LoggerFactory.getLogger(KeycloakAdminClient.class);
 
     private static final Set<String> APPLICATION_ROLES = Stream.of(Role.values())
             .map(Role::realmRoleName)
@@ -118,6 +122,16 @@ class KeycloakAdminClient implements IdentityAdminClient {
         call(() -> http.put().uri(adminPath("/users/" + userId)).headers(this::authorize)
                 .contentType(MediaType.APPLICATION_JSON).body(Map.of("enabled", enabled))
                 .retrieve().toBodilessEntity());
+        if (!enabled) {
+            // End the user's sessions and refresh tokens now, not when they would expire (#173). Best effort: the
+            // account is already disabled (no new sign-in or refresh), and the API refuses it (DisabledAccountFilter).
+            try {
+                call(() -> http.post().uri(adminPath("/users/" + userId + "/logout")).headers(this::authorize)
+                        .retrieve().toBodilessEntity());
+            } catch (UpstreamServiceException ex) {
+                log.warn("Could not end the Keycloak sessions of disabled user {}: {}", userId, ex.getMessage());
+            }
+        }
     }
 
     @Override

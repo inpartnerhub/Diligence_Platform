@@ -127,6 +127,18 @@ class CrossProjectAccessIntegrationTest {
     }
 
     @Test
+    void aDisabledAccountIsRefusedWhileItsTokenIsStillValid() throws Exception {
+        // #173: disabling stops sign-ins and refreshes in Keycloak; the API refuses the token it already has.
+        jdbc.update("insert into adm.user_account (id, email, display_name, global_role, status) "
+                + "values (?, ?, 'M', 'PROJECT_MANAGER', 'ACTIVE')", manager, manager + "@example.com");
+        mvc.perform(get("/api/v1/projects/" + projectB).with(as(manager))).andExpect(status().isOk());
+
+        jdbc.update("update adm.user_account set status = 'DISABLED' where id = ?", manager);
+
+        mvc.perform(get("/api/v1/projects/" + projectB).with(as(manager))).andExpect(status().isForbidden());
+    }
+
+    @Test
     void theSameResourcesAreReachableThroughTheirOwnProject() throws Exception {
         for (var path : List.of("/documents/" + documentB + "/versions", "/folders/" + folderB + "/documents",
                 "/findings/" + findingB, "/requests/" + itemB, "/questions/" + questionB, "/reports")) {
