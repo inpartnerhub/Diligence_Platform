@@ -60,4 +60,5 @@ jobs:
       contents: read
       packages: write
       security-events: write
+      id-token: write # keyless cosign signature of the pushed image (#167)
     secrets: inherit

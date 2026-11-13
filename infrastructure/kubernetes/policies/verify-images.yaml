@@ -1,0 +1,54 @@
+# Only our own, signed images run in the Diligence namespaces (#167, ADR-0006).
+#   1. Every container image comes from ghcr.io/inpartnerhub/ (the trusted registry list in .trivy/data).
+#   2. Every diligence-* image carries a keyless cosign signature made by this repository's image workflow on main
+#      (.github/workflows/container-image.yml), recorded in the public Rekor log. The image reference is pinned to the
+#      verified digest.
+# Kubernetes' own system namespaces and the add-on namespaces (kong, monitoring, vault…) are not matched.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: diligence-trusted-images
+  annotations:
+    policies.kyverno.io/title: Signed images from the Diligence registry only
+    policies.kyverno.io/description: >-
+      Pods in diligence-* namespaces may only run images from ghcr.io/inpartnerhub/ that were signed by the
+      repository's image workflow on main.
+spec:
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: trusted-registry
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: ["diligence-*"]
+      validate:
+        failureAction: Enforce
+        message: "Images must come from ghcr.io/inpartnerhub/ (trusted registry, #167)."
+        pattern:
+          spec:
+            =(initContainers):
+              - image: "ghcr.io/inpartnerhub/*"
+            containers:
+              - image: "ghcr.io/inpartnerhub/*"
+    - name: signed-by-diligence-ci
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: ["diligence-*"]
+      verifyImages:
+        - imageReferences: ["ghcr.io/inpartnerhub/diligence-*"]
+          failureAction: Enforce
+          required: true
+          verifyDigest: true
+          mutateDigest: true
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/inpartnerhub/Diligence_Platform/.github/workflows/container-image.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev
