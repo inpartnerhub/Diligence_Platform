@@ -46,7 +46,8 @@ jobs:
         id: login
         run: |
           set -a; source .env; set +a
-          ZAP_USER="$KEYCLOAK_DEV_PM" ZAP_PASSWORD="$KEYCLOAK_DEV_PM_PASSWORD" APP_URL=http://localhost:3000 \
+          ZAP_USER="$KEYCLOAK_DEV_PM" ZAP_PASSWORD="$KEYCLOAK_DEV_PM_PASSWORD" ZAP_TOTP_SECRET="$KEYCLOAK_DEV_TOTP_SECRET" \
+            APP_URL=http://localhost:3000 \
             python3 tests/security/zap-login.py > "$RUNNER_TEMP/zap.env"
           while IFS='=' read -r name value; do
             secret="${value#diligence_sid=}"

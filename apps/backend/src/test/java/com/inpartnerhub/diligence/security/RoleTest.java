@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
 class RoleTest {
 
     @Test
-    void externalUsersAndAdminsRequireMfa() {
+    void everyRoleRequiresMfa() {
         var mfaRoles = Arrays.stream(Role.values()).filter(Role::requiresMfa).toList();
 
-        assertThat(mfaRoles).containsExactlyInAnyOrder(Role.SUPER_ADMIN, Role.CLIENT, Role.TARGET, Role.OBSERVER);
+        assertThat(mfaRoles).containsExactlyInAnyOrder(Role.values()); // #161
     }
 
     @Test

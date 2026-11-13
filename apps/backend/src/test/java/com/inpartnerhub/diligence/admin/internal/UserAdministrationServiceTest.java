@@ -74,9 +74,9 @@ class UserAdministrationServiceTest {
     }
 
     @Test
-    void internalUsersGetNoNdaOrOtpAction() {
+    void internalUsersGetOtpButNoNdaAction() {
         assertThat(UserAdministrationService.requiredActions(Role.ANALYST))
-                .containsExactly("VERIFY_EMAIL", "UPDATE_PASSWORD");
+                .containsExactly("VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP"); // #161
         assertThat(UserAdministrationService.requiredActions(Role.SUPER_ADMIN))
                 .containsExactly("VERIFY_EMAIL", "UPDATE_PASSWORD", "CONFIGURE_TOTP");
     }

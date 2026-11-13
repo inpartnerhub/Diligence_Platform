@@ -98,9 +98,9 @@ target organization; `MemberService` checks it and a database trigger refuses it
 | Role | Group | MFA | NDA | Sees |
 |------|-------|-----|-----|------|
 | `SUPER_ADMIN` | Internal IT | ✅ | — | Administration, audit log, templates |
-| `PARTNER` | Consultant | SSO | — | All of their projects, approves reports, portfolio |
-| `PROJECT_MANAGER` | Consultant | SSO | — | Projects they manage: request lists, team, Q&A |
-| `ANALYST` | Consultant | SSO | — | Data room per workstream, findings, risk ratings |
+| `PARTNER` | Consultant | ✅ | — | All of their projects, approves reports, portfolio |
+| `PROJECT_MANAGER` | Consultant | ✅ | — | Projects they manage: request lists, team, Q&A |
+| `ANALYST` | Consultant | ✅ | — | Data room per workstream, findings, risk ratings |
 | `CLIENT` | External (buy-side) | ✅ | ✅ | Progress, **released** findings, issued reports, own questions |
 | `TARGET` | External (sell-side) | ✅ | ✅ | Request list, assigned folders, **approved** questions — never findings |
 | `OBSERVER` | Internal/External auditor | ✅ | ✅ | Read-only |

@@ -52,16 +52,23 @@ print(json.dumps({"ifResourceExists": "FAIL", "users": [rep]}))
 }
 USER_PASSWORD="$KEYCLOAK_DEV_ADMIN_PASSWORD" \
   create_user "$KEYCLOAK_DEV_ADMIN" "$KEYCLOAK_DEV_ADMIN@diligence.test" Local Admin super_admin
-USER_PASSWORD="$KEYCLOAK_DEV_PM_PASSWORD" \
-  create_user "$KEYCLOAK_DEV_PM" "$KEYCLOAK_DEV_PM@diligence.test" Local Manager project_manager
+# Every role requires OTP (#161). With KEYCLOAK_DEV_TOTP_SECRET the local PM gets a known TOTP secret (e2e, DAST);
+# without it, Keycloak asks the PM to set up an authenticator on the first sign-in, like the admin.
+if [ -n "${KEYCLOAK_DEV_TOTP_SECRET:-}" ] && [[ "$KEYCLOAK_DEV_TOTP_SECRET" != *change-me* ]]; then
+  USER_PASSWORD="$KEYCLOAK_DEV_PM_PASSWORD" USER_OTP_SECRET="$KEYCLOAK_DEV_TOTP_SECRET" \
+    create_user "$KEYCLOAK_DEV_PM" "$KEYCLOAK_DEV_PM@diligence.test" Local Manager project_manager otp
+else
+  USER_PASSWORD="$KEYCLOAK_DEV_PM_PASSWORD" \
+    create_user "$KEYCLOAK_DEV_PM" "$KEYCLOAK_DEV_PM@diligence.test" Local Manager project_manager
+fi
 
-# End-to-end test users, one per role (tests/e2e). External roles require OTP, so they get a TOTP credential from a
-# known secret and the tests compute the codes. Local only: set KEYCLOAK_E2E_PASSWORD and KEYCLOAK_E2E_TOTP_SECRET.
+# End-to-end test users, one per role (tests/e2e). Every role requires OTP (#161), so they get a TOTP credential from
+# a known secret and the tests compute the codes. Local only: set KEYCLOAK_E2E_PASSWORD and KEYCLOAK_E2E_TOTP_SECRET.
 if [ -n "${KEYCLOAK_E2E_PASSWORD:-}" ] && [ -n "${KEYCLOAK_E2E_TOTP_SECRET:-}" ] \
   && [[ "$KEYCLOAK_E2E_PASSWORD$KEYCLOAK_E2E_TOTP_SECRET" != *change-me* ]]; then
   export USER_PASSWORD="$KEYCLOAK_E2E_PASSWORD" USER_OTP_SECRET="$KEYCLOAK_E2E_TOTP_SECRET"
-  create_user e2e.partner e2e.partner@diligence.test E2E Partner partner
-  create_user e2e.analyst e2e.analyst@diligence.test E2E Analyst analyst
+  create_user e2e.partner e2e.partner@diligence.test E2E Partner partner otp
+  create_user e2e.analyst e2e.analyst@diligence.test E2E Analyst analyst otp
   create_user e2e.target e2e.target@diligence.test E2E Target target otp
   create_user e2e.client e2e.client@diligence.test E2E Client client otp
   unset USER_PASSWORD USER_OTP_SECRET
@@ -69,10 +76,13 @@ fi
 
 add_idp() { # alias providerId clientId clientSecret extra...
   local alias=$1 provider=$2 id=$3 secret=$4; shift 4
+  # post-broker-mfa: after the SSO login, OTP for every role carrying mfa_required (all application roles, #161).
   if kc get "identity-provider/instances/$alias" -r "$REALM" > /dev/null 2>&1; then
-    echo "Identity provider $alias already configured."; return
+    kc update "identity-provider/instances/$alias" -r "$REALM" -s postBrokerLoginFlowAlias=post-broker-mfa
+    echo "Identity provider $alias already configured; OTP after SSO login ensured."; return
   fi
   kc create identity-provider/instances -r "$REALM" -s "alias=$alias" -s "providerId=$provider" -s enabled=true \
+    -s postBrokerLoginFlowAlias=post-broker-mfa \
     -s 'config.syncMode=IMPORT' -s "config.clientId=$id" -s "config.clientSecret=$secret" "$@"
   echo "Configured SSO identity provider $alias."
 }
