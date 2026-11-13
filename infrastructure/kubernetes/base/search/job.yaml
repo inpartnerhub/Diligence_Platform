@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: opensearch-bootstrap
+  namespace: diligence
   labels: { app.kubernetes.io/name: opensearch-bootstrap }
 spec:
   backoffLimit: 6
