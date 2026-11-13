@@ -20,13 +20,13 @@ resources:
 images:
   # Our GHCR builds (infrastructure/docker/{clamav,gotenberg,tika}: upstream bases pinned by digest, security
   # updates, UIDs above 10000), made by the Processing images workflow. GHCR is the only trusted registry
-  # (.trivy/data). Pinned by digest (#166), never by a moving tag: these are the images the Processing images run for
-  # commit d6ff785 pushed (also tagged sha-d6ff7851464149c9db7e42b106b0c0c0ebea8379). After a new build on main, copy
+  # (.trivy/data). Pinned by digest (#166), never by a moving tag: these are the signed images (#167) the Processing
+  # images run for commit 232b853 pushed (also tagged sha-232b853b9b84960ff650cd0f5c1a3c6bf7284c62). After a new build on main, copy
   # the digests from that run's "pushing manifest for …:main@sha256:…" log lines and update them here and in
   # base/search/job.yaml (Gotenberg) in one pull request; CI refuses images without a digest.
   - name: ghcr.io/inpartnerhub/diligence-clamav
-    digest: sha256:6e3a92c9ab9b5d02b129346bad4287aa0e5d14487bb2de8986740e1a2b8ac636
+    digest: sha256:57277b9d53741604c26a51843917b98954f4d96bf23019f2cbc2ffc01b26007f
   - name: ghcr.io/inpartnerhub/diligence-gotenberg
-    digest: sha256:d7d2159b184f4d666952936b1e53a5800871386c03e42414b5c89027332dff2c
+    digest: sha256:956b7eb29479ffa8d9662e0ee765fc3a420f4d38979a2182963005619f2b6443
   - name: ghcr.io/inpartnerhub/diligence-tika
-    digest: sha256:aea6f78c985b3394181471255b815ec0bda6dd24b72703f29eab93c2206cfc02
+    digest: sha256:a24d536ddf3659a88589977d3f2e8ff2e5ff34ad53f6a9667b4fbffa00d37cb8

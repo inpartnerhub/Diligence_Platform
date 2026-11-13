@@ -23,7 +23,7 @@ spec:
         - name: bootstrap
           # Our GHCR Debian image that already ships curl (GHCR is the only trusted registry, .trivy/data); only curl
           # is used here. Pinned by digest, same as infrastructure/kubernetes/processing (#166).
-          image: ghcr.io/inpartnerhub/diligence-gotenberg@sha256:d7d2159b184f4d666952936b1e53a5800871386c03e42414b5c89027332dff2c
+          image: ghcr.io/inpartnerhub/diligence-gotenberg@sha256:956b7eb29479ffa8d9662e0ee765fc3a420f4d38979a2182963005619f2b6443
           command: ["/bin/bash", "-c"]
           args:
             - |
