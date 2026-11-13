@@ -3,10 +3,10 @@
 
 Prints two lines for $GITHUB_ENV:
   ZAP_COOKIE  the web app's session cookie, from a real sign-in through the BFF (/auth/login -> Keycloak -> callback)
-  ZAP_BEARER  an access token for the API scan, from Authorization Code + PKCE with the public web client
+  ZAP_BEARER  an access token for the API scan, from Authorization Code + PKCE with the confidential web client
 
 Uses only the standard library. Environment: APP_URL, ZAP_USER, ZAP_PASSWORD, ZAP_TOTP_SECRET (every role requires
-OTP, #161; e.g. the local PM with KEYCLOAK_DEV_TOTP_SECRET).
+OTP, #161; e.g. the local PM with KEYCLOAK_DEV_TOTP_SECRET), OIDC_CLIENT_SECRET (diligence-web client secret, #175).
 """
 import base64
 import hashlib
@@ -25,6 +25,7 @@ APP = os.environ.get("APP_URL", "http://localhost:3000").rstrip("/")
 USER = os.environ["ZAP_USER"]
 PASSWORD = os.environ["ZAP_PASSWORD"]
 TOTP_SECRET = os.environ.get("ZAP_TOTP_SECRET", "")
+CLIENT_SECRET = os.environ["OIDC_CLIENT_SECRET"]
 
 COOKIES: dict[str, dict[str, str]] = {}  # per host; keeps Secure cookies Keycloak sets on plain http in dev mode
 
@@ -101,7 +102,7 @@ session = COOKIES.get(urllib.parse.urlparse(APP).netloc, {}).get("diligence_sid"
 if not session:
     sys.exit("no diligence_sid cookie after the callback")
 
-# 2. Access token for the API scan: PKCE with the public client, reusing the Keycloak SSO session from step 1.
+# 2. Access token for the API scan: PKCE with the confidential web client (#175), reusing the Keycloak SSO session from step 1.
 login_url = urllib.parse.urlparse(urllib.parse.urljoin(APP, headers["Location"]))
 query = urllib.parse.parse_qs(login_url.query)
 issuer_auth = f"{login_url.scheme}://{login_url.netloc}{login_url.path}"
@@ -115,7 +116,8 @@ code = urllib.parse.parse_qs(urllib.parse.urlparse(back).query).get("code", [Non
 if not code:
     sys.exit("no authorization code for the API token")
 token_url = issuer_auth.rsplit("/auth", 1)[0] + "/token"
-form = urllib.parse.urlencode({"grant_type": "authorization_code", "client_id": params["client_id"], "code": code,
+form = urllib.parse.urlencode({"grant_type": "authorization_code", "client_id": params["client_id"],
+                               "client_secret": CLIENT_SECRET, "code": code,
                                "redirect_uri": params["redirect_uri"], "code_verifier": verifier}).encode()
 status, _, body = request(token_url, form)
 if status != 200:

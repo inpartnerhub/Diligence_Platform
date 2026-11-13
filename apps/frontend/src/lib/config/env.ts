@@ -28,6 +28,10 @@ export const serverEnv = {
   get oidcClientId(): string {
     return required("OIDC_CLIENT_ID", process.env.OIDC_CLIENT_ID);
   },
+  /** Client secret of the confidential `diligence-web` client (#175); the BFF authenticates every token request. */
+  get oidcClientSecret(): string {
+    return required("OIDC_CLIENT_SECRET", process.env.OIDC_CLIENT_SECRET);
+  },
   get sessionSecret(): string {
     const secret = required("SESSION_SECRET", process.env.SESSION_SECRET);
     if (secret.length < 32) {

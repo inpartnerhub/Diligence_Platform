@@ -7,7 +7,8 @@ import { serverEnv } from "@/lib/config/env";
 let configuration: client.Configuration | undefined;
 
 /**
- * OIDC client for the public `diligence-web` Keycloak client (Authorization Code + PKCE).
+ * OIDC client for the confidential `diligence-web` Keycloak client (Authorization Code + PKCE). Token requests carry
+ * the client secret (`client_secret_post`, #175), so tokens for this client cannot be obtained without the BFF.
  *
  * Endpoints are built explicitly instead of discovered: browser-facing endpoints use the public issuer, while
  * back-channel calls (token, JWKS) use the internal address. Inside a container network the two differ, and the
@@ -30,7 +31,7 @@ export function oidcConfiguration(): client.Configuration {
     },
     serverEnv.oidcClientId,
     undefined,
-    client.None(),
+    client.ClientSecretPost(serverEnv.oidcClientSecret),
   );
   if (serverEnv.oidcAllowHttp) {
     client.allowInsecureRequests(config); // local stack only

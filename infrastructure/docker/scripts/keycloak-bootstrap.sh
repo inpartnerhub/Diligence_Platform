@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Local Keycloak bootstrap for the "diligence" realm. Every credential comes from .env — nothing is hard-coded.
-#   1. sets the diligence-admin-api client secret to KEYCLOAK_ADMIN_CLIENT_SECRET (used by the backend)
+#   1. sets the diligence-admin-api client secret to KEYCLOAK_ADMIN_CLIENT_SECRET (used by the backend) and the
+#      diligence-web client secret to OIDC_CLIENT_SECRET (used by the frontend BFF, #175)
 #   2. creates the local super admin (OTP is enforced on first login), a project manager and, when configured,
 #      one end-to-end test user per role — each with the id the application already knows for its email, if any
 #   3. optionally registers Microsoft Entra ID / Google SSO when their client ids are present in .env
@@ -17,6 +18,13 @@ kc config credentials --server http://localhost:8180 --realm master \
 client_uuid=$(kc get clients -r "$REALM" -q clientId=diligence-admin-api --fields id --format csv --noquotes)
 kc update "clients/$client_uuid" -r "$REALM" -s "secret=$KEYCLOAK_ADMIN_CLIENT_SECRET"
 echo "Set diligence-admin-api client secret."
+
+# diligence-web is a confidential client (#175). Also switches a realm imported before #175 (still public) without a
+# keycloak-reset; PKCE stays required.
+web_uuid=$(kc get clients -r "$REALM" -q clientId=diligence-web --fields id --format csv --noquotes)
+kc update "clients/$web_uuid" -r "$REALM" -s publicClient=false -s clientAuthenticatorType=client-secret \
+  -s "secret=$OIDC_CLIENT_SECRET"
+echo "Set diligence-web client secret."
 
 # Users are created with the id the application already has for their email (adm.user_account): Keycloak's id is the
 # account id (token `sub`), so a recreated Keycloak keeps every project membership instead of minting new ids (#83).

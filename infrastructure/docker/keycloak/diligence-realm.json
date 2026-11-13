@@ -345,7 +345,8 @@
     {
       "clientId": "diligence-web",
       "name": "Diligence Platform Web",
-      "publicClient": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
