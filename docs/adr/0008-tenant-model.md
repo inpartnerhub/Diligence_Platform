@@ -1,7 +1,7 @@
 # ADR-0008: Tenant model — one operating firm, the project as the security boundary
 
-- **Status:** Proposed — awaiting the steering committee (#153)
-- **Date:** 2026-11-13
+- **Status:** Accepted (2026-11-14, #153)
+- **Date:** 2026-11-13, decided 2026-11-14
 - **Deciders:** Steering committee (Partner, Product Owner, Tech Lead), Security Officer
 
 ## Context
@@ -48,9 +48,12 @@ What "tenant" means, and the rules that must hold, each enforced in the database
 
 ## Decision
 
-Pending.
+**Option A.** One deployment serves one operating firm; the **project** is the security boundary; client and target
+organizations are counterparties. Only the firm's staff and `OBSERVER` have access across organizations. Every rule in
+the table above is enforced in the database as well as in the services. Another firm gets its own deployment
+(ADR-0003), never a tenant column.
 
-## Consequences (if the recommendation is accepted)
+## Consequences
 
 - ARCHITECTURE.md §4 and SECURITY.md refer to this ADR as the definition of "tenant".
 - New project-scoped tables need `project_id` and policies (as today); new organization-scoped rules need a database

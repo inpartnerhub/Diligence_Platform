@@ -91,7 +91,7 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 
 ## 4. Roles and information barriers (PRD Bab 3)
 
-Tenant model ([ADR-0008](docs/adr/0008-tenant-model.md), proposed): one deployment serves one operating firm; the
+Tenant model ([ADR-0008](docs/adr/0008-tenant-model.md)): one deployment serves one operating firm; the
 **project** is the security boundary, client and target organizations are counterparties.
 
 Global roles live in Keycloak (realm roles); per-project roles live in `prj.project_member` (optionally per
