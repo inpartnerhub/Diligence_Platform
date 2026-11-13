@@ -23,7 +23,7 @@ images:
   # (.trivy/data). Pinned by digest (#166), never by a moving tag: these are the images the Processing images run for
   # commit d6ff785 pushed (also tagged sha-d6ff7851464149c9db7e42b106b0c0c0ebea8379). After a new build on main, copy
   # the digests from that run's "pushing manifest for …:main@sha256:…" log lines and update them here and in
-  # base/search/kustomization.yaml (Gotenberg) in one pull request; CI refuses images without a digest.
+  # base/search/job.yaml (Gotenberg) in one pull request; CI refuses images without a digest.
   - name: ghcr.io/inpartnerhub/diligence-clamav
     digest: sha256:6e3a92c9ab9b5d02b129346bad4287aa0e5d14487bb2de8986740e1a2b8ac636
   - name: ghcr.io/inpartnerhub/diligence-gotenberg

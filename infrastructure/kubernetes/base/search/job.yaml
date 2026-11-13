@@ -22,8 +22,8 @@ spec:
       containers:
         - name: bootstrap
           # Our GHCR Debian image that already ships curl (GHCR is the only trusted registry, .trivy/data); only curl
-          # is used here. Pinned by digest in kustomization.yaml, like the processing images (#166).
-          image: ghcr.io/inpartnerhub/diligence-gotenberg
+          # is used here. Pinned by digest, same as infrastructure/kubernetes/processing (#166).
+          image: ghcr.io/inpartnerhub/diligence-gotenberg@sha256:d7d2159b184f4d666952936b1e53a5800871386c03e42414b5c89027332dff2c
           command: ["/bin/bash", "-c"]
           args:
             - |

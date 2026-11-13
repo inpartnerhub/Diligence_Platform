@@ -4,10 +4,6 @@
 # security API. It runs on every deployment (idempotent PUTs) and is removed ten minutes after it finishes.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-images:
-  # The bootstrap Job only needs curl from our Gotenberg image; same digest as infrastructure/kubernetes/processing (#166).
-  - name: ghcr.io/inpartnerhub/diligence-gotenberg
-    digest: sha256:d7d2159b184f4d666952936b1e53a5800871386c03e42414b5c89027332dff2c
 resources:
   - serviceaccount.yaml
   - vault-secret.yaml

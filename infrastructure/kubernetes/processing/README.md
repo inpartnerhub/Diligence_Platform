@@ -23,7 +23,7 @@ One processing namespace per cluster serves every Diligence environment in it (t
 
 The images are pinned by digest in `kustomization.yaml` (#166); CI refuses a moving tag. To roll out new builds,
 update the three digests from the *Processing images* run on `main` (its "pushing manifest for …:main@sha256:…" log
-lines; Gotenberg also in `../base/search/kustomization.yaml`) in a pull request, then:
+lines; Gotenberg also in `../base/search/job.yaml`) in a pull request, then:
 
 ```bash
 cd infrastructure/kubernetes/processing
