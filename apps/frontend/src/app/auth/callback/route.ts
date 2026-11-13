@@ -8,6 +8,7 @@ import { LOCALE_COOKIE, toLocale } from "@/i18n/locales";
 import { oidcConfiguration } from "@/lib/auth/oidc";
 import { loginTransaction } from "@/lib/auth/login-transaction";
 import { hasApplicationRole, sessionCookie, userFromTokens } from "@/lib/auth/session";
+import { sessionTtlSeconds } from "@/lib/auth/session-lifetime";
 import { writeSession } from "@/lib/auth/session-store";
 import { serverEnv } from "@/lib/config/env";
 import { logError } from "@/lib/log";
@@ -49,14 +50,16 @@ export async function GET(request: NextRequest) {
   }
 
   const sessionId = randomUUID();
-  const refreshLifetime = Number((tokens as Record<string, unknown>).refresh_expires_in ?? 1800);
+  const now = Math.floor(Date.now() / 1000);
+  const refreshLifetime = sessionTtlSeconds((tokens as Record<string, unknown>).refresh_expires_in, now, now);
   await writeSession(
     sessionId,
     {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       idToken: tokens.id_token,
-      expiresAt: Math.floor(Date.now() / 1000) + (tokens.expires_in ?? 60),
+      expiresAt: now + (tokens.expires_in ?? 60),
+      createdAt: now,
       user,
     },
     refreshLifetime,

@@ -10,6 +10,7 @@ import { serverEnv } from "@/lib/config/env";
 import { oidcConfiguration } from "./oidc";
 import { canAccess, type NavKey } from "./permissions";
 import { decodeJwtPayload, rolesFromRealmAccess } from "./roles";
+import { SESSION_MAX_SECONDS, sessionTtlSeconds } from "./session-lifetime";
 import {
   deleteSession,
   readSession,
@@ -29,7 +30,7 @@ export function sessionCookieOptions(): SessionOptions {
   return {
     password: serverEnv.sessionSecret,
     cookieName: SESSION_COOKIE,
-    ttl: 10 * 60 * 60, // matches Keycloak ssoSessionMaxLifespan
+    ttl: SESSION_MAX_SECONDS, // matches Keycloak ssoSessionMaxLifespan
     cookieOptions: { httpOnly: true, secure: serverEnv.secureCookies, sameSite: "lax", path: "/" },
   };
 }
@@ -76,25 +77,34 @@ export async function getSession(): Promise<SessionData | null> {
   if (!session.refreshToken) {
     return null;
   }
+  let tokens: Awaited<ReturnType<typeof client.refreshTokenGrant>>;
   try {
-    const tokens = await client.refreshTokenGrant(oidcConfiguration(), session.refreshToken);
-    const refreshed: SessionData = {
-      ...session,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token ?? session.refreshToken,
-      idToken: tokens.id_token ?? session.idToken,
-      expiresAt: Math.floor(Date.now() / 1000) + (tokens.expires_in ?? 60),
-      user: userFromTokens(tokens.access_token, tokens.claims()),
-    };
-    if (!hasApplicationRole(refreshed.user)) {
-      await deleteSession(sid); // the role was removed meanwhile
-      return null;
-    }
-    await updateSession(sid, refreshed);
-    return refreshed;
+    tokens = await client.refreshTokenGrant(oidcConfiguration(), session.refreshToken);
   } catch {
-    return null; // refresh token expired or revoked: treat as signed out
+    // Refresh token expired or revoked: signed out. Drop the stored tokens too (#174).
+    await deleteSession(sid).catch(() => undefined);
+    return null;
   }
+  const now = Math.floor(Date.now() / 1000);
+  const refreshed: SessionData = {
+    ...session,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token ?? session.refreshToken,
+    idToken: tokens.id_token ?? session.idToken,
+    expiresAt: now + (tokens.expires_in ?? 60),
+    user: userFromTokens(tokens.access_token, tokens.claims()),
+  };
+  const ttl = sessionTtlSeconds(
+    (tokens as Record<string, unknown>).refresh_expires_in,
+    session.createdAt,
+    now,
+  );
+  if (!hasApplicationRole(refreshed.user) || ttl <= 0) {
+    await deleteSession(sid); // the role was removed meanwhile, or the maximum session age is reached
+    return null;
+  }
+  await updateSession(sid, refreshed, ttl);
+  return refreshed;
 }
 
 /**
