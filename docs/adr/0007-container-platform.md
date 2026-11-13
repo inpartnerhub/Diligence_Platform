@@ -1,8 +1,9 @@
 # ADR-0007: Container platform — Kubernetes on AKS, with an ownership trigger for Azure Container Apps
 
-- **Status:** Proposed — awaiting the Tech Lead / Architect and the steering committee (#183)
+- **Status:** Accepted (2026-11-13, #183)
 - **Date:** 2026-11-13
-- **Deciders:** Tech Lead / Architect, Security Officer, whoever will operate production
+- **Deciders:** Tech Lead / Architect, Security Officer, platform owner
+- **Platform owner:** irsalshydiq (cluster and add-ons); deputy to be named before go-live
 
 ## Context
 
@@ -63,9 +64,17 @@ would need its own ADR.
 
 ## Decision
 
-Pending.
+1. **AKS** in Azure Indonesia Central is the container platform for every environment.
+2. **Owner** of the cluster and its add-ons: irsalshydiq. A deputy is named before go-live.
+3. **Add-ons as code in this repository** (for example `infrastructure/kubernetes/platform/`): Kong IC, Vault Secrets
+   Operator, cert-manager, kube-prometheus-stack, OpenTelemetry Collector, Kyverno, and the RabbitMQ and OpenSearch
+   operators or charts, each with a pinned chart version and values, rendered and validated in CI like the other
+   manifests.
+4. Conditions 3–5 of the recommendation (upgrade cadence and runbook, Azure equivalents of the AWS controls,
+   right-sizing) are go-live tasks. The trigger to re-evaluate Azure Container Apps applies if the ownership or
+   add-on conditions are not met by go-live.
 
-## Consequences (if the recommendation is accepted)
+## Consequences
 
 - New AKS cluster module and the Azure counterparts of #157, #158, #164 and #176; the EKS module stays as reference.
 - RabbitMQ and OpenSearch deployments (operators or charts) join the manifests.
