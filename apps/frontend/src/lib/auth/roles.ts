@@ -11,7 +11,8 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 export const EXTERNAL_ROLES: readonly Role[] = ["CLIENT", "TARGET", "OBSERVER"];
-export const MFA_ROLES: readonly Role[] = ["SUPER_ADMIN", "CLIENT", "TARGET", "OBSERVER"];
+/** Every role requires OTP (#161). */
+export const MFA_ROLES: readonly Role[] = ROLES;
 
 /** Extracts application roles from a Keycloak access token's `realm_access.roles` claim. */
 export function rolesFromRealmAccess(claim: unknown): Role[] {

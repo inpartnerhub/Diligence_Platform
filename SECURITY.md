@@ -21,7 +21,7 @@ Only the latest release deployed from `main` receives security fixes.
 
 | Control | Implementation | Status |
 |---------|---------------|--------|
-| MFA for all external users and administrators | Keycloak browser flow `browser-mfa`: conditional OTP for roles carrying `mfa_required` (`super_admin`, `client`, `target`, `observer`); `CONFIGURE_TOTP` on invitation | ✅ |
+| MFA for every user (external users, administrators and, since #161, the internal team) | Every application role carries `mfa_required`. Keycloak browser flow `browser-mfa`: conditional OTP for roles carrying it; SSO logins (Entra ID / Google) run `post-broker-mfa`, which asks for the Keycloak OTP after the identity provider; `CONFIGURE_TOTP` on invitation | ✅ |
 | Session expiry on inactivity | Keycloak `ssoSessionIdleTimeout` 30 min, max 10 h; access tokens 5 min; BFF session bounded by the refresh token | ✅ |
 | Strong passwords, brute-force protection | Realm password policy (length 12, history 5, not username/e-mail, blacklist of 100,000 common/breached passwords from SecLists: `infrastructure/docker/keycloak/password-blacklists`), lockout after 5 failures | ✅ |
 | Step-up for sensitive actions | `@RequiresRecentSignIn`: report release/issue, project purge, IP allow-list changes, webhook changes and role changes need a sign-in with MFA within 10 min (`auth_time`, `STEP_UP_MAX_AGE`); the web app re-authenticates with `prompt=login` | ✅ |

@@ -67,15 +67,33 @@
       },
       {
         "name": "partner",
-        "description": "Partner / Director — oversees projects, approves reports, portfolio dashboard"
+        "description": "Partner / Director — oversees projects, approves reports, portfolio dashboard",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
       },
       {
         "name": "project_manager",
-        "description": "Project Manager — creates projects, request lists, team, deadlines, Q&A"
+        "description": "Project Manager — creates projects, request lists, team, deadlines, Q&A",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
       },
       {
         "name": "analyst",
-        "description": "Analyst / Reviewer — data room per workstream, findings, risk ratings"
+        "description": "Analyst / Reviewer — data room per workstream, findings, risk ratings",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
       },
       {
         "name": "client",
@@ -241,11 +259,61 @@
           "autheticatorFlow": false
         }
       ]
+    },
+    {
+      "alias": "post-broker-mfa",
+      "description": "After an SSO (Entra ID / Google) login: OTP for roles carrying mfa_required (#161)",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "CONDITIONAL",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "flowAlias": "post-broker-mfa conditional otp",
+          "authenticatorFlow": true,
+          "autheticatorFlow": true
+        }
+      ]
+    },
+    {
+      "alias": "post-broker-mfa conditional otp",
+      "description": "OTP when the brokered user has role mfa_required",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false,
+          "authenticator": "conditional-user-role",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false,
+          "authenticatorConfig": "post-broker-mfa-required-role"
+        },
+        {
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false,
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "autheticatorFlow": false
+        }
+      ]
     }
   ],
   "authenticatorConfig": [
     {
       "alias": "mfa-required-role",
+      "config": {
+        "condUserRole": "mfa_required",
+        "negate": "false"
+      }
+    },
+    {
+      "alias": "post-broker-mfa-required-role",
       "config": {
         "condUserRole": "mfa_required",
         "negate": "false"

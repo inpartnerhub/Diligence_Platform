@@ -5,10 +5,12 @@ Prints two lines for $GITHUB_ENV:
   ZAP_COOKIE  the web app's session cookie, from a real sign-in through the BFF (/auth/login -> Keycloak -> callback)
   ZAP_BEARER  an access token for the API scan, from Authorization Code + PKCE with the public web client
 
-Uses only the standard library. Environment: APP_URL, ZAP_USER, ZAP_PASSWORD (a user without OTP, e.g. the local PM).
+Uses only the standard library. Environment: APP_URL, ZAP_USER, ZAP_PASSWORD, ZAP_TOTP_SECRET (every role requires
+OTP, #161; e.g. the local PM with KEYCLOAK_DEV_TOTP_SECRET).
 """
 import base64
 import hashlib
+import hmac
 import html
 import json
 import os
@@ -17,10 +19,12 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import time
 
 APP = os.environ.get("APP_URL", "http://localhost:3000").rstrip("/")
 USER = os.environ["ZAP_USER"]
 PASSWORD = os.environ["ZAP_PASSWORD"]
+TOTP_SECRET = os.environ.get("ZAP_TOTP_SECRET", "")
 
 COOKIES: dict[str, dict[str, str]] = {}  # per host; keeps Secure cookies Keycloak sets on plain http in dev mode
 
@@ -62,6 +66,14 @@ def follow(url: str, data: bytes | None = None, limit: int = 10) -> str:
     sys.exit("too many redirects")
 
 
+def totp(secret: str) -> str:
+    """RFC 6238 (SHA-1, 6 digits, 30 s); Keycloak keys the HMAC with the stored secret's characters as they are."""
+    counter = int(time.time() // 30).to_bytes(8, "big")
+    digest = hmac.new(secret.encode(), counter, hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    return f"{(int.from_bytes(digest[offset:offset + 4], 'big') & 0x7FFFFFFF) % 1_000_000:06d}"
+
+
 def keycloak_login(auth_url: str) -> str:
     """Submits the Keycloak login form; returns the redirect back to the app (with ?code=)."""
     status, headers, page = request(auth_url)
@@ -72,6 +84,10 @@ def keycloak_login(auth_url: str) -> str:
         sys.exit("no Keycloak login form: " + page[:300])
     form = urllib.parse.urlencode({"username": USER, "password": PASSWORD}).encode()
     status, headers, page = request(html.unescape(action.group(1)), form)
+    if status == 200 and 'name="otp"' in page and TOTP_SECRET:  # OTP form (#161)
+        action = re.search(r'action="([^"]+)"', page)
+        form = urllib.parse.urlencode({"otp": totp(TOTP_SECRET)}).encode()
+        status, headers, page = request(html.unescape(action.group(1)), form)
     if status not in (302, 303):
         sys.exit("sign-in refused (wrong credentials, OTP or a required action?)")
     return urllib.parse.urljoin(auth_url, headers["Location"])

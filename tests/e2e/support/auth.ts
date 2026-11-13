@@ -8,20 +8,25 @@ export type RoleName = (typeof ROLES)[number];
 
 export const statePath = (role: RoleName) => `.auth/${role}.json`;
 
-const env = (...names: string[]) => names.map((n) => process.env[n]).find(Boolean);
+const env = (...names: string[]) =>
+  names.map((n) => process.env[n]).find(Boolean);
 
 export function credentials(
   role: RoleName,
 ): { username: string; password: string; otp?: string } | undefined {
+  // Every role requires OTP (#161).
   if (role === "pm") {
     const username = env("E2E_PM_USER", "KEYCLOAK_DEV_PM");
     const password = env("E2E_PM_PASSWORD", "KEYCLOAK_DEV_PM_PASSWORD");
-    return username && password ? { username, password } : undefined;
+    const otp = env("E2E_PM_TOTP_SECRET", "KEYCLOAK_DEV_TOTP_SECRET");
+    return username && password && otp
+      ? { username, password, otp }
+      : undefined;
   }
   const password = env("E2E_PASSWORD", "KEYCLOAK_E2E_PASSWORD");
   const otp = env("E2E_TOTP_SECRET", "KEYCLOAK_E2E_TOTP_SECRET");
   if (!password || !otp) return undefined;
-  return { username: `e2e.${role}`, password, otp: role === "target" || role === "client" ? otp : undefined };
+  return { username: `e2e.${role}`, password, otp };
 }
 
 /**
@@ -31,13 +36,15 @@ export function credentials(
 export function totp(secret: string, at = Date.now()): string {
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(Math.floor(at / 30_000)));
-  const hmac = createHmac("sha1", Buffer.from(secret, "utf8")).update(counter).digest();
+  const hmac = createHmac("sha1", Buffer.from(secret, "utf8"))
+    .update(counter)
+    .digest();
   const offset = hmac[hmac.length - 1]! & 0x0f;
   const code = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
   return code.toString().padStart(6, "0");
 }
 
-/** Keycloak sign-in through the app: password, then the OTP form for roles that require it. */
+/** Keycloak sign-in through the app: password, then the OTP form (every role, #161). */
 export async function signIn(page: Page, role: RoleName): Promise<void> {
   const user = credentials(role);
   if (!user) throw new Error(`No credentials for ${role}`);
@@ -56,6 +63,9 @@ export async function signIn(page: Page, role: RoleName): Promise<void> {
       await page.locator("#kc-login").click();
     }
   }
-  const app = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000").origin;
-  await page.waitForURL((url) => url.origin === app && !url.pathname.startsWith("/auth/"));
+  const app = new URL(process.env.E2E_BASE_URL ?? "http://localhost:3000")
+    .origin;
+  await page.waitForURL(
+    (url) => url.origin === app && !url.pathname.startsWith("/auth/"),
+  );
 }

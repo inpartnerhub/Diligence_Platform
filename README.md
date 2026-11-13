@@ -84,8 +84,9 @@ cp apps/frontend/.env.example apps/frontend/.env.local   # set SESSION_SECRET an
 make frontend-install && make frontend-run                # frontend on http://localhost:3000
 ```
 
-Sign in at http://localhost:3000 with `KEYCLOAK_DEV_ADMIN`. Super admins must enrol an authenticator app (TOTP)
-on first login. From **Administration → Users** invite a client or target user; the invitation e-mail (set password,
+Sign in at http://localhost:3000 with `KEYCLOAK_DEV_ADMIN`. Every user must enrol an authenticator app (TOTP) on first
+login (#161); the local PM uses `KEYCLOAK_DEV_TOTP_SECRET` when it is set. After a realm change run
+`make keycloak-reset`. From **Administration → Users** invite a client or target user; the invitation e-mail (set password,
 OTP, NDA) appears in Mailpit at http://localhost:8025.
 
 Keycloak keeps its users in the `diligence-keycloak-data` volume, so they survive `make down`. The realm is imported

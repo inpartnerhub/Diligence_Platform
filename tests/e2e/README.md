@@ -19,11 +19,12 @@ The flow needs one user per role. On the local stack they come from `make keyclo
 | Variable | Purpose |
 |----------|---------|
 | `KEYCLOAK_DEV_PM`, `KEYCLOAK_DEV_PM_PASSWORD` | Project manager (already used for local development) |
+| `KEYCLOAK_DEV_TOTP_SECRET` | OTP secret of the project manager (every role requires MFA, #161) |
 | `KEYCLOAK_E2E_PASSWORD` | Password of `e2e.partner`, `e2e.analyst`, `e2e.target`, `e2e.client` |
-| `KEYCLOAK_E2E_TOTP_SECRET` | OTP secret of the target and client users, who must use MFA. The tests compute the codes from it. |
+| `KEYCLOAK_E2E_TOTP_SECRET` | OTP secret of the e2e users. The tests compute the codes from it. |
 
 The same variables without the `KEYCLOAK_` prefix (`E2E_PASSWORD`, `E2E_TOTP_SECRET`, `E2E_PM_USER`,
-`E2E_PM_PASSWORD`) override them, for example in CI against a deployed environment.
+`E2E_PM_PASSWORD`, `E2E_PM_TOTP_SECRET`) override them, for example in CI against a deployed environment.
 
 ## Running locally
 

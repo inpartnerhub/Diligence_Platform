@@ -11,9 +11,9 @@ import java.util.Optional;
 public enum Role {
 
     SUPER_ADMIN(false, true),
-    PARTNER(false, false),
-    PROJECT_MANAGER(false, false),
-    ANALYST(false, false),
+    PARTNER(false, true),
+    PROJECT_MANAGER(false, true),
+    ANALYST(false, true),
     CLIENT(true, true),
     TARGET(true, true),
     OBSERVER(true, true);
@@ -31,7 +31,7 @@ public enum Role {
         return external;
     }
 
-    /** MFA is mandatory for external users and administrators (PRD ADM-02). */
+    /** MFA is mandatory for every role (PRD ADM-02; internal roles too since #161). */
     public boolean requiresMfa() {
         return mfaRequired;
     }
