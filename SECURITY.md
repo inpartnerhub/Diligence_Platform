@@ -76,7 +76,7 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 - Deployed environments receive secrets only from **HashiCorp Vault** via the Vault Secrets Operator
   ([ADR-0002](docs/adr/0002-secrets-via-vault-operator.md)): backend (`kv/diligence/<env>/backend/*`, including
   `KEYCLOAK_ADMIN_CLIENT_SECRET` and SMTP credentials) and frontend (`kv/diligence/<env>/frontend`: `SESSION_SECRET`,
-  `REDIS_URL`).
+  `SESSION_ENCRYPTION_KEY`, `REDIS_URL`).
 - CI authenticates to clouds with **OIDC federation**; no long-lived cloud keys in GitHub.
 - If a secret is committed: treat it as compromised, **rotate it immediately**, then remove it from history.
 
@@ -84,7 +84,7 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 
 | Area | Requirement |
 |------|-------------|
-| Tokens | Never stored in the browser: the frontend is a BFF; tokens live in Redis, the cookie holds a sealed session id (`HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS) |
+| Tokens | Never stored in the browser: the frontend is a BFF; tokens live in Redis, encrypted with AES-256-GCM under a key only the BFF holds (#172), the cookie holds a sealed session id (`HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS) |
 | CSRF | Server actions are origin-checked by Next.js; logout is POST + same-origin; the API accepts bearer tokens only |
 | Redirects | Post-login targets must be same-origin relative paths (`safeReturnTo`) |
 | Authorization | Deny by default at every layer; admin API requires `SUPER_ADMIN`; accounts without an application role (e.g. new SSO accounts) get no web session and 403 from the API until a Super Admin assigns a role (#152) |

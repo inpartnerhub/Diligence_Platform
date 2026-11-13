@@ -6,6 +6,7 @@ import { serverEnv } from "@/lib/config/env";
 import { logError } from "@/lib/log";
 
 import type { Role } from "./roles";
+import { decryptSession, encryptSession, type SessionKey, sessionKey } from "./session-crypto";
 
 export interface SessionUser {
   id: string;
@@ -43,18 +44,34 @@ function redis(): Promise<Redis> {
   return client;
 }
 
+/** Current key first (used for writing), then the previous one while a rotation is in progress (#172). */
+function sessionKeys(): [SessionKey, ...SessionKey[]] {
+  const current = sessionKey("SESSION_ENCRYPTION_KEY", serverEnv.sessionEncryptionKey);
+  const previous = serverEnv.sessionEncryptionKeyPrevious;
+  return previous ? [current, sessionKey("SESSION_ENCRYPTION_KEY_PREVIOUS", previous)] : [current];
+}
+
+/** Session records are encrypted in Redis; one that cannot be decrypted counts as no session (#172). */
 export async function readSession(sessionId: string): Promise<SessionData | null> {
-  const raw = await (await redis()).get(KEY_PREFIX + sessionId);
-  return raw ? (JSON.parse(raw) as SessionData) : null;
+  const key = KEY_PREFIX + sessionId;
+  const raw = await (await redis()).get(key);
+  const json = raw ? decryptSession(raw, key, sessionKeys()) : null;
+  return json ? (JSON.parse(json) as SessionData) : null;
+}
+
+async function storeSession(sessionId: string, data: SessionData, ttlSeconds: number): Promise<void> {
+  const key = KEY_PREFIX + sessionId;
+  const record = encryptSession(JSON.stringify(data), key, sessionKeys()[0]);
+  await (await redis()).set(key, record, { EX: ttlSeconds });
 }
 
 export async function writeSession(sessionId: string, data: SessionData, ttlSeconds: number): Promise<void> {
-  await (await redis()).set(KEY_PREFIX + sessionId, JSON.stringify(data), { EX: Math.max(ttlSeconds, 60) });
+  await storeSession(sessionId, data, Math.max(ttlSeconds, 60));
 }
 
 /** Replaces the session and sets its lifetime to that of the latest refresh token (#174). */
 export async function updateSession(sessionId: string, data: SessionData, ttlSeconds: number): Promise<void> {
-  await (await redis()).set(KEY_PREFIX + sessionId, JSON.stringify(data), { EX: Math.max(ttlSeconds, 1) });
+  await storeSession(sessionId, data, Math.max(ttlSeconds, 1));
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
