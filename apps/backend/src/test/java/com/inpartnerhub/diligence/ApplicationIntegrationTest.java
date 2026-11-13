@@ -156,6 +156,53 @@ class ApplicationIntegrationTest {
         jdbc.update(insert, UUID.randomUUID(), project, foreignTarget, "OBSERVER");      // auditors are not bound
     }
 
+    @Test
+    void dataRoomRowsStayInTheirParentsProject() {
+        // #181: a folder's parent, a document's folder and a version's document belong to the same project, for every
+        // database role (here the owner, below an analyst through the folder_create_on_upload policy).
+        var projectA = project();
+        var projectB = project();
+        var analyst = UUID.randomUUID();
+        jdbc.update("insert into prj.project_member (id, project_id, user_id, project_role) values (?, ?, ?, 'ANALYST')",
+                UUID.randomUUID(), projectA, analyst);
+        var folderA = folder(projectA, null);
+        var folderB = folder(projectB, null);
+        var documentA = UUID.randomUUID();
+        var insertDocument = "insert into dr.document (id, project_id, folder_id, name, content_type, size_bytes, sha256, "
+                + "created_by) values (?, ?, ?, ?, 'application/pdf', 1, 'x', ?)";
+        jdbc.update(insertDocument, documentA, projectA, folderA, "a.pdf", analyst);
+        var insertVersion = "insert into dr.document_version (id, document_id, project_id, version_number, object_key, "
+                + "size_bytes, sha256, uploaded_by, file_name, content_type) "
+                + "values (?, ?, ?, ?, 'k', 1, 'x', ?, 'a.pdf', 'application/pdf')";
+
+        folder(projectA, folderA);                                                     // same project: fine
+        jdbc.update(insertVersion, UUID.randomUUID(), documentA, projectA, 1, analyst);
+        assertThatThrownBy(() -> folder(projectA, folderB))
+                .rootCause().hasMessageContaining("folder_parent_same_project_fk");
+        assertThatThrownBy(() -> jdbc.update(insertDocument, UUID.randomUUID(), projectA, folderB, "b.pdf", analyst))
+                .rootCause().hasMessageContaining("document_folder_same_project_fk");
+        assertThatThrownBy(() -> jdbc.update(insertVersion, UUID.randomUUID(), documentA, projectB, 2, analyst))
+                .rootCause().hasMessageContaining("document_version_document_same_project_fk");
+        assertThatThrownBy(() -> asUser(analyst, "analyst",
+                "with i as (insert into dr.folder (id, project_id, parent_id, name) values ('%s', '%s', '%s', 'X') "
+                        .formatted(UUID.randomUUID(), projectA, folderB) + "returning 1) select count(*) from i"))
+                .rootCause().hasMessageContaining("folder_parent_same_project_fk");
+    }
+
+    private UUID project() {
+        var id = UUID.randomUUID();
+        jdbc.update("insert into prj.project (id, code, name, client_organization_id, target_organization_id, created_by) "
+                + "values (?, ?, 'P', ?, ?, ?)", id, "DR-" + id, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        return id;
+    }
+
+    private UUID folder(UUID project, UUID parent) {
+        var id = UUID.randomUUID();
+        jdbc.update("insert into dr.folder (id, project_id, parent_id, name) values (?, ?, ?, ?)",
+                id, project, parent, "F " + id);
+        return id;
+    }
+
     private UUID account(UUID organization, String role) {
         return accountWithId(UUID.randomUUID(), organization, role);
     }
