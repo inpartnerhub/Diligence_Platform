@@ -27,7 +27,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
  * Stateless OAuth2 resource server. Every request must carry a valid Keycloak access token except health probes
- * and API documentation. Fine-grained authorization uses {@code @PreAuthorize} plus ABAC policies. Public so web
+ * and API documentation. Fine-grained authorization uses {@code @PreAuthorize} plus the modules' access components. Public so web
  * slice tests in other modules can import it.
  */
 @Configuration(proxyBeanMethods = false)

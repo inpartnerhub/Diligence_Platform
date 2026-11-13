@@ -47,7 +47,7 @@ How the Diligence Platform is structured and how its parts interact. Requirement
 | Preview renditions | Gotenberg (LibreOffice → PDF) | `ingestion.PreviewRenderer`, `GOTENBERG_URL` |
 | Malware scanning | ClamAV `clamd` over TCP | `ingestion.ContentScanner`, `CLAMAV_HOST` |
 | Identity | Keycloak: OIDC, conditional OTP, NDA required action, Entra ID / Google brokering | `infrastructure/docker/keycloak/diligence-realm.json` |
-| Authorization | RBAC (7 PRD roles) + ABAC policies + PostgreSQL RLS | `security` module, `V5__row_level_security.sql` |
+| Authorization | RBAC (7 PRD roles) + per-module access components + PostgreSQL RLS | `security` module, module `*Access` classes, `V5__row_level_security.sql` |
 | E-mail | Spring Mail (SMTP); Keycloak sends account e-mails itself | `notification` module |
 | Gateway | Kong (DB-less locally, Kong Ingress Controller in Kubernetes) | `infrastructure/docker/kong`, `kubernetes/base/gateway` |
 | Secrets | HashiCorp Vault + Vault Secrets Operator | `kubernetes/base/*/vault-secret.yaml`, Terraform stack |
@@ -64,7 +64,7 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 | Module | PRD | Responsibility | Status |
 |--------|-----|---------------|--------|
 | `shared` | — | Shared kernel (open): problem details, paging, API paths, messaging names, `AuditableEvent` | ✅ |
-| `security` | ADM-02, Bab 3 | JWT validation, Keycloak role mapping, `Role`, `CurrentUserProvider`, ABAC API, RLS transaction context | ✅ |
+| `security` | ADM-02, Bab 3 | JWT validation, Keycloak role mapping, `Role`, `CurrentUserProvider`, RLS transaction context | ✅ |
 | `admin` | ADM-01 | Organizations, user accounts, groups, invitations; Keycloak Admin API adapter; `/api/v1/me` | ✅ sprint 1–2 |
 | `audit` | ADM-03, ADM-04 | Append-only audit log fed by every `AuditableEvent`; search API | ✅ sprint 1–2 |
 | `notification` | ADM-05, REQ-04 | `Notifier` API: in-app inbox and e-mail per user preference; SMTP adapter | ✅ sprint 9–10 |
@@ -110,7 +110,9 @@ the same project (composite foreign keys, #181).
 Enforcement is layered so a UI bug cannot leak data:
 
 1. **Frontend** shows navigation per role (`src/lib/auth/permissions.ts`) — convenience only.
-2. **API** checks roles with `@PreAuthorize` and resource rules with ABAC `AccessPolicy` beans (deny by default).
+2. **API** checks global roles with `@PreAuthorize` and project-scoped rules in each module's access component
+   (`ProjectAccess`, `DataRoomAccess`, `FindingAccess`, `RequestAccess`, …), which loads the caller's project roles and
+   refuses what they may not do (deny by default; see CONTRIBUTING.md, Backend guidelines).
 3. **Database** row-level security ([ADR-0004](docs/adr/0004-row-level-security.md)): every transaction runs as the
    non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`.
    Policies in `V5__row_level_security.sql` make other projects invisible and enforce the barriers: the target
