@@ -1,0 +1,7 @@
+{
+  "_comment": "ElastiCache RBAC access strings per workload (#171), Redis ACL syntax. Read by main.tf and by the tests that check them against a real Valkey (RedisAccessStringsIntegrationTest, apps/frontend redis-acl check). Key patterns: the backend's caches, rate limits and download counters; the BFF's sessions and rate limits; Kong's rate-limit counters. KEYS and SCAN ignore key patterns but return names only.",
+  "default": "off -@all",
+  "backend": "on ~diligence:cache:* ~diligence:ratelimit:* ~diligence:downloads:* -@all +@connection +@read +@write +@keyspace -@dangerous +info +keys",
+  "web": "on ~diligence:session:* ~diligence:web:* -@all +@connection +@read +@write +@keyspace +@scripting -@dangerous",
+  "gateway": "on ~ratelimit:* -@all +@connection +@read +@write +@keyspace +@scripting -@dangerous"
+}

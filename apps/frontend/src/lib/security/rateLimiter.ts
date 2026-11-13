@@ -96,7 +96,7 @@ export class RedisRateLimitStore implements RateLimitStore {
   async consume(key: string, options: RateLimitOptions): Promise<RateLimitResult> {
     const now = Date.now();
     const windowMs = options.windowSeconds * 1000;
-    const redisKey = `diligence:ratelimit:${key}`;
+    const redisKey = `diligence:web:ratelimit:${key}`; // the web app's Redis user owns diligence:web:* (#171)
     const member = `${now}:${Math.random().toString(36).slice(2, 8)}`;
 
     const res = (await this.client.eval(REDIS_SLIDING_WINDOW_LUA, {
