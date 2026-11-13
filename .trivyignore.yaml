@@ -15,3 +15,23 @@ misconfigurations:
       False positive: the check's passport-number pattern (^[A-Z0-9<]{3,20}$) matches the port values of
       RABBITMQ_PORT ("5671") and SMTP_PORT ("587"). The ConfigMap holds no credentials or personal data; secrets
       come from Vault (vault-secret.yaml).
+  - id: KSV-0048
+    paths:
+      - "infrastructure/kubernetes/rbac/base/deployer.yaml"
+    statement: >-
+      Deploy role (#164): applying the overlay means creating and updating Deployments and Jobs in its own namespace.
+      Scoped to one namespace (RoleBinding), mapped only to the deploy workflow's OIDC role, no pods/exec, no Secrets,
+      no RBAC objects, and no delete except for Jobs.
+  - id: KSV-0049
+    paths:
+      - "infrastructure/kubernetes/rbac/base/deployer.yaml"
+    statement: >-
+      Deploy role (#164): the overlay contains the backend and frontend ConfigMaps; same scoping as KSV-0048. Secrets
+      are written by the Vault Secrets Operator, never by this role.
+  - id: KSV-0056
+    paths:
+      - "infrastructure/kubernetes/rbac/base/deployer.yaml"
+    statement: >-
+      Deploy role (#164): the overlay contains Services, Ingresses and the NetworkPolicies themselves, so the deploy
+      must be able to apply them; same scoping as KSV-0048 (one namespace, no delete). Changes to these manifests go
+      through pull request review and CI (kubeconform, Trivy).
