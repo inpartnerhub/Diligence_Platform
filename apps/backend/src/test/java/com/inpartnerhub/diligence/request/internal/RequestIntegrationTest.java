@@ -72,8 +72,17 @@ class RequestIntegrationTest {
     @Autowired
     RequestTransferService transfers;
 
-    @Autowired
+    /** The schema owner's connection: seeds and checks data outside row-level security (#177). */
     JdbcTemplate jdbc;
+
+    /** The application's connection (diligence_app), for queries inside its transactions. */
+    @Autowired
+    JdbcTemplate app;
+
+    @Autowired
+    void ownerDatabase(TestContainersConfiguration.OwnerDatabase owner) {
+        jdbc = owner.jdbc();
+    }
 
     @Autowired
     PlatformTransactionManager transactionManager;
@@ -210,8 +219,12 @@ class RequestIntegrationTest {
         assertThat(inTransaction).isFalse();
         assertThat(pdf.fileName()).endsWith(".pdf");
         TemporaryFile.delete(pdf.path());
+        // One audit entry per export, written asynchronously: wait for both, then check there is exactly one each
+        // (waiting for a total of 1 raced with the second entry and timed out whenever both had arrived).
         await(() -> jdbc.queryForObject("select count(*) from audit.audit_log where action = 'request.exported' "
-                + "and object_id = ?", Integer.class, projectId.toString()) == 1);
+                + "and object_id = ?", Integer.class, projectId.toString()) >= 2);
+        assertThat(jdbc.queryForList("select details->>'format' from audit.audit_log where action = 'request.exported' "
+                + "and object_id = ?", String.class, projectId.toString())).containsExactlyInAnyOrder("XLSX", "PDF");
 
         // Daily reminders (system context): the open tax item is overdue.
         jdbc.update("update req.request_item set due_date = ? where id = ?", LocalDate.now().minusDays(1),
@@ -241,10 +254,10 @@ class RequestIntegrationTest {
 
     private int rowsVisibleTo(UUID user, String role, String countQuery) {
         return new TransactionTemplate(transactionManager).execute(s -> {
-            jdbc.execute("SET LOCAL ROLE diligence_app");
-            jdbc.queryForList("select set_config('app.user_id', ?, true), set_config('app.role', ?, true)",
+            app.execute("SET LOCAL ROLE diligence_app");
+            app.queryForList("select set_config('app.user_id', ?, true), set_config('app.role', ?, true)",
                     user.toString(), role);
-            return jdbc.queryForObject(countQuery, Integer.class);
+            return app.queryForObject(countQuery, Integer.class);
         });
     }
 

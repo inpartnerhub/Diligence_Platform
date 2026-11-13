@@ -27,8 +27,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Import(TestContainersConfiguration.class)
 class ApplicationIntegrationTest {
 
-    @Autowired
+    /** The schema owner's connection: seeds and checks data outside row-level security (#177). */
     JdbcTemplate jdbc;
+
+    /** The application's connection (diligence_app), for queries inside its transactions. */
+    @Autowired
+    JdbcTemplate app;
+
+    @Autowired
+    void ownerDatabase(TestContainersConfiguration.OwnerDatabase owner) {
+        jdbc = owner.jdbc();
+    }
 
     @Autowired
     PlatformTransactionManager transactionManager;
@@ -224,10 +233,10 @@ class ApplicationIntegrationTest {
     /** Mirrors RowLevelSecurityTransactionManager: runtime role + per-transaction user context. */
     private int asUser(UUID user, String role, String countQuery) {
         return new TransactionTemplate(transactionManager).execute(status -> {
-            jdbc.execute("SET LOCAL ROLE diligence_app");
-            jdbc.queryForList("select set_config('app.user_id', ?, true), set_config('app.role', ?, true)",
+            app.execute("SET LOCAL ROLE diligence_app");
+            app.queryForList("select set_config('app.user_id', ?, true), set_config('app.role', ?, true)",
                     user.toString(), role);
-            return jdbc.queryForObject(countQuery, Integer.class);
+            return app.queryForObject(countQuery, Integer.class);
         });
     }
 }

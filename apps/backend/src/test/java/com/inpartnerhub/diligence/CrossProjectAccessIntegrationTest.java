@@ -41,8 +41,13 @@ class CrossProjectAccessIntegrationTest {
     @Autowired
     MockMvc mvc;
 
-    @Autowired
+    /** The schema owner's connection: seeds and checks data outside row-level security (#177). */
     JdbcTemplate jdbc;
+
+    @Autowired
+    void ownerDatabase(TestContainersConfiguration.OwnerDatabase owner) {
+        jdbc = owner.jdbc();
+    }
 
     private final UUID manager = UUID.randomUUID();   // project manager on A and B
     private final UUID outsider = UUID.randomUUID();  // project manager on A only

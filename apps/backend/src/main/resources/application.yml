@@ -10,6 +10,8 @@ spring:
     timeout-per-shutdown-phase: 30s
   datasource:
     url: ${DB_URL}
+    # Runtime login (#177): diligence_app, which owns nothing, so it cannot alter or drop objects or triggers and row-level
+    # security always applies. Locally the same owner credential as Flyway.
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
@@ -26,6 +28,9 @@ spring:
         order_inserts: true
         order_updates: true
   flyway:
+    # Migrations run as the schema owner (#177); defaults to the runtime credential where only one is configured.
+    user: ${FLYWAY_USERNAME:${DB_USERNAME}}
+    password: ${FLYWAY_PASSWORD:${DB_PASSWORD}}
     locations: classpath:db/migration
     baseline-on-migrate: false
     validate-on-migrate: true
@@ -63,6 +68,10 @@ spring:
           max-attempts: 3
   modulith:
     events:
+      # Flyway owns the schema (V1 creates event_publication). The application's login cannot create tables (#177).
+      jdbc:
+        schema-initialization:
+          enabled: false
       externalization:
         enabled: true
       republish-outstanding-events-on-restart: true
