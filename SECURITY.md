@@ -102,6 +102,8 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
   checked after deployment with `infrastructure/kubernetes/scripts/verify-network-policies.sh`; backend reachable only
   from Kong; management port only from monitoring.
 - Data services are private; API docs disabled in production.
+- Each workload has its own data-store credential where the service allows it: the backend's OpenSearch user may only
+  use the `diligence-*` indices; the master credential is readable only by the `opensearch-bootstrap` Job (#159).
 - AWS access without static keys: the backend's service account gets an EKS Pod Identity role limited to the documents
   bucket and its KMS key (`modules/workload-identity`, #158); nodes enforce IMDSv2 with one hop, so pods cannot fall
   back to the node's instance profile.

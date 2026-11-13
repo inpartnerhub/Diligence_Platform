@@ -139,7 +139,22 @@ resource "vault_kv_secret_v2" "backend_infrastructure" {
     RABBITMQ_USERNAME   = module.rabbitmq.username
     RABBITMQ_PASSWORD   = module.rabbitmq.password
     OPENSEARCH_URL      = module.opensearch.endpoint
-    OPENSEARCH_USERNAME = module.opensearch.master_user_name
-    OPENSEARCH_PASSWORD = module.opensearch.master_user_password
+    OPENSEARCH_USERNAME = module.opensearch.backend_user_name
+    OPENSEARCH_PASSWORD = module.opensearch.backend_user_password
+  })
+}
+
+# The OpenSearch master credential is read only by the opensearch-bootstrap Job (Vault role
+# diligence-opensearch-bootstrap), which creates the backend's least-privilege user above (#159).
+resource "vault_kv_secret_v2" "opensearch_admin" {
+  mount = "kv"
+  name  = "diligence/${var.environment}/opensearch-admin"
+  data_json = jsonencode({
+    OPENSEARCH_URL             = module.opensearch.endpoint
+    OPENSEARCH_MASTER_USERNAME = module.opensearch.master_user_name
+    OPENSEARCH_MASTER_PASSWORD = module.opensearch.master_user_password
+    OPENSEARCH_APP_USERNAME    = module.opensearch.backend_user_name
+    OPENSEARCH_APP_PASSWORD    = module.opensearch.backend_user_password
+    OPENSEARCH_INDEX_PREFIX    = "diligence"
   })
 }

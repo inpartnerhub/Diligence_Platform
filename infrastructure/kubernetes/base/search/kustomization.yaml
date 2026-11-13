@@ -1,0 +1,11 @@
+# Least-privilege OpenSearch access for the backend (#159). Terraform writes the backend's own OpenSearch user to
+# kv/diligence/<env>/backend/infrastructure and the master credential to kv/diligence/<env>/opensearch-admin; this Job
+# (the only workload that reads the admin path) creates the backend's role, user and role mapping through the
+# security API. It runs on every deployment (idempotent PUTs) and is removed ten minutes after it finishes.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - serviceaccount.yaml
+  - vault-secret.yaml
+  - network-policy.yaml
+  - job.yaml

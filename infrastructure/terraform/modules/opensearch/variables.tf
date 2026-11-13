@@ -26,6 +26,10 @@ variable "master_user_name" {
   type    = string
   default = "diligence_admin"
 }
+variable "backend_user_name" {
+  type    = string
+  default = "diligence-backend"
+}
 variable "log_kms_key_arn" {
   type        = string
   description = "KMS key for the OpenSearch CloudWatch log groups."
