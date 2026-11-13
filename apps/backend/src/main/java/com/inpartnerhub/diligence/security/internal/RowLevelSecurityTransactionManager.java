@@ -16,8 +16,8 @@ import jakarta.persistence.EntityManagerFactory;
 /**
  * Starts every transaction with the PostgreSQL row-level-security context (ADR-0004):
  * <ul>
- * <li>{@code SET LOCAL ROLE diligence_app}: a non-owner, non-superuser role, so RLS policies always apply even when
- * the pool logs in as the schema owner;</li>
+ * <li>{@code SET LOCAL ROLE diligence_app}: a non-owner, non-superuser role, so RLS policies always apply. The pool
+ * logs in as that role as well (#177); where it still logs in as the schema owner, this keeps the policies on;</li>
  * <li>{@code app.user_id} / {@code app.role}: read by the policies in {@code V5__row_level_security.sql}.</li>
  * </ul>
  * Without an authenticated user (message listeners, schedulers) the role is {@code system}, which policies treat as

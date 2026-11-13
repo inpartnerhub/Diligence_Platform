@@ -50,8 +50,13 @@ class ProjectPurgeIntegrationTest {
     /** Kept on purpose: the record that the project existed (and who had access until it was archived). */
     private static final Set<String> KEPT = Set.of("prj.project", "prj.workstream", "prj.project_member");
 
-    @Autowired
+    /** The schema owner's connection: seeds and checks data outside row-level security (#177). */
     JdbcTemplate jdbc;
+
+    @Autowired
+    void ownerDatabase(TestContainersConfiguration.OwnerDatabase owner) {
+        jdbc = owner.jdbc();
+    }
 
     @Autowired
     ApplicationEventPublisher events;

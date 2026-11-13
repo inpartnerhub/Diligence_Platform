@@ -75,8 +75,10 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 - Local development uses `.env` (placeholders only in `.env.example`).
 - Deployed environments receive secrets only from **HashiCorp Vault** via the Vault Secrets Operator
   ([ADR-0002](docs/adr/0002-secrets-via-vault-operator.md)): backend (`kv/diligence/<env>/backend/*`, including
-  `KEYCLOAK_ADMIN_CLIENT_SECRET` and SMTP credentials) and frontend (`kv/diligence/<env>/frontend`: `SESSION_SECRET`,
-  `SESSION_ENCRYPTION_KEY`, `OIDC_CLIENT_SECRET`; `kv/diligence/<env>/frontend-redis`: `REDIS_URL`, written by Terraform).
+  `KEYCLOAK_ADMIN_CLIENT_SECRET`, SMTP credentials and the database logins: `DB_USERNAME`/`DB_PASSWORD` for the
+  runtime role `diligence_app`, `FLYWAY_USERNAME`/`FLYWAY_PASSWORD` for the schema owner, #177) and frontend
+  (`kv/diligence/<env>/frontend`: `SESSION_SECRET`, `SESSION_ENCRYPTION_KEY`, `OIDC_CLIENT_SECRET`;
+  `kv/diligence/<env>/frontend-redis`: `REDIS_URL`, written by Terraform).
 - Redis has one ElastiCache user per workload, restricted by key pattern (#171): only the web app reads sessions
   (`diligence:session:*`); the backend and Kong cannot (`modules/redis/access-strings.json`,
   `RedisAccessStringsIntegrationTest`).

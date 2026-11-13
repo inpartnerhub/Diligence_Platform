@@ -98,8 +98,13 @@ class FailedEventRetryIntegrationTest {
     @Autowired
     PlatformTransactionManager transactionManager;
 
-    @Autowired
+    /** The schema owner's connection: seeds and checks data outside row-level security (#177). */
     JdbcTemplate jdbc;
+
+    @Autowired
+    void ownerDatabase(TestContainersConfiguration.OwnerDatabase owner) {
+        jdbc = owner.jdbc();
+    }
 
     @Autowired
     FailedEventRetryJob job;

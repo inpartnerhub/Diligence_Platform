@@ -114,7 +114,8 @@ Enforcement is layered so a UI bug cannot leak data:
    (`ProjectAccess`, `DataRoomAccess`, `FindingAccess`, `RequestAccess`, …), which loads the caller's project roles and
    refuses what they may not do (deny by default; see CONTRIBUTING.md, Backend guidelines).
 3. **Database** row-level security ([ADR-0004](docs/adr/0004-row-level-security.md)): every transaction runs as the
-   non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`.
+   non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`; the
+   application logs in as `diligence_app` too, only Flyway uses the owner credential (#177).
    Policies in `V5__row_level_security.sql` make other projects invisible and enforce the barriers: the target
    never reads `fnd.*`, the client reads only `RELEASED` findings, `ISSUED` reports and its own questions, the target
    reads only `SENT`/`ANSWERED` questions, released request items (V9) and never internal request notes. Finding
