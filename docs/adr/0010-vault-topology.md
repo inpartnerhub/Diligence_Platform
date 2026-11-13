@@ -1,8 +1,9 @@
 # ADR-0010: Secrets platform on Azure — Vault topology and Kubernetes authentication per environment
 
-- **Status:** Proposed — awaiting the Tech Lead / Architect and the Security Officer (#170)
-- **Date:** 2026-11-13
-- **Deciders:** Tech Lead / Architect, Security Officer, cluster owner (ADR-0007)
+- **Status:** Accepted (2026-11-14); implementation in #170
+- **Date:** 2026-11-13, decided 2026-11-14
+- **Deciders:** Tech Lead / Architect, Security Officer, platform owner (ADR-0007)
+- **Vault owner:** irsalshydiq (unseal configuration, upgrades, snapshots), the platform owner of ADR-0007
 
 ## Context
 
@@ -61,9 +62,17 @@ backed up like the databases, including the copies to the AWS site (ADR-0003).
 
 ## Decision
 
-Pending.
+1. **Vault stays the secrets platform (ADR-0002)**, as **two Vaults**: one for non-production (dev and staging) and
+   one for production, both on AKS in Azure Indonesia Central, Raft storage (at least three replicas in production),
+   auto-unseal through Azure Key Vault in Indonesia Central.
+2. **Owner**: irsalshydiq operates both (upgrades, unseal configuration, snapshots and their backup, including the
+   copies to the AWS site of ADR-0003).
+3. Per environment, Terraform owns the `kubernetes-<env>` auth mount, the roles bound to service account and namespace,
+   the read-only policies in the table above and the post-apply read check; the overlays set `VaultAuth`
+   `spec.mount` accordingly.
+4. Azure Key Vault (option D) remains the fallback if Vault cannot be operated as described.
 
-## Consequences (if the recommendation is accepted)
+## Consequences
 
 - #170 can be implemented: Vault deployment and Key Vault auto-unseal, `vault_auth_backend`,
   `vault_kubernetes_auth_backend_config`, `vault_kubernetes_auth_backend_role` and `vault_policy` per environment,
