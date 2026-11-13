@@ -1,0 +1,7 @@
+# Deploy rights for diligence-staging (#164); apply as a cluster administrator: kubectl apply -k infrastructure/kubernetes/rbac/staging
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: diligence-staging
+resources:
+  - ../base
+  - namespace-access.yaml

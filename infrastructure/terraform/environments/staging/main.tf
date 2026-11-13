@@ -13,3 +13,4 @@ module "diligence" {
 
 output "cluster_name" { value = module.diligence.cluster_name }
 output "documents_bucket" { value = module.diligence.documents_bucket }
+output "deploy_role_arn" { value = module.diligence.deploy_role_arn } # GitHub environment variable AWS_DEPLOY_ROLE_ARN

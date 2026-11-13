@@ -1,0 +1,55 @@
+# Rights of the deploy workflow in one environment (#164). The deploy role (Terraform modules/deploy-identity) is
+# mapped by an EKS access entry to the Kubernetes group diligence-deployer, and this Role lets that group apply exactly
+# the kinds the overlay contains, in its own namespace. No Secrets (the Vault Secrets Operator writes them), no RBAC
+# objects (no self-escalation), nothing in other namespaces, and no delete except for Jobs (kubectl apply never deletes;
+# a finished one-off Job such as opensearch-bootstrap may have to be re-created). Removing a resource from the overlay
+# is a manual step for a cluster administrator. Applied once per environment by a cluster administrator:
+#   kubectl apply -k infrastructure/kubernetes/rbac/<env>   (this file: rbac/base)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: diligence-deployer
+  namespace: diligence
+rules:
+  - apiGroups: [""]
+    resources: [configmaps, services, serviceaccounts]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [""]
+    resources: [pods, pods/log, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses, networkpolicies]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [monitoring.coreos.com]
+    resources: [servicemonitors, prometheusrules]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [secrets.hashicorp.com]
+    resources: [vaultauths, vaultstaticsecrets]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [configuration.konghq.com]
+    resources: [kongplugins]
+    verbs: [get, list, watch, create, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: diligence-deployer
+  namespace: diligence
+subjects:
+  - { kind: Group, name: diligence-deployer, apiGroup: rbac.authorization.k8s.io }
+roleRef: { kind: Role, name: diligence-deployer, apiGroup: rbac.authorization.k8s.io }

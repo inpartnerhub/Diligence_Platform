@@ -30,6 +30,12 @@ terraform apply tfplan
   The RDS master password is managed by RDS in Secrets Manager. Application secrets never appear in Kubernetes manifests.
 - Cluster add-ons (Kong Ingress Controller, Vault Secrets Operator, cert-manager, kube-prometheus-stack,
   OpenTelemetry Collector, Tika and ClamAV workloads) are installed via GitOps/Helm, not by this Terraform.
+- The deploy workflow assumes `diligence-<env>-deploy` through GitHub OIDC (`modules/deploy-identity`, #164): only jobs
+  of this repository running in the matching GitHub environment, allowed to describe the cluster and mapped to the
+  Kubernetes group `diligence-deployer`. Prerequisites once per AWS account: the IAM OIDC provider
+  `token.actions.githubusercontent.com` (audience `sts.amazonaws.com`). Per environment: apply
+  `infrastructure/kubernetes/rbac/<env>` as a cluster administrator and set the GitHub environment variables
+  `AWS_DEPLOY_ROLE_ARN` (output `deploy_role_arn`) and `AWS_REGION`.
 - Workload access to AWS uses EKS Pod Identity (`modules/workload-identity`): one role per service account, least
   privilege (the backend: documents bucket and its key only). No static AWS keys in Vault or Kubernetes.
 - Encryption: customer-managed KMS keys (rotation on) for documents (S3), PostgreSQL storage and Performance

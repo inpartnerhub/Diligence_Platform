@@ -19,3 +19,9 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "github_repository" {
+  description = "owner/name of the repository whose deploy workflow may assume the deploy role (#164)"
+  type        = string
+  default     = "inpartnerhub/Diligence_Platform"
+}

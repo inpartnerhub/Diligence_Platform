@@ -126,6 +126,17 @@ module "backend_identity" {
   tags            = local.tags
 }
 
+# Deploy workflow (#164): GitHub OIDC → this role → Kubernetes group diligence-deployer (infrastructure/kubernetes/rbac).
+module "deploy_identity" {
+  source             = "../../modules/deploy-identity"
+  name               = "${local.name}-deploy"
+  github_repository  = var.github_repository
+  github_environment = var.environment
+  cluster_name       = module.cluster.cluster_name
+  cluster_arn        = module.cluster.cluster_arn
+  tags               = local.tags
+}
+
 # Terraform owns kv/diligence/<env>/backend/infrastructure exclusively (a KV v2 write replaces the whole secret).
 # Operator-managed values (DB_USERNAME, DB_PASSWORD, SENTRY_DSN) live in kv/diligence/<env>/backend/application.
 resource "vault_kv_secret_v2" "backend_infrastructure" {

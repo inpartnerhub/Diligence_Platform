@@ -1,0 +1,18 @@
+# The overlay contains its Namespace object; kubectl apply reads and patches it. Only this one namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: diligence-deployer-namespace-dev
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: [diligence-dev]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: diligence-deployer-namespace-dev
+subjects:
+  - { kind: Group, name: diligence-deployer, apiGroup: rbac.authorization.k8s.io }
+roleRef: { kind: ClusterRole, name: diligence-deployer-namespace-dev, apiGroup: rbac.authorization.k8s.io }
