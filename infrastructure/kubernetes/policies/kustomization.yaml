@@ -1,0 +1,6 @@
+# Cluster-wide admission policies (#167, ADR-0006). Needs Kyverno ≥ 1.13 in the cluster (installed with the other
+# add-ons). Applied once per cluster by a cluster administrator: kubectl apply -k infrastructure/kubernetes/policies
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - verify-images.yaml

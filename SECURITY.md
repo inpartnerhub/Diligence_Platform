@@ -110,8 +110,9 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 - Infrastructure logging: VPC flow logs, EKS control-plane logs, OpenSearch audit logs, S3 access logs.
 - Supply chain: Dependabot, dependency review, Trivy (images + IaC), SBOM and provenance, SonarQube. Images come
   only from GHCR (trusted registry list in `.trivy/data`). Accepted scanner findings live in `.trivyignore.yaml`
-  with a written justification. Before production also pin Actions to SHAs, sign images (cosign) and verify at
-  admission.
+  with a written justification. Images are signed keyless with cosign by the image workflow, and Kyverno admits
+  only signed `ghcr.io/inpartnerhub/diligence-*` images in the Diligence namespaces (`infrastructure/kubernetes/policies`,
+  ADR-0006, #167). Third-party Actions are pinned to SHAs.
 
 ## Local stack caveat
 
