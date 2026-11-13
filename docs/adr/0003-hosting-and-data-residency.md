@@ -22,7 +22,8 @@ Terraform target, the object storage product and the backup/DR design. Legal rev
 ## Current state
 
 The repository ships the AWS reference implementation (`infrastructure/terraform`, region supplied per environment
-in `terraform.tfvars`). Everything above the infrastructure layer is cloud-neutral: containers, Kubernetes,
+in `terraform.tfvars`). Following the interim rule below, the environment examples and the backend's `S3_REGION` use
+`ap-southeast-3`, and the staging and prod root modules refuse any other region (#163). Everything above the infrastructure layer is cloud-neutral: containers, Kubernetes,
 S3-compatible storage (SeaweedFS locally; Ceph or similar on-prem), OpenSearch, RabbitMQ, Keycloak, Vault.
 
 ## Decision
