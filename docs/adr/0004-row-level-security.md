@@ -19,7 +19,8 @@ findings; the client never sees internal correspondence. Broken access control (
    (a non-owner, non-superuser role) and `set_config('app.user_id' | 'app.role', …, true)`, done by
    `RowLevelSecurityTransactionManager`. Superusers bypass RLS; members of a NOLOGIN role do not.
 4. Work without a user (message listeners, schedulers) runs with `app.role = 'system'`, which policies trust.
-5. Application-level checks (`@PreAuthorize`, ABAC) remain the primary authorization; RLS is the safety net.
+5. Application-level checks (`@PreAuthorize`, the modules' access components) remain the primary authorization; RLS
+   is the safety net. (The generic ABAC `AccessPolicy` API first named here was never used and was removed, #182.)
 
 ## Alternatives considered
 
