@@ -139,19 +139,33 @@ module "deploy_identity" {
 
 # Terraform owns kv/diligence/<env>/backend/infrastructure exclusively (a KV v2 write replaces the whole secret).
 # Operator-managed values (DB_USERNAME, DB_PASSWORD, SENTRY_DSN) live in kv/diligence/<env>/backend/application.
+# REDIS_GATEWAY_* is Kong's own Redis user (#171), kept out of the backend's Kubernetes secret by its transformation.
 resource "vault_kv_secret_v2" "backend_infrastructure" {
   mount = "kv"
   name  = "diligence/${var.environment}/backend/infrastructure"
   data_json = jsonencode({
-    DB_URL              = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
-    REDIS_HOST          = module.redis.primary_endpoint
-    REDIS_PASSWORD      = module.redis.auth_token
-    RABBITMQ_HOST       = trimprefix(split(":", module.rabbitmq.amqps_endpoint)[1], "//")
-    RABBITMQ_USERNAME   = module.rabbitmq.username
-    RABBITMQ_PASSWORD   = module.rabbitmq.password
-    OPENSEARCH_URL      = module.opensearch.endpoint
-    OPENSEARCH_USERNAME = module.opensearch.backend_user_name
-    OPENSEARCH_PASSWORD = module.opensearch.backend_user_password
+    DB_URL                 = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
+    REDIS_HOST             = module.redis.primary_endpoint
+    REDIS_USERNAME         = module.redis.users.backend.username
+    REDIS_PASSWORD         = module.redis.users.backend.password
+    REDIS_GATEWAY_USERNAME = module.redis.users.gateway.username
+    REDIS_GATEWAY_PASSWORD = module.redis.users.gateway.password
+    RABBITMQ_HOST          = trimprefix(split(":", module.rabbitmq.amqps_endpoint)[1], "//")
+    RABBITMQ_USERNAME      = module.rabbitmq.username
+    RABBITMQ_PASSWORD      = module.rabbitmq.password
+    OPENSEARCH_URL         = module.opensearch.endpoint
+    OPENSEARCH_USERNAME    = module.opensearch.backend_user_name
+    OPENSEARCH_PASSWORD    = module.opensearch.backend_user_password
+  })
+}
+
+# The web app's (BFF) Redis connection with its own user, which alone may read sessions (#171). A separate path: the
+# rest of kv/diligence/<env>/frontend is managed by operators and a KV v2 write replaces the whole secret.
+resource "vault_kv_secret_v2" "frontend_redis" {
+  mount = "kv"
+  name  = "diligence/${var.environment}/frontend-redis"
+  data_json = jsonencode({
+    REDIS_URL = "rediss://${module.redis.users.web.username}:${module.redis.users.web.password}@${module.redis.primary_endpoint}:6379/0"
   })
 }
 

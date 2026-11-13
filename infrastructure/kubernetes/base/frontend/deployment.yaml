@@ -30,6 +30,7 @@ spec:
           envFrom:
             - configMapRef: { name: diligence-frontend-config }
             - secretRef: { name: diligence-frontend-secrets }
+            - secretRef: { name: diligence-frontend-redis } # REDIS_URL (#171); later entries win
           resources:
             requests: { cpu: 200m, memory: 256Mi }
             limits: { cpu: "1", memory: 512Mi }

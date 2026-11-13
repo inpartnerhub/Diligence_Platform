@@ -33,6 +33,8 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # ElastiCache RBAC user "backend" (#171); empty locally (default user).
+      username: ${REDIS_USERNAME:}
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false}
@@ -40,6 +42,9 @@ spring:
     type: redis
     redis:
       time-to-live: 10m
+      # The backend's Redis user may only touch diligence:cache:*, diligence:ratelimit:* and diligence:downloads:*
+      # (#171, infrastructure/terraform/modules/redis/access-strings.json).
+      key-prefix: "diligence:cache:"
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}

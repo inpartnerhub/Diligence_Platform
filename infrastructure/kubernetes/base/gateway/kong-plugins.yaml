@@ -11,7 +11,7 @@ config:
   minute: 600
   limit_by: ip
   # Counters shared by every Kong proxy replica through the environment's Redis (#150), so the limit is 600 per
-  # address and minute however many replicas run. Host and password come from the diligence-gateway-redis secret
+  # address and minute however many replicas run. Host, user and password come from the diligence-gateway-redis secret
   # (configPatches below); TLS as for the backend. Database 1 keeps Kong's keys apart from the backend's (0).
   # If Redis is unreachable, requests pass (fault_tolerant) and the backend's per-user limit still applies.
   policy: redis
@@ -29,6 +29,9 @@ configPatches:
   - path: /redis/server_name
     valueFrom:
       secretKeyRef: { name: diligence-gateway-redis, key: host }
+  - path: /redis/username
+    valueFrom:
+      secretKeyRef: { name: diligence-gateway-redis, key: username }
   - path: /redis/password
     valueFrom:
       secretKeyRef: { name: diligence-gateway-redis, key: password }

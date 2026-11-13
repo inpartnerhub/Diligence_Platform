@@ -44,6 +44,11 @@ patches:
       - op: replace
         path: /spec/path
         value: diligence/prod/frontend
+  - target: { kind: VaultStaticSecret, name: diligence-frontend-redis }
+    patch: |-
+      - op: replace
+        path: /spec/path
+        value: diligence/prod/frontend-redis
   - target: { kind: VaultStaticSecret, name: opensearch-admin }
     patch: |-
       - op: replace
