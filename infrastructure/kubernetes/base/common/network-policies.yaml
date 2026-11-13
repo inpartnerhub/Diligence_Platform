@@ -50,7 +50,7 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
       ports: [{ protocol: TCP, port: 8081 }]
 ---
-# Backend egress to data services. Managed services live outside the cluster: restrict CIDRs per environment.
+# Backend egress. Every rule names its destinations (#180); managed data stores: backend-egress-vpc-data.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -73,15 +73,45 @@ spec:
     - to:
         - ipBlock: { cidr: 169.254.170.23/32 }
       ports: [{ protocol: TCP, port: 80 }]
-    - ports:
-        - { protocol: TCP, port: 5432 } # PostgreSQL
-        - { protocol: TCP, port: 6379 } # Redis
-        - { protocol: TCP, port: 5671 } # RabbitMQ (TLS)
-        - { protocol: TCP, port: 587 } # SMTP relay (notifications)
+    # SMTP relay (notifications; Amazon SES has public endpoints): public addresses only, like HTTPS (#180).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{ protocol: TCP, port: 587 }]
+    # Document processing in the cluster's processing namespace (TIKA_URL, GOTENBERG_URL, CLAMAV_HOST).
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: diligence-processing } }
+          podSelector:
+            matchExpressions:
+              - { key: app.kubernetes.io/name, operator: In, values: [tika, gotenberg, clamav] }
+      ports:
         - { protocol: TCP, port: 9998 } # Tika
         - { protocol: TCP, port: 3000 } # Gotenberg
         - { protocol: TCP, port: 3310 } # ClamAV
-        - { protocol: TCP, port: 4317 } # OTel Collector
+    # OpenTelemetry Collector (OTLP over HTTP: OTEL_EXPORTER_OTLP_*_ENDPOINT).
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      ports: [{ protocol: TCP, port: 4318 }]
+---
+# Managed data stores inside the environment's VPC (RDS, ElastiCache, Amazon MQ). Each overlay sets its VPC CIDR; the
+# base value matches nothing (#180).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress-vpc-data
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: app.kubernetes.io/name, operator: In, values: [diligence-backend, diligence-ingestion] }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 192.0.2.0/32 } # TEST-NET-1 placeholder, replaced per overlay
+      ports:
+        - { protocol: TCP, port: 5432 } # PostgreSQL
+        - { protocol: TCP, port: 6379 } # Redis
+        - { protocol: TCP, port: 5671 } # RabbitMQ (TLS)
 ---
 # HTTPS inside the environment's VPC: the OpenSearch domain (VPC endpoint). Each overlay sets its VPC CIDR; the base
 # value matches nothing.
@@ -111,7 +141,27 @@ spec:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
       ports: [{ protocol: TCP, port: 3000 }]
   egress:
-    - ports:
-        - { protocol: TCP, port: 443 } # Keycloak (token endpoint), Sentry
-        - { protocol: TCP, port: 8000 } # Kong proxy
-        - { protocol: TCP, port: 6379 } # Redis session store
+    # Keycloak (token endpoint, same public address as the backend uses) and Sentry: public addresses only (#180).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports: [{ protocol: TCP, port: 443 }]
+    # Kong proxy (API_BASE_URL; the Service's port 80 targets the proxy container's 8000).
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
+      ports: [{ protocol: TCP, port: 8000 }]
+---
+# Redis session store (ElastiCache) inside the environment's VPC. Each overlay sets its VPC CIDR; the base value matches
+# nothing (#180).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-egress-vpc-redis
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: diligence-frontend } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 192.0.2.0/32 } # TEST-NET-1 placeholder, replaced per overlay
+      ports: [{ protocol: TCP, port: 6379 }]
