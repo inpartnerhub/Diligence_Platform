@@ -24,7 +24,7 @@ import {
   Flex,
   Form,
   Input,
-  List,
+  Listy,
   Modal,
   Popconfirm,
   Select,
@@ -42,6 +42,7 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
+import { ListRow } from "@/components/ListRow";
 import { DocumentSource } from "@/features/dataroom/DocumentSource";
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
 import type { Page } from "@/features/admin/types";
@@ -583,11 +584,12 @@ function QuestionDrawer({
                 {detail.documents.length === 0 ? (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("noDocuments")} />
                 ) : (
-                  <List
-                    size="small"
-                    dataSource={detail.documents}
-                    renderItem={(doc) => (
-                      <List.Item
+                  <Listy
+                    items={detail.documents}
+                    rowKey="id"
+                    styles={{ item: { paddingBlock: 8 } }}
+                    itemRender={(doc) => (
+                      <ListRow
                         actions={[
                           <Button
                             key="view"
@@ -609,12 +611,9 @@ function QuestionDrawer({
                             </Popconfirm>
                           ),
                         ]}
-                      >
-                        <List.Item.Meta
-                          title={doc.name}
-                          description={`${doc.linkedByName ?? "—"} · ${date(doc.linkedAt)}`}
-                        />
-                      </List.Item>
+                        title={doc.name}
+                        description={`${doc.linkedByName ?? "—"} · ${date(doc.linkedAt)}`}
+                      />
                     )}
                   />
                 )}
@@ -637,7 +636,7 @@ function QuestionDrawer({
                 </Divider>
                 <Timeline
                   items={detail.history.map((h) => ({
-                    children: (
+                    content: (
                       <>
                         <Typography.Text strong>{t(`statusValues.${h.toStatus}`)}</Typography.Text>{" "}
                         <Typography.Text type="secondary">

@@ -95,7 +95,7 @@ export function SearchIndexView({ run }: Readonly<{ run: SearchReindexRun | null
                 style={{ marginTop: 16 }}
                 type={run.status === "FAILED" ? "error" : "warning"}
                 showIcon
-                message={run.error}
+                title={run.error}
               />
             )}
           </>

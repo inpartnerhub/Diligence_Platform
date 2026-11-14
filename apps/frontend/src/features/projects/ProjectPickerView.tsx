@@ -1,9 +1,10 @@
 "use client";
 
-import { Card, Empty, List } from "antd";
+import { Card, Empty, Listy } from "antd";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import { ListRow } from "@/components/ListRow";
 import { PageHeader } from "@/components/PageHeader";
 
 import type { Project } from "./types";
@@ -18,23 +19,23 @@ export function ProjectPickerView({
   return (
     <>
       <PageHeader title={title} />
-      <Card>
+      <Card title={projects.length > 0 ? t("chooseProject") : undefined}>
         {projects.length === 0 ? (
           <Empty description={t("noProjects")} />
         ) : (
-          <List
-            header={t("chooseProject")}
-            dataSource={projects}
-            renderItem={(p) => (
-              <List.Item
+          <Listy
+            items={projects}
+            rowKey="id"
+            itemRender={(p) => (
+              <ListRow
+                title={`${p.code} · ${p.name}`}
+                description={p.targetName ?? undefined}
                 actions={[
                   <Link key="open" href={`/projects/${p.id}/${path}`}>
                     {t("open")}
                   </Link>,
                 ]}
-              >
-                <List.Item.Meta title={`${p.code} · ${p.name}`} description={p.targetName ?? undefined} />
-              </List.Item>
+              />
             )}
           />
         )}

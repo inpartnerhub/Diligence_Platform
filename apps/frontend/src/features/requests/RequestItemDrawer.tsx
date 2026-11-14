@@ -18,7 +18,7 @@ import {
   Empty,
   Flex,
   Input,
-  List,
+  Listy,
   Modal,
   Popconfirm,
   Space,
@@ -32,6 +32,7 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useState, useTransition } from "react";
 
+import { ListRow } from "@/components/ListRow";
 import { DocumentSource } from "@/features/dataroom/DocumentSource";
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
 import { formatBytes } from "@/features/dataroom/types";
@@ -234,11 +235,12 @@ export function RequestItemDrawer({
             {detail.documents.length === 0 ? (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("noDocuments")} />
             ) : (
-              <List
-                size="small"
-                dataSource={detail.documents}
-                renderItem={(doc) => (
-                  <List.Item
+              <Listy
+                items={detail.documents}
+                rowKey="id"
+                styles={{ item: { paddingBlock: 8 } }}
+                itemRender={(doc) => (
+                  <ListRow
                     actions={[
                       <Button
                         key="view"
@@ -258,28 +260,25 @@ export function RequestItemDrawer({
                         </Popconfirm>
                       ),
                     ]}
-                  >
-                    <List.Item.Meta
-                      title={
-                        <Space>
-                          {doc.name}
-                          {doc.scanStatus !== "CLEAN" && <Tag>{doc.scanStatus}</Tag>}
-                        </Space>
-                      }
-                      description={
-                        <>
-                          {doc.comment && <div>{doc.comment}</div>}
-                          <Typography.Text type="secondary">
-                            {formatBytes(doc.sizeBytes)} · {doc.linkedByName ?? "—"} ·{" "}
-                            {format.dateTime(new Date(doc.linkedAt), {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </Typography.Text>
-                        </>
-                      }
-                    />
-                  </List.Item>
+                    title={
+                      <Space>
+                        {doc.name}
+                        {doc.scanStatus !== "CLEAN" && <Tag>{doc.scanStatus}</Tag>}
+                      </Space>
+                    }
+                    description={
+                      <>
+                        {doc.comment && <div>{doc.comment}</div>}
+                        <Typography.Text type="secondary">
+                          {formatBytes(doc.sizeBytes)} · {doc.linkedByName ?? "—"} ·{" "}
+                          {format.dateTime(new Date(doc.linkedAt), {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </Typography.Text>
+                      </>
+                    }
+                  />
                 )}
               />
             )}
@@ -307,7 +306,7 @@ export function RequestItemDrawer({
             <Timeline
               items={detail.history.map((h) => ({
                 color: STATUS_COLORS[h.toStatus] === "default" ? "gray" : undefined,
-                children: (
+                content: (
                   <>
                     <Typography.Text strong>{t(`statusValues.${h.toStatus}`)}</Typography.Text>{" "}
                     <Typography.Text type="secondary">

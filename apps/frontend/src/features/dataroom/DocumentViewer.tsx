@@ -396,7 +396,7 @@ export function DocumentViewer({
             <Alert
               type="info"
               showIcon
-              message={t("annotateMode")}
+              title={t("annotateMode")}
               description={t("annotateHint")}
               style={{ marginBottom: 4 }}
             />
@@ -670,7 +670,7 @@ export function DocumentViewer({
         }
       >
         {clauses.length === 0 ? (
-          <Alert type="info" showIcon message={t("noClausesFound")} />
+          <Alert type="info" showIcon title={t("noClausesFound")} />
         ) : (
           <Flex vertical gap={12}>
             <Typography.Text type="secondary">{t("clauseFound", { count: clauses.length })}</Typography.Text>

@@ -126,7 +126,7 @@ export function FindingListView({
       width: 170,
       render: (type: SpaProtectionType | null, f) =>
         type ? (
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Tag color="purple">{t(`spaTypes.${type}`)}</Tag>
             {f.spaClauseReference && (
               <Typography.Text type="secondary" style={{ fontSize: 11 }}>

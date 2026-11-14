@@ -1,11 +1,13 @@
 "use client";
 
 import { BellOutlined } from "@ant-design/icons";
-import { Badge, Button, Empty, Flex, List, Popover, Spin, Typography } from "antd";
+import { Badge, Button, Empty, Flex, Listy, Popover, Spin, Typography } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useNow, useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
+
+import { ListRow } from "@/components/ListRow";
 
 import { loadInbox, markAllRead, markRead, unreadCount } from "./actions";
 import { messageKey, safeLink, type InboxEntry } from "./types";
@@ -111,6 +113,7 @@ export function NotificationList({
 }: Readonly<{ entries: InboxEntry[]; onOpened?: () => void }>) {
   const t = useTranslations("notifications");
   const format = useFormatter();
+  const now = useNow({ updateInterval: POLL_MS });
   const router = useRouter();
 
   const open = async (entry: InboxEntry) => {
@@ -122,23 +125,25 @@ export function NotificationList({
   };
 
   return (
-    <List
-      size="small"
-      dataSource={entries}
-      renderItem={(entry) => (
-        <List.Item
+    <Listy
+      items={entries}
+      rowKey="id"
+      styles={{ item: { padding: 0 } }}
+      itemRender={(entry) => (
+        <ListRow
           onClick={() => void open(entry)}
-          style={{ cursor: "pointer", background: entry.readAt ? undefined : "rgba(22, 119, 255, 0.06)" }}
-        >
-          <List.Item.Meta
-            title={
-              <Typography.Text strong={!entry.readAt}>
-                {t(`messages.${messageKey(entry)}`, entry.params)}
-              </Typography.Text>
-            }
-            description={format.relativeTime(new Date(entry.createdAt))}
-          />
-        </List.Item>
+          style={{
+            cursor: "pointer",
+            padding: "8px 16px",
+            background: entry.readAt ? undefined : "rgba(22, 119, 255, 0.06)",
+          }}
+          title={
+            <Typography.Text strong={!entry.readAt}>
+              {t(`messages.${messageKey(entry)}`, entry.params)}
+            </Typography.Text>
+          }
+          description={format.relativeTime(new Date(entry.createdAt), now)}
+        />
       )}
     />
   );

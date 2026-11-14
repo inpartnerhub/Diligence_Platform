@@ -20,7 +20,7 @@ import {
   Flex,
   Form,
   Input,
-  List,
+  Listy,
   Modal,
   Popconfirm,
   Select,
@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 
+import { ListRow } from "@/components/ListRow";
 import { DocumentViewer, type ViewerTarget } from "@/features/dataroom/DocumentViewer";
 import {
   buildTree,
@@ -343,15 +344,16 @@ export function FindingDrawer({
                 {detail.documents.length === 0 ? (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("noSources")} />
                 ) : (
-                  <List
-                    size="small"
-                    dataSource={detail.documents}
-                    renderItem={(doc) => {
+                  <Listy
+                    items={detail.documents}
+                    rowKey="id"
+                    styles={{ item: { paddingBlock: 8 } }}
+                    itemRender={(doc) => {
                       const docAnns = annotations.filter((a) => a.documentId === doc.id);
                       const pageMatch = doc.pageReference?.match(/\d+/);
                       const parsedPage = pageMatch ? parseInt(pageMatch[0], 10) : undefined;
                       return (
-                        <List.Item
+                        <ListRow
                           actions={[
                             <Button
                               key="view"
@@ -379,45 +381,42 @@ export function FindingDrawer({
                               </Popconfirm>
                             ),
                           ]}
-                        >
-                          <List.Item.Meta
-                            title={
-                              <Space>
-                                {doc.name}
-                                {doc.pageReference && <Tag>{doc.pageReference}</Tag>}
-                              </Space>
-                            }
-                            description={
-                              <>
-                                {doc.note && <div>{doc.note}</div>}
-                                {docAnns.length > 0 && (
-                                  <Flex gap={4} wrap style={{ marginTop: 4, marginBottom: 4 }}>
-                                    {docAnns.map((ann) => (
-                                      <Tag
-                                        key={ann.id}
-                                        color="gold"
-                                        style={{ cursor: "pointer" }}
-                                        onClick={() =>
-                                          setViewing({
-                                            documentId: doc.id,
-                                            initialPage: ann.pageNumber,
-                                            highlightAnnotationId: ann.id,
-                                          })
-                                        }
-                                      >
-                                        <HighlightOutlined /> {t("pageReference", { number: ann.pageNumber })}
-                                        {ann.comment ? `: ${ann.comment}` : ""}
-                                      </Tag>
-                                    ))}
-                                  </Flex>
-                                )}
-                                <Typography.Text type="secondary">
-                                  {doc.linkedByName ?? "—"} · {date(doc.linkedAt)}
-                                </Typography.Text>
-                              </>
-                            }
-                          />
-                        </List.Item>
+                          title={
+                            <Space>
+                              {doc.name}
+                              {doc.pageReference && <Tag>{doc.pageReference}</Tag>}
+                            </Space>
+                          }
+                          description={
+                            <>
+                              {doc.note && <div>{doc.note}</div>}
+                              {docAnns.length > 0 && (
+                                <Flex gap={4} wrap style={{ marginTop: 4, marginBottom: 4 }}>
+                                  {docAnns.map((ann) => (
+                                    <Tag
+                                      key={ann.id}
+                                      color="gold"
+                                      style={{ cursor: "pointer" }}
+                                      onClick={() =>
+                                        setViewing({
+                                          documentId: doc.id,
+                                          initialPage: ann.pageNumber,
+                                          highlightAnnotationId: ann.id,
+                                        })
+                                      }
+                                    >
+                                      <HighlightOutlined /> {t("pageReference", { number: ann.pageNumber })}
+                                      {ann.comment ? `: ${ann.comment}` : ""}
+                                    </Tag>
+                                  ))}
+                                </Flex>
+                              )}
+                              <Typography.Text type="secondary">
+                                {doc.linkedByName ?? "—"} · {date(doc.linkedAt)}
+                              </Typography.Text>
+                            </>
+                          }
+                        />
                       );
                     }}
                   />
@@ -444,7 +443,7 @@ export function FindingDrawer({
                 </Divider>
                 <Timeline
                   items={detail.history.map((h) => ({
-                    children: (
+                    content: (
                       <>
                         <Typography.Text strong>{t(`statusValues.${h.toStatus}`)}</Typography.Text>{" "}
                         <Typography.Text type="secondary">
