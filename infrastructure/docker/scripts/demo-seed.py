@@ -240,11 +240,16 @@ def main() -> None:
     psql(f"UPDATE adm.user_account SET organization_id = '{target_org}' WHERE id = '{target.user_id}'")
 
     # Earlier demo projects (DEMO-001 and leftovers of interrupted runs): renamed, closed and without the demo users,
-    # so every role sees exactly one demo project.
+    # so every role sees exactly one demo project. The creator can always read a project (RLS project_read), so the
+    # demo PM stops being it: created_by becomes the nil UUID, which is no account.
     demo_users = ", ".join(f"'{api.user_id}'" for api in (admin, partner, pm, analyst, observer, client, target))
-    for old in filter(None, psql(f"SELECT id FROM prj.project WHERE code LIKE '{CODE}%'").splitlines()):
+    nobody = "00000000-0000-0000-0000-000000000000"
+    for old in filter(None, psql(
+            f"SELECT id FROM prj.project WHERE code LIKE '{CODE}%' "
+            f"OR (code LIKE 'DEMO-OLD-%' AND created_by <> '{nobody}')").splitlines()):
         print(f"Retiring an earlier demo project ({old})…")
-        psql(f"UPDATE prj.project SET code = 'DEMO-OLD-{old[:8]}', stage = 'CLOSED' WHERE id = '{old}'")
+        psql(f"UPDATE prj.project SET code = 'DEMO-OLD-{old[:8]}', stage = 'CLOSED', created_by = '{nobody}' "
+             f"WHERE id = '{old}'")
         psql(f"DELETE FROM prj.project_member WHERE project_id = '{old}' AND user_id IN ({demo_users})")
 
     print(f"Creating project {CODE}…")

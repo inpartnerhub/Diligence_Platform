@@ -14,6 +14,11 @@ describe("navigation access (PRD Bab 3)", () => {
     expect(accessibleNav(["CLIENT"])).toEqual(["projects", "dashboard", "findings", "qna", "reports"]);
   });
 
+  it("keeps observers off the portfolio dashboard, as the backend does", () => {
+    expect(canAccess(["OBSERVER"], "dashboard")).toBe(false);
+    expect(canAccess(["OBSERVER"], "findings")).toBe(true);
+  });
+
   it("limits administration to super admins", () => {
     expect(canAccess(["SUPER_ADMIN"], "admin")).toBe(true);
     expect(canAccess(["PARTNER", "PROJECT_MANAGER"], "admin")).toBe(false);
