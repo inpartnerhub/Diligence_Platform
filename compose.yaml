@@ -107,7 +107,8 @@ services:
   gotenberg:
     # Office/image → PDF renditions for in-browser preview (PRD DOC-03).
     image: gotenberg/gotenberg:8
-    command: ["gotenberg", "--api-disable-health-check-logging"]
+    # LibreOffice starts slowly when Docker has little memory (4 GiB): allow more than the default 20 s.
+    command: ["gotenberg", "--api-disable-health-check-logging", "--libreoffice-start-timeout=90s"]
     ports: ["127.0.0.1:3002:3000"]
 
   mailpit:

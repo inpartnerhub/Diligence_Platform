@@ -81,7 +81,13 @@ export async function proxy(request: NextRequest) {
 
   const returnTo = pathname + request.nextUrl.search;
   const signedIn = request.cookies.has("diligence_sid");
-  if (!signedIn && !FILE_PATH.test(pathname)) {
+  // Demo mode (branch `demo`, local stack only; the page and the sign-in route check it again): the role picker is
+  // the entry point instead of the login form.
+  const demoMode = process.env.DEMO_MODE === "true" && process.env.OIDC_ALLOW_HTTP === "true";
+  if (demoMode && !signedIn && pathname !== "/demo" && !FILE_PATH.test(pathname)) {
+    return NextResponse.redirect(new URL("/demo", request.url));
+  }
+  if (!signedIn && !FILE_PATH.test(pathname) && !(demoMode && pathname === "/demo")) {
     const login = new URL("/auth/login", request.url);
     login.searchParams.set("returnTo", returnTo);
     return NextResponse.redirect(login);

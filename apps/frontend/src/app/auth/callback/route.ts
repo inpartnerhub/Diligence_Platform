@@ -1,22 +1,15 @@
-import { randomUUID } from "node:crypto";
-
-import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import * as client from "openid-client";
 
-import { LOCALE_COOKIE, toLocale } from "@/i18n/locales";
 import { oidcConfiguration } from "@/lib/auth/oidc";
 import { loginTransaction } from "@/lib/auth/login-transaction";
-import { hasApplicationRole, sessionCookie, userFromTokens } from "@/lib/auth/session";
-import { sessionTtlSeconds } from "@/lib/auth/session-lifetime";
-import { writeSession } from "@/lib/auth/session-store";
+import { startSession } from "@/lib/auth/start-session";
 import { serverEnv } from "@/lib/config/env";
 import { logError } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const store = await cookies();
   const tx = await loginTransaction();
   const { codeVerifier, state, returnTo = "/" } = tx;
   tx.destroy();
@@ -37,8 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login", serverEnv.appBaseUrl));
   }
 
-  const user = userFromTokens(tokens.access_token, tokens.claims());
-  if (!hasApplicationRole(user)) {
+  if (!(await startSession(tokens))) {
     // No session for an account without a role (#152); end the identity provider session so the user can sign in
     // with another account, then explain why.
     const endSession = client.buildEndSessionUrl(oidcConfiguration(), {
@@ -47,39 +39,6 @@ export async function GET(request: NextRequest) {
       ...(tokens.id_token && { id_token_hint: tokens.id_token }),
     });
     return NextResponse.redirect(endSession);
-  }
-
-  const sessionId = randomUUID();
-  const now = Math.floor(Date.now() / 1000);
-  const refreshLifetime = sessionTtlSeconds((tokens as Record<string, unknown>).refresh_expires_in, now, now);
-  await writeSession(
-    sessionId,
-    {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      idToken: tokens.id_token,
-      expiresAt: now + (tokens.expires_in ?? 60),
-      createdAt: now,
-      user,
-    },
-    refreshLifetime,
-  );
-  const session = await sessionCookie();
-  session.sid = sessionId;
-  await session.save();
-
-  // Adopt the language stored in the user's profile, if the backend knows it.
-  try {
-    const profile = await fetch(new URL("/api/v1/me", serverEnv.apiBaseUrl), {
-      headers: { Authorization: `Bearer ${tokens.access_token}`, Accept: "application/json" },
-      cache: "no-store",
-    });
-    if (profile.ok) {
-      const { locale } = (await profile.json()) as { locale?: string };
-      store.set(LOCALE_COOKIE, toLocale(locale), { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
-    }
-  } catch {
-    // Non-critical: keep the current language.
   }
 
   return NextResponse.redirect(new URL(returnTo, serverEnv.appBaseUrl));

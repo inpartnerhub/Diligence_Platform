@@ -29,6 +29,14 @@ clean-volumes: ## Stop containers AND delete local data volumes
 keycloak-bootstrap: ## Set the admin-api client secret and create local admin/PM users from .env
 	infrastructure/docker/scripts/keycloak-bootstrap.sh
 
+.PHONY: demo-setup
+demo-setup: .env ## Demo mode (branch demo): create one demo.* user per role for the /demo role picker
+	infrastructure/docker/scripts/demo-setup.sh
+
+.PHONY: demo-seed
+demo-seed: .env ## Demo mode (branch demo): (re)create the demo project DEMO-001 with data for every role
+	python3 -I infrastructure/docker/scripts/demo-seed.py
+
 .PHONY: keycloak-reset
 keycloak-reset: .env ## Re-import the realm from diligence-realm.json (recreates Keycloak's users with their account ids)
 	$(COMPOSE) rm --stop --force keycloak

@@ -66,6 +66,20 @@ export const serverEnv = {
   get oidcAllowHttp(): boolean {
     return process.env.OIDC_ALLOW_HTTP === "true";
   },
+  /**
+   * Demo mode (branch `demo` only): a role picker that signs in as prepared demo users without a login form. Only on
+   * the local stack (plain-HTTP identity provider); never in a deployed environment.
+   */
+  get demoMode(): boolean {
+    return process.env.DEMO_MODE === "true" && this.oidcAllowHttp && !this.secureCookies;
+  },
+  /** Password and TOTP secret (base32) shared by the demo users; server-side only. */
+  get demoPassword(): string {
+    return required("DEMO_PASSWORD", process.env.DEMO_PASSWORD);
+  },
+  get demoTotpSecret(): string {
+    return required("DEMO_TOTP_SECRET", process.env.DEMO_TOTP_SECRET);
+  },
 };
 
 export const publicEnv = {

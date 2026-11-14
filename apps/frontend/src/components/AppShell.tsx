@@ -20,7 +20,7 @@ import {
   UnorderedListOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { Avatar, Dropdown, Flex, Layout, Menu, Select, Typography, theme } from "antd";
+import { Avatar, Dropdown, Flex, Layout, Menu, Select, Tag, Typography, theme } from "antd";
 import type { MenuProps } from "antd";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -56,8 +56,9 @@ const ADMIN_NAV = [
 export function AppShell({
   user,
   nav,
+  demo = false,
   children,
-}: Readonly<{ user: SessionUser; nav: NavKey[]; children: ReactNode }>) {
+}: Readonly<{ user: SessionUser; nav: NavKey[]; demo?: boolean; children: ReactNode }>) {
   const t = useTranslations();
   const locale = useLocale();
   const pathname = usePathname();
@@ -126,6 +127,14 @@ export function AppShell({
           }}
         >
           <Flex justify="end" align="center" gap={16} style={{ height: "100%" }}>
+            {demo && (
+              // Demo mode (branch `demo`): back to the role picker; a plain link, the picker signs in again.
+              <a href="/demo">
+                <Tag color="gold" style={{ cursor: "pointer", marginInlineEnd: 0 }}>
+                  Mode demo · Ganti peran
+                </Tag>
+              </a>
+            )}
             <NotificationBell />
             <Select
               aria-label={t("header.language")}
