@@ -1,0 +1,8 @@
+# Opt-in KEDA scale-to-zero for the ingestion worker. NOT referenced by any overlay by default, because it depends on
+# the KEDA operator and an AMQP_URI secret key (see scaledobject.yaml). Enable per environment by adding this path to
+# the overlay's `resources:` once both prerequisites are in place. When enabled, KEDA owns the worker's replica count,
+# so drop (or keep in sync with) the static `replicas:` in base/ingestion/deployment.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - scaledobject.yaml

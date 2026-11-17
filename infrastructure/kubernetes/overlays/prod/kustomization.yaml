@@ -19,11 +19,13 @@ patches:
       - op: replace
         path: /metadata/name
         value: diligence-prod
+  # Early-scale minimum (ADR-0007): two replicas keep a rolling update and a single node loss covered. The HPA still
+  # scales out on CPU; raise this to 3 when moving prod to the high-availability profile.
   - target: { kind: HorizontalPodAutoscaler }
     patch: |-
       - op: replace
         path: /spec/minReplicas
-        value: 3
+        value: 2
   - target: { kind: VaultStaticSecret, name: diligence-backend-infrastructure }
     patch: |-
       - op: replace
