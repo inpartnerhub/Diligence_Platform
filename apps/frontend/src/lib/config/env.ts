@@ -1,3 +1,5 @@
+import { demoGatePassword } from "@/lib/demo/gate";
+
 /**
  * Single access point for configuration. Server values are read lazily so `next build` does not require them;
  * public values are inlined at build time by Next.js.
@@ -67,11 +69,20 @@ export const serverEnv = {
     return process.env.OIDC_ALLOW_HTTP === "true";
   },
   /**
-   * Demo mode (branch `demo` only): a role picker that signs in as prepared demo users without a login form. Only on
-   * the local stack (plain-HTTP identity provider); never in a deployed environment.
+   * Demo mode (branch `demo` only): a role picker that signs in as prepared demo users without a login form. On the
+   * local stack (plain-HTTP identity provider), or as a public demo over HTTPS behind the password gate
+   * (DEMO_PUBLIC=true with DEMO_GATE_PASSWORD, see lib/demo/gate.ts). Never in a real deployment.
    */
   get demoMode(): boolean {
-    return process.env.DEMO_MODE === "true" && this.oidcAllowHttp && !this.secureCookies;
+    return (
+      process.env.DEMO_MODE === "true" &&
+      this.oidcAllowHttp &&
+      (!this.secureCookies || demoGatePassword() !== undefined)
+    );
+  },
+  /** A public demo: visitors pass the password gate before the role picker. */
+  get demoPublic(): boolean {
+    return this.demoMode && demoGatePassword() !== undefined;
   },
   /** Password and TOTP secret (base32) shared by the demo users; server-side only. */
   get demoPassword(): string {

@@ -1,0 +1,11 @@
+# OpenSearch in the single-container demo (deploy/huggingface): one node on 127.0.0.1, no security plugin (nothing
+# outside the container can reach it), no mmap (vm.max_map_count cannot be raised on Hugging Face).
+cluster.name: diligence-demo
+node.name: demo
+network.host: 127.0.0.1
+http.port: 9200
+discovery.type: single-node
+path.data: /data/opensearch
+path.logs: /data/opensearch-logs
+node.store.allow_mmap: false
+plugins.security.disabled: true

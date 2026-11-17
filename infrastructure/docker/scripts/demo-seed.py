@@ -46,7 +46,8 @@ def load_env() -> dict[str, str]:
 ENV = load_env()
 KEYCLOAK = "http://localhost:8180/realms/diligence/protocol/openid-connect"
 API = f"http://localhost:{ENV.get('BACKEND_PORT', '8080')}/api/v1"
-REDIRECT = "http://localhost:3000/auth/callback"
+# DEMO_REDIRECT_URI: any redirect URI registered on diligence-web (the code is exchanged here, not in a browser).
+REDIRECT = os.environ.get("DEMO_REDIRECT_URI", "http://localhost:3000/auth/callback")
 
 
 # ---------------------------------------------------------------------------------------------------------- sign-in
@@ -149,9 +150,10 @@ class Api:
 
 # ------------------------------------------------------------------------------------------------------------ helpers
 def psql(sql: str) -> str:
-    result = subprocess.run(["docker", "compose", "exec", "-T", "postgres", "psql", "-U", ENV["POSTGRES_USER"],
-                             "-d", ENV["POSTGRES_DB"], "-v", "ON_ERROR_STOP=1", "-Atq", "-c", sql],
-                            cwd=ROOT, capture_output=True, text=True)
+    # PSQL: a local psql instead of the compose container (single-container demo image, deploy/huggingface).
+    command = [os.environ["PSQL"]] if os.environ.get("PSQL") else ["docker", "compose", "exec", "-T", "postgres", "psql"]
+    result = subprocess.run([*command, "-U", ENV["POSTGRES_USER"], "-d", ENV["POSTGRES_DB"], "-v", "ON_ERROR_STOP=1",
+                             "-Atq", "-c", sql], cwd=ROOT, capture_output=True, text=True)
     if result.returncode:
         sys.exit(f"psql failed: {result.stderr}")
     return result.stdout.strip()
@@ -231,10 +233,15 @@ def main() -> None:
     for api in (admin, partner, pm, analyst, observer, client, target):
         api.call("GET", "/me")  # just-in-time account rows
 
-    client_org = psql("SELECT id FROM adm.organization WHERE type = 'CLIENT' ORDER BY created_at LIMIT 1")
-    target_org = psql("SELECT id FROM adm.organization WHERE type = 'TARGET' ORDER BY created_at LIMIT 1")
-    if not client_org or not target_org:
-        sys.exit("No client/target organization. Create them in Administrasi → Organisasi first.")
+    # The demo organizations: the first client and target organization, created as the demo super admin on an empty
+    # database (e.g. the single-container demo image, deploy/huggingface).
+    orgs = {}
+    for kind, name in (("CLIENT", "PT Investor Nusantara (demo)"), ("TARGET", "PT Target Sejahtera (demo)")):
+        orgs[kind] = psql(f"SELECT id FROM adm.organization WHERE type = '{kind}' ORDER BY created_at LIMIT 1")
+        if not orgs[kind]:
+            print(f"Creating organization {name}…")
+            orgs[kind] = admin.call("POST", "/admin/organizations", {"name": name, "type": kind})["id"]
+    client_org, target_org = orgs["CLIENT"], orgs["TARGET"]
     # External accounts belong to the project's organizations (#155); invitations would set this.
     psql(f"UPDATE adm.user_account SET organization_id = '{client_org}' WHERE id = '{client.user_id}'")
     psql(f"UPDATE adm.user_account SET organization_id = '{target_org}' WHERE id = '{target.user_id}'")

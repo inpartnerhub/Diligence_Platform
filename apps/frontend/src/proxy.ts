@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { DEMO_GATE_COOKIE, demoGatePassword, isDemoGateOpen } from "@/lib/demo/gate";
 import { contentSecurityPolicy } from "@/lib/security/csp";
 import { isCrossSiteWrite } from "@/lib/security/crossSite";
 import { checkRateLimit, resolveClientIp } from "@/lib/security/rateLimiter";
@@ -20,6 +21,13 @@ const RETURN_TO_HEADER = "x-diligence-return-to";
 const NONCE_HEADER = "x-diligence-nonce";
 
 const FILE_PATH = /\.[a-z0-9]+$/;
+
+// Demo mode as lib/config/env.ts decides it: local plain-HTTP stack, or a public demo behind the password gate.
+const GATE_PATHS = new Set(["/demo-gate", "/auth/demo-gate"]);
+const demoMode = () =>
+  process.env.DEMO_MODE === "true" &&
+  process.env.OIDC_ALLOW_HTTP === "true" &&
+  (!(process.env.APP_BASE_URL ?? "").startsWith("https://") || demoGatePassword() !== undefined);
 
 // Rate limiting can be disabled or relaxed in test/CI environments.
 // Hard security guardrail: Never allow disabling in production.
@@ -49,6 +57,19 @@ export async function proxy(request: NextRequest) {
   const isServerAction =
     request.headers.has("next-action") ||
     (request.method === "POST" && !isAuth && !pathname.startsWith("/api/"));
+
+  // Public demo (branch `demo`, DEMO_PUBLIC=true): nothing but the gate page and its form handler before the
+  // shared demo password was entered, the role sign-in routes included.
+  if (
+    demoMode() &&
+    demoGatePassword() !== undefined &&
+    !GATE_PATHS.has(pathname) &&
+    !FILE_PATH.test(pathname)
+  ) {
+    if (!(await isDemoGateOpen(request.cookies.get(DEMO_GATE_COOKIE)?.value))) {
+      return NextResponse.redirect(new URL("/demo-gate", request.url));
+    }
+  }
 
   if (!isRateLimitDisabled && (isAuth || isServerAction)) {
     const trustedHops = Number(process.env.TRUSTED_PROXY_HOPS ?? "0");
@@ -81,13 +102,14 @@ export async function proxy(request: NextRequest) {
 
   const returnTo = pathname + request.nextUrl.search;
   const signedIn = request.cookies.has("diligence_sid");
-  // Demo mode (branch `demo`, local stack only; the page and the sign-in route check it again): the role picker is
-  // the entry point instead of the login form.
-  const demoMode = process.env.DEMO_MODE === "true" && process.env.OIDC_ALLOW_HTTP === "true";
-  if (demoMode && !signedIn && pathname !== "/demo" && !FILE_PATH.test(pathname)) {
+  // Demo mode (branch `demo`; the pages and the sign-in route check it again): the role picker is the entry point
+  // instead of the login form.
+  const demo = demoMode();
+  const demoEntry = pathname === "/demo" || GATE_PATHS.has(pathname);
+  if (demo && !signedIn && !demoEntry && !FILE_PATH.test(pathname)) {
     return NextResponse.redirect(new URL("/demo", request.url));
   }
-  if (!signedIn && !FILE_PATH.test(pathname) && !(demoMode && pathname === "/demo")) {
+  if (!signedIn && !FILE_PATH.test(pathname) && !(demo && demoEntry)) {
     const login = new URL("/auth/login", request.url);
     login.searchParams.set("returnTo", returnTo);
     return NextResponse.redirect(login);

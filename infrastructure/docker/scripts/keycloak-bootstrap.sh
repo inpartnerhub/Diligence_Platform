@@ -10,7 +10,8 @@ cd "$(dirname "$0")/../../.."
 set -a; source .env; set +a
 
 REALM=diligence
-kc() { docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"; }
+# KCADM / PSQL: run the tools directly instead of through compose (single-container demo image, deploy/huggingface).
+kc() { if [ -n "${KCADM:-}" ]; then "$KCADM" "$@"; else docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"; fi; }
 
 kc config credentials --server http://localhost:8180 --realm master \
   --user "$KEYCLOAK_ADMIN_USERNAME" --password "$KEYCLOAK_ADMIN_PASSWORD"
@@ -28,7 +29,7 @@ echo "Set diligence-web client secret."
 
 # Users are created with the id the application already has for their email (adm.user_account): Keycloak's id is the
 # account id (token `sub`), so a recreated Keycloak keeps every project membership instead of minting new ids (#83).
-psql() { docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; }
+psql() { if [ -n "${PSQL:-}" ]; then "$PSQL" -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; else docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; fi; }
 existing_id() { # email → account id, empty when unknown or the database is not up
   psql -Atq -v email="$1" 2>/dev/null <<'SQL' || true
 SELECT id FROM adm.user_account WHERE lower(email) = lower(:'email');

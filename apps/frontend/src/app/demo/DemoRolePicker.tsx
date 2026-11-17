@@ -66,8 +66,8 @@ export function DemoRolePicker({ roles, error }: Readonly<{ roles: readonly Demo
           </Row>
         </Spin>
         <Typography.Text type="secondary">
-          Mode demo hanya aktif di stack lokal (DEMO_MODE=true) dan tidak pernah di environment yang
-          di-deploy.
+          Mode demo: semua data fiktif dan dikembalikan ke kondisi awal setiap kali demo dinyalakan ulang.
+          Mode ini tidak pernah aktif di environment yang sebenarnya.
         </Typography.Text>
       </Space>
     </div>

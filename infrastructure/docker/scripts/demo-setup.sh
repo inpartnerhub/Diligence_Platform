@@ -18,11 +18,12 @@ if [ -z "${DEMO_PASSWORD:-}" ] || [ -z "${DEMO_TOTP_SECRET:-}" ]; then
 fi
 
 REALM=diligence
-kc() { docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"; }
+# KCADM / PSQL: run the tools directly instead of through compose (single-container demo image, deploy/huggingface).
+kc() { if [ -n "${KCADM:-}" ]; then "$KCADM" "$@"; else docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"; fi; }
 kc config credentials --server http://localhost:8180 --realm master \
   --user "$KEYCLOAK_ADMIN_USERNAME" --password "$KEYCLOAK_ADMIN_PASSWORD"
 
-psql() { docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; }
+psql() { if [ -n "${PSQL:-}" ]; then "$PSQL" -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; else docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; fi; }
 existing_id() { # email → account id, empty when unknown
   psql -Atq -v email="$1" 2>/dev/null <<'SQL' || true
 SELECT id FROM adm.user_account WHERE lower(email) = lower(:'email');
