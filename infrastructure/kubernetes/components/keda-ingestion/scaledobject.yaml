@@ -1,0 +1,41 @@
+# Scale the ingestion worker to zero when no documents are waiting, and up with the RabbitMQ backlog (#162).
+# The worker is a pure queue consumer: when it is absent, uploads simply queue in the durable quorum queue
+# (diligence.ingestion.document-uploaded) and are processed as soon as KEDA starts a pod — nothing is lost. This is
+# the one processing workload safe to take to zero; the HTTP services (Tika/Gotenberg/ClamAV) stay warm instead.
+#
+# Prerequisites (not applied by default — this component is opt-in, see README):
+#   1. The KEDA operator is installed in the cluster.
+#   2. A secret key `AMQP_URI` holding amqps://<user>:<pass>@<host>:5671/<vhost> exists in the namespace. Add it to the
+#      Vault-synced diligence-backend-infrastructure secret (the broker host/user/pass are already there).
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: ingestion-rabbitmq
+  namespace: diligence
+spec:
+  secretTargetRef:
+    - parameter: host
+      name: diligence-backend-infrastructure
+      key: AMQP_URI
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: diligence-ingestion
+  namespace: diligence
+spec:
+  scaleTargetRef:
+    name: diligence-ingestion
+  minReplicaCount: 0
+  maxReplicaCount: 8
+  # Keep a pod alive for 5 min after the queue drains so short bursts do not pay repeated cold starts.
+  cooldownPeriod: 300
+  triggers:
+    - type: rabbitmq
+      metadata:
+        protocol: amqp
+        queueName: diligence.ingestion.document-uploaded
+        mode: QueueLength
+        value: "5" # target ~5 unprocessed messages per replica
+      authenticationRef:
+        name: ingestion-rabbitmq

@@ -24,6 +24,17 @@ spec:
       serviceAccountName: diligence-backend
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 120 # let a document in progress finish; unacknowledged ones are redelivered
+      # Prefer the cost-optimised Spot pool (infrastructure/terraform) and tolerate its taint; a reclaimed node only
+      # redelivers in-flight messages from the quorum queue, so fall back to on-demand nodes is safe. No-op without Spot.
+      tolerations:
+        - { key: diligence.io/workload, operator: Equal, value: burstable, effect: NoSchedule }
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - { key: diligence.io/capacity-type, operator: In, values: [spot] }
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

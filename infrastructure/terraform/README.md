@@ -48,3 +48,26 @@ terraform apply tfplan
 - Trivy findings that cannot be fixed in code are documented in `.trivyignore.yaml` or inline `#trivy:ignore`
   comments with the reason.
 - `prod` changes require a reviewed plan in the pull request.
+
+## Cost / right-sizing ([ADR-0007](../../docs/adr/0007-cost-efficient-infrastructure-defaults.md))
+
+The default is the **minimum early-scale footprint**. High availability is deferred, not security or durability — RDS
+keeps 14-day automated backups, deletion protection and KMS encryption at any size, Redis and OpenSearch stay encrypted,
+and documents live in versioned, encrypted S3. Every expensive dial is an input you can tune per environment:
+
+- **`high_availability` flag** (stack input, default `false`): `false` runs single-AZ RDS, a single-instance RabbitMQ
+  broker, a one-node OpenSearch domain, one Redis node and one NAT gateway. Set it `true` (and raise the instance sizes
+  below) when load justifies it and the same stack becomes Multi-AZ RDS, a 3-broker RabbitMQ cluster, a 3-node
+  OpenSearch domain, two Redis nodes and one NAT per AZ — no other change. Review it as a normal prod plan.
+- **VPC endpoints** (`modules/network`): an S3 **gateway** endpoint (free) plus ECR/STS/Logs **interface** endpoints keep
+  document, image-pull, Pod Identity and log traffic off the NAT gateways, where data processing is billed per GB — the
+  biggest silent cost on a document-heavy platform. Always on; no configuration needed.
+- **Compute on Spot** (`spot_instance_types`): the stateless, retriable document-processing workloads
+  (ClamAV/Tika/Gotenberg/ingestion) tolerate a tainted Spot pool and *prefer* it, falling back to the on-demand pool
+  when Spot is reclaimed — set in `environments/prod`, empty elsewhere. ~70 % cheaper for that compute, no availability loss.
+- **Instance size**: `db_instance_class`, `rabbitmq_instance_type`, `opensearch_instance_type`,
+  `opensearch_instance_count` and the node types/counts are per-environment inputs. Prod launches lean (`db.t4g.large`,
+  `mq.t3.micro`, `1 × t3.medium.search`, two `m7i.large` nodes); a `null` managed-service size takes the default for the
+  current `high_availability` mode. Review RDS `FreeableMemory`/CPU and the Amazon MQ/OpenSearch metrics before raising.
+- **Further scale-to-zero**: `infrastructure/kubernetes/components/keda-ingestion` takes the ingestion worker to zero
+  between uploads via KEDA (opt-in; see its README).

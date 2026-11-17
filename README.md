@@ -31,8 +31,8 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 │   └── seeds/              Local-only seed data (PRD Appendix B request-list template)
 ├── infrastructure/
 │   ├── docker/             Local stack service configs (Keycloak realm, Kong, Prometheus, Grafana, OTel)
-│   ├── kubernetes/         Kustomize base + dev/staging/prod overlays
-│   └── terraform/          Cloud infrastructure: modules, stack, per-environment roots
+│   ├── kubernetes/         Kustomize base + dev/staging/prod overlays, processing namespace, opt-in components
+│   └── terraform/          Cloud infrastructure: modules, stack, per-environment roots (cost dials in its README)
 ├── tests/
 │   ├── e2e/                Playwright end-to-end tests
 │   └── performance/        k6 load tests

@@ -9,7 +9,7 @@ the platform, so these services run apart from the application (#92):
 | Network | Default deny. Ingress only from `diligence-backend` pods of namespaces labelled `app.kubernetes.io/part-of: diligence`, on 3310/9998/3000. Egress only DNS; ClamAV additionally HTTPS to public addresses for signature updates. No access to the metadata endpoint, other namespaces or the internet. |
 | Pods | Pod Security `restricted`: non-root with UIDs above 10000 (ClamAV 10100, Gotenberg 10101, Tika 35002), read-only root filesystem, all capabilities dropped, `RuntimeDefault` seccomp, no service-account token. Writable paths are size-limited `emptyDir`s. |
 | Images | All three are rebuilt into GHCR, the only trusted registry (`.trivy/data/trusted-registries.yaml`): `infrastructure/docker/{clamav,gotenberg,tika}` start from digest-pinned upstream images, apply security updates and move the service user above UID 10000. The *Processing images* workflow builds, Trivy-scans (fails on fixable High/Critical) and pushes them. Dependabot proposes base updates. |
-| Capacity | Requests and limits per container, two replicas each, a PodDisruptionBudget each. |
+| Capacity | Requests and limits per container, two replicas each, a PodDisruptionBudget each. Scheduling prefers the cost-optimised Spot pool and tolerates its taint ([ADR-0007](../../../docs/adr/0007-cost-efficient-infrastructure-defaults.md)), falling back to on-demand nodes when Spot is reclaimed — a no-op in clusters without a Spot pool. |
 
 ClamAV does not use the image's `/init` (it needs root): an init container downloads the signatures, `clamd` scans,
 and a `freshclam` sidecar updates them; `clamd` reloads them itself (`SelfCheck`). Configuration is in the

@@ -21,7 +21,7 @@ module "network" {
   name               = local.name
   cidr               = var.vpc_cidr
   azs                = var.availability_zones
-  single_nat_gateway = var.environment != "prod"
+  single_nat_gateway = !var.high_availability
   log_kms_key_arn    = module.log_key.arn
   tags               = local.tags
 }
@@ -34,6 +34,7 @@ module "cluster" {
   node_instance_types = var.node_instance_types
   node_min_size       = var.node_min_size
   node_max_size       = var.node_max_size
+  spot_instance_types = var.spot_instance_types
   log_kms_key_arn     = module.log_key.arn
   tags                = local.tags
 }
@@ -45,7 +46,7 @@ module "postgresql" {
   subnet_ids                 = module.network.private_subnet_ids
   allowed_security_group_ids = [module.cluster.node_security_group_id]
   instance_class             = var.db_instance_class
-  multi_az                   = var.environment == "prod"
+  multi_az                   = var.high_availability
   tags                       = local.tags
 }
 
@@ -55,7 +56,7 @@ module "redis" {
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = module.network.private_subnet_ids
   allowed_security_group_ids = [module.cluster.node_security_group_id]
-  num_cache_clusters         = var.environment == "prod" ? 2 : 1
+  num_cache_clusters         = var.high_availability ? 2 : 1
   tags                       = local.tags
 }
 
@@ -65,8 +66,8 @@ module "rabbitmq" {
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = module.network.private_subnet_ids
   allowed_security_group_ids = [module.cluster.node_security_group_id]
-  cluster_mode               = var.environment == "prod"
-  instance_type              = var.environment == "prod" ? "mq.m7g.large" : "mq.m7g.medium"
+  cluster_mode               = var.high_availability
+  instance_type              = coalesce(var.rabbitmq_instance_type, var.high_availability ? "mq.m7g.medium" : "mq.t3.micro")
   tags                       = local.tags
 }
 
@@ -76,8 +77,8 @@ module "opensearch" {
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = module.network.private_subnet_ids
   allowed_security_group_ids = [module.cluster.node_security_group_id]
-  instance_count             = var.environment == "prod" ? 3 : 1
-  instance_type              = var.environment == "prod" ? "r7g.large.search" : "t3.medium.search"
+  instance_count             = coalesce(var.opensearch_instance_count, var.high_availability ? 3 : 1)
+  instance_type              = coalesce(var.opensearch_instance_type, var.high_availability ? "r7g.large.search" : "t3.medium.search")
   log_kms_key_arn            = module.log_key.arn
   tags                       = local.tags
 }

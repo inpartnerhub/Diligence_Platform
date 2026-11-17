@@ -288,8 +288,8 @@ phase 2.
 GitHub Actions ──build/test/scan──▶ GHCR (sha-tagged images, SBOM, provenance)
       └─ deploy.yml (manual, environment-protected) ──kustomize edit set image──▶ kubectl apply -k overlays/<env>
 
-Terraform (environments/<env>) ──▶ network, Kubernetes, PostgreSQL, Redis, RabbitMQ, OpenSearch, object storage
-                               └─▶ Vault kv/diligence/<env>/backend/infrastructure
+Terraform (environments/<env>) ──▶ network (+ S3/ECR/STS/Logs VPC endpoints), Kubernetes (on-demand + Spot pools),
+                               └─▶ PostgreSQL, Redis, RabbitMQ, OpenSearch, object storage; Vault kv/diligence/<env>/…
 Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, cert-manager,
                                kube-prometheus-stack, OpenTelemetry Collector, Tika, Gotenberg and ClamAV workloads
 ```
@@ -297,9 +297,28 @@ Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, 
 | Environment | Namespace | Min replicas | Notes |
 |-------------|-----------|--------------|-------|
 | local | compose | 1 | OpenSearch security off, Vault dev mode, Keycloak `start-dev`, Mailpit |
-| dev | `diligence-dev` | 1 | Full tracing, API docs on |
-| staging | `diligence-staging` | 2 | Production-like, API docs on |
-| prod | `diligence-prod` | 3 | Multi-AZ data services, API docs off, approval-gated deploys |
+| dev | `diligence-dev` | 1 | Full tracing, API docs on; single on-demand node pool |
+| staging | `diligence-staging` | 2 | Production-like, API docs on; single on-demand node pool |
+| prod | `diligence-prod` | 2 | Early-scale by default (single-AZ, encrypted + backed up), API docs off, approval-gated deploys; Spot pool for processing; flip `high_availability` to go Multi-AZ |
+
+### Cost & capacity ([ADR-0007](docs/adr/0007-cost-efficient-infrastructure-defaults.md))
+
+The launch default is the **minimum early-scale footprint**; redundancy is deferred, not security or durability. Every
+expensive dial is a per-environment Terraform input:
+
+- **`high_availability` flag** (default off): off runs single-AZ RDS, a single-instance RabbitMQ broker, a one-node
+  OpenSearch domain, one Redis node and one NAT gateway; on makes the same stack Multi-AZ RDS, a three-broker RabbitMQ
+  cluster, three-node OpenSearch, two Redis nodes and one NAT per AZ. **Durability and encryption are independent of it**
+  — RDS keeps 14-day backups, deletion protection and KMS encryption; Redis and OpenSearch stay encrypted; documents
+  live in versioned, encrypted S3.
+- **VPC endpoints** carry S3 (free gateway endpoint), ECR, STS and CloudWatch Logs traffic off the NAT gateways, where
+  data processing is billed per GB — the heaviest traffic on a document platform. Always on.
+- **Spot pool** (`spot_instance_types`, prod only): the retriable document-processing workloads (ClamAV, Tika,
+  Gotenberg, ingestion) tolerate a tainted Spot pool and *prefer* it, falling back to the on-demand pool when Spot is
+  reclaimed — the API and frontend always stay on-demand.
+- **Instance size** (`db_instance_class`, `rabbitmq_instance_type`, `opensearch_instance_*`, node types): prod launches
+  lean (`db.t4g.large`, `mq.t3.micro`, `1 × t3.medium.search`, two `m7i.large` nodes) and is raised with the flag when
+  metrics show load approaching capacity. See the Terraform README.
 
 Hosting model and data residency (UU PDP) are still open — see [ADR-0003](docs/adr/0003-hosting-and-data-residency.md).
 Migrations run at backend startup (Flyway advisory lock) and must be backward compatible with the previous release.

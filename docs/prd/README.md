@@ -80,7 +80,7 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 |--------|--------|---------------------|
 | Performance | Pages ≤ 2 s P95; preview ≤ 3 s (≤ 20 MB); search ≤ 2 s on 500k docs | Async pipeline, pre-rendered PDF renditions, OpenSearch, Ant Design CSS extracted at build time; k6 in `tests/performance` (local stress results in its README) |
 | Scalability | ≥ 200 projects, ≥ 1,000 concurrent users, ≥ 20 TB | Stateless pods + HPA, Redis sessions, S3, OpenSearch |
-| Availability | 99.5% business hours; RPO ≤ 1 h, RTO ≤ 4 h | Multi-AZ data services in prod, PITR backups, quarterly restore test |
+| Availability | 99.5% business hours; RPO ≤ 1 h, RTO ≤ 4 h | Phased ([ADR-0007](../adr/0007-cost-efficient-infrastructure-defaults.md)): early scale runs single-AZ with PITR backups and deletion protection (RPO ≤ 1 h; RTO met by restore), then flips to Multi-AZ data services via `high_availability` before load grows — meeting the full target. Quarterly restore test throughout |
 | Security | TLS 1.2+, AES-256 at rest | SECURITY.md; optional per-project IP allow-list for external users (Bab 10.1) |
 | Compliance | UU PDP, ISO/IEC 27001 | SECURITY.md, ADR-0003 |
 | Usability | Indonesian and English; tablet-responsive; WCAG 2.1 AA for key elements | next-intl, Ant Design responsive layout, accessible labels |
