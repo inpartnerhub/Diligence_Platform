@@ -7,7 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 out=${1:-build/hf-space}
-if [ -n "$(git status --porcelain -- apps database infrastructure/docker deploy/huggingface)" ]; then
+# Untracked files are never archived, so only changes to tracked files block the build.
+if [ -n "$(git status --porcelain --untracked-files=no -- apps database infrastructure/docker deploy/huggingface)" ]; then
   echo "Commit the changes under apps/, database/, infrastructure/docker/ and deploy/huggingface/ first:" >&2
   echo "the Space is built from HEAD only." >&2
   exit 1
