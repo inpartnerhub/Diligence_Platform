@@ -9,7 +9,7 @@ opensearch-java = "3.10.0"
 pdfbox = "3.0.8"
 poi = "6.0.0"
 shedlock = "7.11.0"
-sonarqube = "7.5.0.8588"
+sonarqube = "7.6.0.18749"
 
 [libraries]
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
