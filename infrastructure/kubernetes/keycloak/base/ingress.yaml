@@ -1,0 +1,28 @@
+# Public Ingress exposes ONLY the diligence realm and static login assets. /admin and /realms/master are never
+# exposed publicly (ADR-0009); use kubectl port-forward for administration.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [auth.example.com]
+      secretName: keycloak-tls
+  rules:
+    - host: auth.example.com
+      http:
+        paths:
+          - path: /realms/diligence
+            pathType: Prefix
+            backend: { service: { name: keycloak, port: { name: http } } }
+          - path: /resources
+            pathType: Prefix
+            backend: { service: { name: keycloak, port: { name: http } } }
+          - path: /js
+            pathType: Prefix
+            backend: { service: { name: keycloak, port: { name: http } } }

@@ -52,8 +52,6 @@ spec:
             - secretRef: { name: diligence-backend-infrastructure }
             - secretRef: { name: diligence-backend-application }
           env:
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: deployment.environment=$(APP_ENVIRONMENT),service.instance.role=ingestion
             - name: INGESTION_LISTENER_ENABLED
               value: "true"
           resources:

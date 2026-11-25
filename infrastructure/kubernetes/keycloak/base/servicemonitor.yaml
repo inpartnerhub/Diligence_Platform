@@ -1,0 +1,11 @@
+# Requires the Prometheus Operator (kube-prometheus-stack).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: keycloak
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: keycloak } }
+  endpoints:
+    - port: management
+      path: /metrics
+      interval: 30s

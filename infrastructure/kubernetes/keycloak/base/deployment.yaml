@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels: { app.kubernetes.io/name: keycloak }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels: { app.kubernetes.io/name: keycloak }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: keycloak }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10102
+        runAsGroup: 10102
+        fsGroup: 10102
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: keycloak
+          image: ghcr.io/inpartnerhub/diligence-keycloak:26.8
+          imagePullPolicy: IfNotPresent
+          args: ["start", "--optimized", "--http-port=8080", "--management-port=9000"]
+          ports:
+            - { name: http, containerPort: 8080 }
+            - { name: management, containerPort: 9000 }
+          envFrom:
+            - configMapRef: { name: keycloak-config }
+            - secretRef: { name: keycloak-secrets }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          startupProbe:
+            httpGet: { path: /health/started, port: management }
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            httpGet: { path: /health/live, port: management }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/ready, port: management }
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: kc-tmp, mountPath: /opt/keycloak/data/tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 256Mi }
+        - name: kc-tmp
+          emptyDir: { sizeLimit: 256Mi }

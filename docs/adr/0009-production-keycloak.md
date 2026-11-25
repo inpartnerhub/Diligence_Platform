@@ -60,8 +60,10 @@ The platform is Azure Indonesia Central (ADR-0003), on AKS as proposed in ADR-00
 
 ## Consequences
 
-- New work, in this order: Keycloak manifests (overlay per environment) and its database; the realm configuration as
-  code with the `localhost` check; the internal admin route; a runbook update (`docs/runbooks/keycloak-outage.md`) for
-  upgrades and restore.
+- Production Keycloak image and Kubernetes manifests (overlay per environment, internal-only `/admin` access via
+  `kubectl port-forward`, AWS Secrets Manager `ExternalSecret`, restricted Pod Security, NetworkPolicies, and
+  `ServiceMonitor`) now live in `infrastructure/docker/keycloak/Dockerfile` and `infrastructure/kubernetes/keycloak/`.
+- Remaining work: realm configuration as code (`keycloak-config-cli`) with the `localhost` check, and a runbook update
+  (`docs/runbooks/keycloak-outage.md`) for upgrades and restore.
 - #187 does not gain a subprocessor for identity.
 - Realm changes in future pull requests are reviewed like any other code and reach every environment the same way.

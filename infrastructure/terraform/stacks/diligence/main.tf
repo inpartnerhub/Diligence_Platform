@@ -26,13 +26,14 @@ module "secrets_key" {
 }
 
 module "network" {
-  source             = "../../modules/network"
-  name               = local.name
-  cidr               = var.vpc_cidr
-  azs                = var.availability_zones
-  single_nat_gateway = !var.high_availability
-  log_kms_key_arn    = module.log_key.arn
-  tags               = local.tags
+  source                     = "../../modules/network"
+  name                       = local.name
+  cidr                       = var.vpc_cidr
+  azs                        = var.availability_zones
+  single_nat_gateway         = !var.high_availability
+  enable_interface_endpoints = var.enable_interface_endpoints
+  log_kms_key_arn            = module.log_key.arn
+  tags                       = local.tags
 }
 
 module "cluster" {
@@ -171,6 +172,7 @@ data "aws_iam_policy_document" "external_secrets" {
       aws_secretsmanager_secret.frontend_redis.arn,
       "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:diligence/${var.environment}/backend/application-*",
       "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:diligence/${var.environment}/frontend-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:diligence/${var.environment}/keycloak-*",
     ]
   }
   statement {

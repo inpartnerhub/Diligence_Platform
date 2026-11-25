@@ -1,15 +1,15 @@
 name: Processing images
 
-# Our document-processing images (#92): ClamAV, Gotenberg and Apache Tika with Indonesian OCR, rebuilt from
-# digest-pinned upstream bases (infrastructure/docker/*). Built and scanned like the application images; pushed
-# to GHCR (the only trusted registry) from main as sha-<commit> and main.
+# Our document-processing and identity images (#92, ADR-0009): ClamAV, Gotenberg, Apache Tika with Indonesian OCR,
+# and production Keycloak, rebuilt from upstream bases (infrastructure/docker/*). Built and scanned like the
+# application images; pushed to GHCR (the only trusted registry) from main as sha-<commit> and main.
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["infrastructure/docker/clamav/**", "infrastructure/docker/gotenberg/**", "infrastructure/docker/tika/**", ".github/workflows/processing-images.yml", ".github/workflows/container-image.yml"]
+    paths: ["infrastructure/docker/clamav/**", "infrastructure/docker/gotenberg/**", "infrastructure/docker/tika/**", "infrastructure/docker/keycloak/Dockerfile", "infrastructure/docker/keycloak/password-blacklists/**", ".github/workflows/processing-images.yml", ".github/workflows/container-image.yml"]
   push:
     branches: [main]
-    paths: ["infrastructure/docker/clamav/**", "infrastructure/docker/gotenberg/**", "infrastructure/docker/tika/**", ".github/workflows/processing-images.yml", ".github/workflows/container-image.yml"]
+    paths: ["infrastructure/docker/clamav/**", "infrastructure/docker/gotenberg/**", "infrastructure/docker/tika/**", "infrastructure/docker/keycloak/Dockerfile", "infrastructure/docker/keycloak/password-blacklists/**", ".github/workflows/processing-images.yml", ".github/workflows/container-image.yml"]
 
 permissions:
   contents: read
@@ -51,6 +51,19 @@ jobs:
       image-name: diligence-gotenberg
       context: infrastructure/docker/gotenberg
       dockerfile: infrastructure/docker/gotenberg/Dockerfile
+      push: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write # keyless cosign signature of the pushed image (#167)
+    secrets: inherit
+  keycloak:
+    uses: ./.github/workflows/container-image.yml
+    with:
+      image-name: diligence-keycloak
+      context: infrastructure/docker/keycloak
+      dockerfile: infrastructure/docker/keycloak/Dockerfile
       push: ${{ github.event_name == 'push' }}
     permissions:
       contents: read

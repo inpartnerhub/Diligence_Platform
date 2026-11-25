@@ -27,12 +27,14 @@ module "vpc" {
 }
 
 # VPC endpoints keep high-volume AWS traffic off the NAT gateways: NAT data processing is billed per GB, and a
-# due-diligence data room moves a lot of document bytes to and from S3. The S3 gateway endpoint is free and carries
-# every object read/write; the interface endpoints carry image pulls (ECR), Pod Identity token exchange (STS) and
-# container logs (CloudWatch Logs) privately, so those no longer traverse — or pay for — the NAT path either.
+# due-diligence data room moves a lot of document bytes to and from S3. The S3 gateway endpoint is free and always
+# enabled; the ECR, STS and CloudWatch Logs interface endpoints charge hourly per AZ and are opt-in via
+# var.enable_interface_endpoints for high-traffic scale.
 
 # Only the VPC may reach the interface endpoints, on HTTPS.
 resource "aws_security_group" "endpoints" {
+  count = var.enable_interface_endpoints ? 1 : 0
+
   name_prefix = "${var.name}-vpce-"
   description = "HTTPS from within the VPC to interface VPC endpoints"
   vpc_id      = module.vpc.vpc_id
@@ -56,24 +58,28 @@ module "vpc_endpoints" {
 
   vpc_id = module.vpc.vpc_id
 
-  endpoints = {
-    # Gateway endpoint: free, routed, carries all S3 (documents, previews) off the NAT.
-    s3 = {
-      service         = "s3"
-      service_type    = "Gateway"
-      route_table_ids = module.vpc.private_route_table_ids
-      tags            = { Name = "${var.name}-s3" }
-    }
-    # Interface endpoints: private image pulls, Pod Identity (STS) and logs — all otherwise billed as NAT data.
-    ecr_api = { service = "ecr.api", private_dns_enabled = true }
-    ecr_dkr = { service = "ecr.dkr", private_dns_enabled = true }
-    sts     = { service = "sts", private_dns_enabled = true }
-    logs    = { service = "logs", private_dns_enabled = true }
-  }
+  endpoints = merge(
+    {
+      # Gateway endpoint: free, routed, carries all S3 (documents, previews) off the NAT.
+      s3 = {
+        service         = "s3"
+        service_type    = "Gateway"
+        route_table_ids = module.vpc.private_route_table_ids
+        tags            = { Name = "${var.name}-s3" }
+      }
+    },
+    var.enable_interface_endpoints ? {
+      # Interface endpoints: private image pulls, Pod Identity (STS) and logs — opt-in for high-traffic scale.
+      ecr_api = { service = "ecr.api", private_dns_enabled = true }
+      ecr_dkr = { service = "ecr.dkr", private_dns_enabled = true }
+      sts     = { service = "sts", private_dns_enabled = true }
+      logs    = { service = "logs", private_dns_enabled = true }
+    } : {}
+  )
 
   # Interface endpoints live in the private subnets, reachable only on HTTPS from inside the VPC.
-  subnet_ids         = module.vpc.private_subnets
-  security_group_ids = [aws_security_group.endpoints.id]
+  subnet_ids         = var.enable_interface_endpoints ? module.vpc.private_subnets : []
+  security_group_ids = var.enable_interface_endpoints ? [aws_security_group.endpoints[0].id] : []
 
   tags = var.tags
 }

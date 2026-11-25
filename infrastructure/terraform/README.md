@@ -26,9 +26,10 @@ terraform apply tfplan
 - State lives in S3 with native lockfiles, encrypted; never commit `*.tfstate`, `*.tfvars` or `backend.hcl`.
 - Generated credentials (DB URL, Redis host/user/password) are written to AWS Secrets Manager at
   `diligence/<env>/backend/infrastructure` and `diligence/<env>/frontend-redis`, encrypted with a customer-managed KMS
-  key; operator-managed values (application DB user, Sentry DSN, frontend session/OIDC secrets) live in
-  `diligence/<env>/backend/application` and `diligence/<env>/frontend`. The RDS master password is managed by RDS in
-  Secrets Manager. Application secrets never appear in Kubernetes manifests.
+  key; operator-managed values (application DB user, Sentry DSN, frontend session/OIDC secrets, Keycloak DB/admin
+  credentials) live in `diligence/<env>/backend/application`, `diligence/<env>/frontend`, and
+  `diligence/<env>/keycloak`. The RDS master password is managed by RDS in Secrets Manager. Application secrets never
+  appear in Kubernetes manifests.
 - Cluster add-ons (NGINX Ingress Controller, External Secrets Operator, cert-manager, kube-prometheus-stack,
   Tika, Gotenberg and ClamAV workloads) are installed via GitOps/Helm or `kubectl apply -k`, not by this Terraform.
 - The deploy workflow assumes `diligence-<env>-deploy` through GitHub OIDC (`modules/deploy-identity`, #164): only jobs
@@ -41,8 +42,9 @@ terraform apply tfplan
   privilege (the backend: documents bucket and its key only; External Secrets Operator: this environment's Secrets
   Manager secrets and KMS key). No static AWS keys in Kubernetes.
 - Cost & high availability: `high_availability` defaults to `false` (single NAT gateway, single-AZ RDS, one Redis
-  node) and can be flipped to `true` without changing security posture. `modules/network` provisions a free S3 gateway
-  endpoint plus ECR, STS and CloudWatch Logs interface endpoints to keep high-volume traffic off the NAT gateway.
+  node) and can be flipped to `true` without changing security posture. `modules/network` always provisions a free S3
+  gateway endpoint; ECR, STS and CloudWatch Logs interface endpoints are opt-in via `enable_interface_endpoints`
+  (default `false`, since interface endpoints charge hourly per AZ) and can be enabled for high-traffic scale.
   `modules/kubernetes-cluster` supports an optional tainted Spot node pool (`spot_instance_types`) for document
   processing workloads.
 - Encryption: customer-managed KMS keys (rotation on) for documents (S3), PostgreSQL storage and Performance

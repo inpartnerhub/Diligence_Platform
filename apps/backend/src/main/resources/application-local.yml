@@ -1,8 +1,4 @@
 # Activated with SPRING_PROFILES_ACTIVE=local for developer machines only.
-management:
-  tracing:
-    sampling:
-      probability: 1.0
 logging:
   structured:
     format:

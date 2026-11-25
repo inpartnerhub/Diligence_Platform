@@ -34,8 +34,8 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 │   ├── migrations/         Flyway migrations (one schema per module, RLS policies)
 │   └── seeds/              Local-only seed data (PRD Appendix B request-list template)
 ├── infrastructure/
-│   ├── docker/             Local stack service configs (Keycloak realm, Prometheus, Grafana, Tika, Gotenberg, ClamAV)
-│   ├── kubernetes/         Kustomize base + dev/staging/prod overlays
+│   ├── docker/             Local stack & custom images (Keycloak image & realm, Prometheus, Grafana, Tika, Gotenberg, ClamAV)
+│   ├── kubernetes/         Kustomize base + dev/staging/prod overlays, Keycloak, and processing namespaces
 │   └── terraform/          Cloud infrastructure: modules, stack, per-environment roots
 ├── tests/
 │   ├── e2e/                Playwright end-to-end tests
@@ -163,7 +163,7 @@ Secrets are never committed. `.env`, `*.tfvars` and `backend.hcl` are git-ignore
 | `backend.yml` | changes in `apps/backend`, `database` | build, unit, modularity and integration tests, coverage gate, image build + Trivy scan, cosign sign + push on `main` |
 | `frontend.yml` | changes in `apps/frontend` | format, lint, typecheck, unit tests, build, image build + Trivy scan, cosign sign + push on `main` |
 | `infrastructure.yml` | changes in `infrastructure`, `compose.yaml` | Terraform fmt/validate/tflint, kubeconform on all overlays, image pin & NetworkPolicy checks, compose & alert-rules validation |
-| `processing-images.yml` | changes in `infrastructure/docker/{clamav,gotenberg,tika}` | rebuilds digest-pinned ClamAV, Gotenberg, and Indonesian-OCR Tika images + Trivy scan, cosign sign + push on `main` |
+| `processing-images.yml` | changes in `infrastructure/docker/{clamav,gotenberg,tika,keycloak}` | rebuilds ClamAV, Gotenberg, Indonesian-OCR Tika, and production Keycloak images + Trivy scan, cosign sign + push on `main` |
 | `container-image.yml` | called by `backend`, `frontend`, `processing-images` | reusable Docker build, Trivy scan, GHCR push, SBOM, provenance, and keyless `cosign` signing |
 | `codeql.yml` | every PR/push to `main`, weekly | CodeQL SAST for Java, TypeScript, and GitHub Actions workflows |
 | `security.yml` | every PR/push, weekly | gitleaks, pinned-actions check, dependency review, Trivy filesystem + IaC misconfiguration scan |
