@@ -67,7 +67,7 @@ class ProjectPurgeIntegrationTest {
     @Autowired
     FailedEventPublications failedEvents;
 
-    // No S3 or OpenSearch in this test: the purge must reach them, so they are stubbed.
+    // No S3 in this test, and SearchIndex is stubbed: the purge must reach them.
     @MockitoBean
     DocumentStorage storage;
 

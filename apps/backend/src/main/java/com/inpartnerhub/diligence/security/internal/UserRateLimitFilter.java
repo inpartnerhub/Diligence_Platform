@@ -27,7 +27,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Limits requests per authenticated user (issue #63): Kong limits per IP, which a user (or a stolen session) can
+ * Limits requests per authenticated user (issue #63): the ingress limits per IP, which a user (or a stolen session) can
  * spread over many addresses. Counts are kept in Redis per user and one-minute window, shared by every replica;
  * search, downloads and exports have a stricter limit. Over the limit the request gets 429 with {@code Retry-After}
  * and is counted as {@code diligence_ratelimit_rejected_total}. When Redis is unavailable the filter lets requests

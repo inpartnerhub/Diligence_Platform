@@ -29,7 +29,7 @@ security incidents (unauthorised access, data leakage, malware, account takeover
    - Lock the data room by archiving the project if documents are being exfiltrated.
 3. **Preserve evidence.** Export the audit log for the period (`/admin/audit` → export, or
    `GET /api/v1/admin/audit-logs/export`). The audit log is append-only (ADM-03); do not delete anything. Keep
-   Keycloak events, Kong and application logs (OpenSearch) for the window.
+   Keycloak events, NGINX Ingress and application logs (structured JSON to stdout) for the window.
 4. **Assess.** Use the audit log to answer *who saw or downloaded what, when and from where* (ADM-04: activity per
    user and per document). Watermarks name the viewer, e-mail, IP and time on every page of a leaked copy (DOC-04).
 5. **Notify (UU PDP Art. 46).** If personal data was exposed, the DPO notifies the affected data subjects and the

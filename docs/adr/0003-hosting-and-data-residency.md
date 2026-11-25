@@ -1,6 +1,6 @@
 # ADR-0003: Hosting model and data residency
 
-- **Status:** Accepted (technical decision, 2026-11-13) — the Legal questions below remain open (PRD 15.2, #69)
+- **Status:** Partially superseded by [ADR-0011](0011-lean-architecture-simplification.md) (AWS ap-southeast-3 standardized as primary launch platform; multi-cloud DR deferred)
 - **Date:** 2026-10-30, decided 2026-11-13
 - **Deciders:** Steering committee (Partner, Product Owner, Tech Lead), Security Officer, Legal
 

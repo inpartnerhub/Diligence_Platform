@@ -19,7 +19,7 @@ import org.springframework.util.unit.DataSize;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Caps request bodies that are not multipart uploads (#117). Kong and Spring allow 100 MB because uploads need it,
+ * Caps request bodies that are not multipart uploads (#117). The ingress and Spring allow 100 MB because uploads need it,
  * and the public OIDC client lets any signed-in user call the API directly, so without this a JSON body of up to
  * 100 MB would be read into memory before validation. Runs before authentication: a declared {@code Content-Length}
  * above the limit is refused at once with 413; a body without one (chunked) is counted while it is read and fails

@@ -11,7 +11,6 @@ import java.util.Comparator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
@@ -26,17 +25,16 @@ import com.inpartnerhub.diligence.ingestion.ContentTypeDetector;
 import com.inpartnerhub.diligence.ingestion.PreviewRenderer;
 import com.inpartnerhub.diligence.ingestion.ScanException;
 import com.inpartnerhub.diligence.ingestion.TextExtractor;
-import com.inpartnerhub.diligence.shared.messaging.MessagingTopology;
 
 /**
- * Ingestion worker (PRD Bab 8.3): consumes {@link DocumentUploaded} from RabbitMQ, scans the content with ClamAV and
- * detects its real type with Tika. Infected, disallowed or unprocessable versions are reported as such. Clean ones
- * are enriched first — text extraction with OCR (DOC-06), a PDF rendition and pre-rendered page images (DOC-03) — and
- * then reported CLEAN together with what was produced.
+ * Ingestion worker (PRD Bab 8.3): processes {@link DocumentUploaded} jobs from the PostgreSQL queue, scans the
+ * content with ClamAV and detects its real type with Tika. Infected, disallowed or unprocessable versions are
+ * reported as such. Clean ones are enriched first — text extraction with OCR (DOC-06), a PDF rendition and
+ * pre-rendered page images (DOC-03) — and then reported CLEAN together with what was produced.
  * <p>
  * Transient outages are retried; when they persist the scan is reported FAILED, while a failing enrichment step only
  * degrades the result (no preview or no text) because the document itself is safe. Unexpected errors propagate to
- * the listener container (retries, then the dead-letter queue).
+ * {@link IngestionJobWorker}, which reschedules or marks the job failed.
  */
 @Component
 class IngestionPipeline {
@@ -64,10 +62,8 @@ class IngestionPipeline {
         this.properties = properties;
     }
 
-    // Off on the API pods, on in the diligence-ingestion Deployment (#162): untrusted files are then parsed (PDFBox,
-    // ImageIO) only in pods that serve no API traffic. Locally one process does both (default on).
-    @RabbitListener(queues = MessagingTopology.INGESTION_QUEUE,
-            autoStartup = "${diligence.ingestion.listener-enabled:true}")
+    // Driven by IngestionJobWorker (off on API pods, on in diligence-ingestion #162): untrusted files are then parsed
+    // (PDFBox, ImageIO) only in pods that serve no API traffic. Locally one process does both (default on).
     void onDocumentUploaded(DocumentUploaded event) {
         ScanException last = null;
         for (var attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

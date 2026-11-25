@@ -54,7 +54,7 @@ tests/performance/seed/seed.sh cleanup
 | `PROFILE` | `smoke` | `smoke` (2 page VUs, 30 s), `baseline` (20 / 5 / 10 rps, 3 min), `stress` (60 / 15 / 30 rps, 4 min), `prd` (950 page + 50 preview VUs = 1,000 users, 100 rps, 5 min ramp + 15 min; staging only) |
 | `SESSIONS` | VUs, at most 200 for `prd` | App sessions opened in `setup()`. VUs share them round-robin, like tabs of one browser. |
 | `APP_URL` | `http://localhost:3000` | Frontend (BFF) |
-| `API_URL` | `http://localhost:18080` | Backend, or Kong in deployed environments |
+| `API_URL` | `http://localhost:18080` | Backend, or Ingress in deployed environments |
 | `OIDC_ISSUER` | `http://localhost:8180/realms/diligence` | Keycloak realm |
 | `OIDC_CLIENT_SECRET` | — | Secret of the confidential `diligence-web` client (#175), for the API token: `OIDC_CLIENT_SECRET` from `.env` locally |
 | `PROJECT_ID` | — | Project the pages and API calls load (a seeded `PERF-*` project) |
@@ -73,9 +73,7 @@ Things to know:
   the same one. App sessions refresh their tokens in the BFF.
 - **Cookies.** k6 clears each VU's cookie jar between iterations unless `noCookiesReset` is set. `load.js` sets it so
   each VU keeps its session like a browser tab.
-- **Kong rate limit.** Kong allows 600 requests per minute per client address. Run against the backend directly, or
-  exempt the load generator's address, or the `api` scenario measures 429s.
-- **Per-user rate limit.** The backend also limits each user (600 requests per minute, 60 for search, downloads and
+- **Per-user rate limit.** The backend limits each user (600 requests per minute, 60 for search, downloads and
   exports). All VUs sign in as one account, so start the backend with `USER_RATE_LIMIT_ENABLED=false` for load runs.
 - **Response bodies.** Page and page-image bodies are discarded (`responseType: "none"`); only status, URL and
   headers are checked. That keeps 1,000 VUs within one load generator's memory.
@@ -107,31 +105,27 @@ cd tests/performance && K6_USER=pm.local K6_PASSWORD=<from .env> PROJECT_ID=<PER
 | `INGEST_TIMEOUT_MINUTES` | `120` | How long `teardown()` waits for the pipeline |
 
 The files stay in the project afterwards: use their folder as `PREVIEW_FOLDER_ID` for `load.js`, then remove them
-with the seed cleanup. While it runs, watch the ingestion queue depth in RabbitMQ and the ClamAV, Tika and Gotenberg
-replicas; those set the throughput.
+with the seed cleanup. While it runs, watch the ingestion queue depth in `dr.ingestion_job` (PostgreSQL) and the ClamAV,
+Tika and Gotenberg replicas; those set the throughput.
 
 ## PRD scale on staging
 
 PRD Bab 7 and Bab 14 ask for 1,000 concurrent users on 500,000 documents and a bulk upload of 10,000 files. A laptop
-cannot hold that (the local compose stack needs more than 4 GiB for the pipeline alone), so this run is for staging
-with production-like sizing.
+cannot hold that scale, so this run is for staging with production-like sizing.
 
 1. **Seed 500,000 documents.** `SEED_SCALE=prd` creates 50 projects. PERF-001 is the large data room with 50,000
-   documents, the others hold the rest. Run it where the database and OpenSearch are reachable (the bastion, or port
-   forwards); it needs `psql` and `curl`.
+   documents, the others hold the rest. Run it where the PostgreSQL database is reachable (the bastion, or port
+   forwards); it needs `psql` to seed rows and `dr.document_search_index` FTS entries.
 
    ```bash
    SEED_SCALE=prd SEED_MEMBER_EMAIL=<perf user email> \
      SEED_DATABASE_URL='postgresql://<owner>@<host>:5432/<db>?sslmode=require' \
-     OPENSEARCH_URL=https://<domain endpoint> OPENSEARCH_USERNAME=<master user> OPENSEARCH_PASSWORD=<…> \
      tests/performance/seed/seed.sh
    ```
 
-   It indexes one project at a time with refresh switched off and restores the index's refresh interval afterwards.
    Run `cleanup` first if PERF-* projects exist.
-2. **Prepare the environment.** Start the backend with `USER_RATE_LIMIT_ENABLED=false` (all VUs share one account) and
-   exempt the load generator from Kong's per-IP limit, or point `API_URL` past Kong. Use INFO logging and production
-   trace sampling.
+2. **Prepare the environment.** Start the backend with `USER_RATE_LIMIT_ENABLED=false` (all VUs share one account),
+   INFO logging, and lean/production trace sampling.
 3. **Bulk upload** with the **Performance** workflow: `test=upload`, `upload-files=10000`, `project-id=<PERF-001>`.
 4. **Load** with `test=load`, `profile=prd`, `project-id=<PERF-001>`, `preview-project-id=<PERF-001>` and a runner with
    at least 4 vCPU and 8 GiB (`runner` input; a GitHub larger runner or a self-hosted runner in the VPC). Set
@@ -176,8 +170,9 @@ for Docker). A rehearsal of the script, not a measurement of the target:
 |-------|-----------|------------|-----------|------------|------------------|-----------|
 | 150 | 5 | 133 ms | 150 / 150 | 20 / 20 | 32 s | 279 |
 
-With every service in 4 GiB of Docker memory, OpenSearch and ClamAV were OOM-killed during uploads: files then end
-`FAILED` or are not indexed, which the thresholds report.
+In an earlier pre-simplification baseline with OpenSearch in 4 GiB of Docker memory, OpenSearch and ClamAV were
+OOM-killed during uploads: files then end `FAILED` or are not indexed, which the thresholds report. (OpenSearch has
+since been replaced by PostgreSQL full-text search per ADR-0011.)
 
 Runs vary with what else the machine is doing. One baseline run with the load average around 7 reached a page P95
 of 835 ms. Compare runs made under the same conditions. These numbers are a baseline for one machine. The NFR targets (1,000 concurrent users, 500,000 documents) have to be

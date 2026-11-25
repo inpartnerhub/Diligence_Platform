@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Port for full-text search over document content (PRD DOC-06), backed by OpenSearch. The index holds one entry per
- * document (its current clean version). It does not authorize: callers pass the folders the user may see, and every
- * query is restricted to one project and those folders (information barrier, PRD Bab 3).
+ * Port for full-text search over document content (PRD DOC-06), backed by PostgreSQL full-text search. The index
+ * holds one entry per document (its current clean version). It does not authorize: callers pass the folders the user
+ * may see, and every query is restricted to one project and those folders (information barrier, PRD Bab 3).
  */
 public interface SearchIndex {
 
@@ -16,9 +16,9 @@ public interface SearchIndex {
     void index(IndexedDocument document);
 
     /**
-     * Adds or replaces many entries in bulk requests (re-index, issue #80), stamped like {@link #index}.
+     * Adds or replaces many entries in bulk (re-index, issue #80), stamped like {@link #index}.
      *
-     * @return the documents OpenSearch did not accept; empty when all were indexed
+     * @return any documents that could not be indexed; empty when all were indexed
      */
     List<UUID> indexAll(List<IndexedDocument> documents);
 

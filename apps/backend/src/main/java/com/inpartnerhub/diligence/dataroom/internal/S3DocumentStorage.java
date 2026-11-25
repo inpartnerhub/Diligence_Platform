@@ -16,8 +16,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 
 /**
- * Credentials resolve through the AWS default provider chain (env vars locally, workload identity / Vault-injected
- * env in Kubernetes) — never from application config.
+ * Credentials resolve through the AWS default provider chain (env vars locally, EKS Pod Identity workload identity
+ * in Kubernetes) — never from application config.
  */
 @Component
 class S3DocumentStorage implements DocumentStorage {

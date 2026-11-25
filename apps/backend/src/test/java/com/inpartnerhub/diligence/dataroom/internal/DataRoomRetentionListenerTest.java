@@ -16,6 +16,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import com.inpartnerhub.diligence.dataroom.DocumentStorage;
@@ -34,10 +35,11 @@ class DataRoomRetentionListenerTest {
     private final SearchIndex searchIndex = mock(SearchIndex.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final PreviewPageCache previewPages = mock(PreviewPageCache.class);
+    private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
 
     private final DataRoomRetentionListener listener = new DataRoomRetentionListener(
-            documents, versions, folders, storage, searchIndex, previewPages, events, transactions);
+            documents, versions, folders, storage, searchIndex, previewPages, events, jdbc, transactions);
 
     private final UUID projectId = UUID.randomUUID();
     private final ProjectDataPurgeRequested request = new ProjectDataPurgeRequested(projectId, "PRJ-TEST",
@@ -52,10 +54,11 @@ class DataRoomRetentionListenerTest {
         listener.on(request);
 
         // Bulk operations only (#123): one index request, one delete statement per table, no entity loading.
-        var order = inOrder(searchIndex, storage, previewPages, documents, folders, events);
+        var order = inOrder(searchIndex, storage, previewPages, jdbc, documents, folders, events);
         order.verify(searchIndex).removeProject(projectId);
         order.verify(storage).deletePrefix("projects/" + projectId + "/");
         order.verify(previewPages).evictProject(projectId);
+        order.verify(jdbc).update("delete from dr.ingestion_job where project_id = ?", projectId);
         order.verify(documents).deleteAllForProject(projectId);
         order.verify(folders).deleteAllForProject(projectId);
         verify(documents).countByProjectId(projectId);

@@ -8,8 +8,8 @@
    `topk(5, histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket[5m]))))`.
 2. Database: `hikaricp_connections_active` vs. pool size (`DB_POOL_SIZE`, default 20); slow queries in
    `pg_stat_statements` / RDS Performance Insights.
-3. Traces: open a slow request in the tracing backend (OpenTelemetry) to see whether time goes to SQL, OpenSearch,
-   S3 or a remote call.
+3. Traces: open a slow request in the tracing backend to see whether time goes to SQL (including the full-text search
+   query), S3 or a remote call.
 4. Load: HPA status `kubectl -n diligence get hpa`.
 
 ## Mitigate
@@ -17,5 +17,7 @@
 - Scale out: raise HPA `maxReplicas`; the backend is stateless.
 - Pool exhausted: look for code that holds a transaction during remote calls. Webhook deliveries deliberately run
   outside transactions (ADM-07); a regression there shows up as pending connections while receivers are slow.
-- Search slow: check OpenSearch cluster health and JVM pressure; scale the domain.
+- Search slow: full-text search runs in PostgreSQL (`dr.document_search_index`, GIN index on a generated `tsvector`).
+  Check the query plan (`EXPLAIN` the `websearch_to_tsquery` query) and database load; if the corpus has outgrown
+  `tsvector`, see the OpenSearch scale-up trigger in ADR-0011.
 - Never raise `DB_POOL_SIZE` above what RDS `max_connections` allows for all replicas together.

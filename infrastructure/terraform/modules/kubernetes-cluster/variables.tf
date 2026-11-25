@@ -21,6 +21,19 @@ variable "node_max_size" {
   type    = number
   default = 6
 }
+# Optional Spot pool for burstable, retriable processing workloads. Empty = no Spot pool (dev/staging default).
+variable "spot_instance_types" {
+  type    = list(string)
+  default = []
+}
+variable "spot_min_size" {
+  type    = number
+  default = 0
+}
+variable "spot_max_size" {
+  type    = number
+  default = 6
+}
 variable "tags" {
   type    = map(string)
   default = {}

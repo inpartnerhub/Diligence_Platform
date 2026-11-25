@@ -3,12 +3,12 @@ kind: Ingress
 metadata:
   name: diligence-api
   annotations:
-    konghq.com/plugins: diligence-rate-limiting,diligence-request-size,diligence-correlation-id
-    konghq.com/protocols: https
-    konghq.com/https-redirect-status-code: "308"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/limit-rpm: "600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt
 spec:
-  ingressClassName: kong
+  ingressClassName: nginx
   tls:
     - hosts: [api.example.com]
       secretName: diligence-api-tls
@@ -25,12 +25,11 @@ kind: Ingress
 metadata:
   name: diligence-web
   annotations:
-    konghq.com/plugins: diligence-correlation-id
-    konghq.com/protocols: https
-    konghq.com/https-redirect-status-code: "308"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt
 spec:
-  ingressClassName: kong
+  ingressClassName: nginx
   tls:
     - hosts: [app.example.com]
       secretName: diligence-web-tls

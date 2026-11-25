@@ -11,7 +11,7 @@ Closes #
 
 ## Outside this repository
 
-<!-- Steps needed in deployed environments (realm, Vault, Terraform apply, data migration), or "none". -->
+<!-- Steps needed in deployed environments (realm, AWS Secrets Manager, Terraform apply, data migration), or "none". -->
 
 ## Checklist
 

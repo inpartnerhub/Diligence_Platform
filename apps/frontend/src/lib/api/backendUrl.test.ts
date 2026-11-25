@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { backendUrl } from "./backendUrl";
 
-const base = "http://kong:8000";
+const base = "http://localhost:8080";
 
 describe("backend URLs", () => {
   it("keeps ordinary paths and queries", () => {
     expect(backendUrl("/api/v1/projects/p-1/search?q=a..b", base).href).toBe(
-      "http://kong:8000/api/v1/projects/p-1/search?q=a..b",
+      "http://localhost:8080/api/v1/projects/p-1/search?q=a..b",
     );
   });
 

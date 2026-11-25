@@ -47,7 +47,7 @@ import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
 /**
- * Sprint 9–10 end to end against real PostgreSQL and RabbitMQ: template request list, staged release hidden from the
+ * Sprint 9–10 end to end against real PostgreSQL: template request list, staged release hidden from the
  * target by row-level security (V9), internal notes behind the information barrier, delivery, notifications written
  * by the asynchronous listeners and daily reminders. The data room is replaced by a test double.
  */

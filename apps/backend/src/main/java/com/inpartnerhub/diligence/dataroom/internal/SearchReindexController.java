@@ -17,7 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping(ApiPaths.V1 + "/admin/search/reindex")
-// Reads every project's documents: platform operation for the Super Admin only (runbooks opensearch-reindex.md and
+// Reads every project's documents: platform operation for the Super Admin only (runbooks search-reindex.md and
 // backup-restore.md).
 @PreAuthorize("hasRole('SUPER_ADMIN')")
 @Tag(name = "Administration")

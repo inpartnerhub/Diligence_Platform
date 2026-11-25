@@ -50,8 +50,8 @@ import com.inpartnerhub.diligence.shared.web.StepUpRequiredException;
 /**
  * Issue #80 against real PostgreSQL (row-level security, the one-running-run index): the run indexes every current
  * CLEAN version with the text already in object storage, sweeps afterwards, keeps stale entries when a document failed,
- * rejects a second run while one is going on and takes over from an interrupted one. OpenSearch is a mock here; its
- * side is covered by {@code OpenSearchIndexIntegrationTest}.
+ * rejects a second run while one is going on and takes over from an interrupted one. SearchIndex is a mock here; its
+ * PostgreSQL implementation is covered by {@code PostgresSearchIndexIntegrationTest}.
  */
 @Tag("integration")
 @SpringBootTest(properties = {

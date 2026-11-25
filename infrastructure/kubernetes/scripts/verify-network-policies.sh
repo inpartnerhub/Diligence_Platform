@@ -50,7 +50,7 @@ fi
 # The managed data stores are reachable only through the VPC CIDR set per overlay (backend-egress-vpc-data, #180): a
 # wrong CIDR shows up here, not as a failing deployment later.
 # shellcheck disable=SC2016 # the host expressions are expanded inside the pod, from its environment
-for store in 'PostgreSQL|${DB_URL#*//}|5432' 'Redis|${REDIS_HOST}|${REDIS_PORT:-6379}' 'RabbitMQ|${RABBITMQ_HOST}|5671'; do
+for store in 'PostgreSQL|${DB_URL#*//}|5432' 'Redis|${REDIS_HOST}|${REDIS_PORT:-6379}'; do
   IFS='|' read -r name host port <<<"$store"
   # Expanded inside the pod, from its own environment; the host part stops at the first ':' or '/'.
   script="host=$host; host=\${host%%[:/]*}; exec 3<>/dev/tcp/\$host/$port"

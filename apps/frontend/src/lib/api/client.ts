@@ -31,7 +31,7 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 }
 
 /**
- * Server-side API client. All backend traffic goes through Kong (`API_BASE_URL`) with the user's access token
+ * Server-side API client. All backend traffic goes to the backend (`API_BASE_URL`) with the user's access token
  * from the server-side session; the browser never holds tokens or calls the backend directly. Response types come
  * from `schema.gen.ts`, generated from the OpenAPI spec (`npm run generate:api`).
  */

@@ -11,7 +11,7 @@ import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
 
 /**
  * Decides which URLs outbound webhooks may call (PRD ADM-07, Bab 10.1). Targets must use HTTPS and every address the
- * host resolves to must be public, so an administrator cannot point a webhook at Vault, Keycloak, the actuator port
+ * host resolves to must be public, so an administrator cannot point a webhook at Keycloak, the actuator port
  * or the cloud metadata endpoint. The check runs when a subscription is saved and again before each delivery. The
  * delivery then connects only to the addresses {@link #resolveForDelivery} checked, so a host that answers a public
  * address to the check and an internal one to the connection (DNS rebinding) is refused (#87). The

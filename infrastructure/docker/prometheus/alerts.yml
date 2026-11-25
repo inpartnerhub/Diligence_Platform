@@ -13,28 +13,13 @@ groups:
           summary: Backend instance {{ $labels.instance }} is not scraped
           runbook: docs/runbooks/backend-unavailable.md
       - alert: DiligenceKeycloakDown
-        # Job names differ between compose and the Kubernetes releases of Keycloak, Kong and RabbitMQ: match by pattern.
+        # Job names differ between compose and the Kubernetes release of Keycloak: match by pattern.
         expr: max by (job) (up{job=~".*keycloak.*"}) == 0
         for: 2m
         labels: { severity: critical }
         annotations:
           summary: "Keycloak ({{ $labels.job }}) is not scraped: sign-in and token refresh fail"
           runbook: docs/runbooks/keycloak-outage.md
-      - alert: DiligenceGatewayDown
-        expr: max by (job) (up{job=~".*kong.*"}) == 0
-        for: 2m
-        labels: { severity: critical }
-        annotations:
-          summary: "Kong ({{ $labels.job }}) is not scraped: the web app and the API are unreachable"
-          runbook: docs/runbooks/backend-unavailable.md
-      - alert: DiligenceMessageBrokerDown
-        # Self-hosted RabbitMQ only; a managed broker (Amazon MQ) is watched through the cloud provider's monitoring.
-        expr: max by (job) (up{job=~".*rabbitmq.*"}) == 0
-        for: 5m
-        labels: { severity: critical }
-        annotations:
-          summary: "RabbitMQ ({{ $labels.job }}) is not scraped: uploads are not scanned or processed"
-          runbook: docs/runbooks/dead-letter-queue.md
 
   - name: diligence-api
     rules:
@@ -119,13 +104,6 @@ groups:
 
   - name: diligence-pipeline
     rules:
-      - alert: DiligenceMessagesStuck
-        expr: sum(rabbitmq_queue_messages_ready) > 1000
-        for: 15m
-        labels: { severity: warning }
-        annotations:
-          summary: Document processing queue is backing up (scan, OCR, preview)
-          runbook: docs/runbooks/dead-letter-queue.md
       - alert: DiligenceEventsFailing
         # Listeners (search indexing, notifications, webhooks…) failing for longer than the retry job can fix.
         expr: max by (listener) (diligence_events_publications_incomplete{status="FAILED"}) > 0

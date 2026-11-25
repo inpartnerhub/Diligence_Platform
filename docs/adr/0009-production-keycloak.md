@@ -1,6 +1,6 @@
 # ADR-0009: Production Keycloak — self-hosted on the cluster, realm as code per environment
 
-- **Status:** Accepted (2026-11-14); implementation in #169
+- **Status:** Partially superseded by [ADR-0011](0011-lean-architecture-simplification.md) (1 replica at launch on AWS EKS/RDS; scale to 2+ replicas with HA)
 - **Date:** 2026-11-13, decided 2026-11-14
 - **Deciders:** Tech Lead / Architect, Security Officer, cluster owner (ADR-0007)
 

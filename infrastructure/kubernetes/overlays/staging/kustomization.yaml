@@ -24,46 +24,26 @@ patches:
       - op: replace
         path: /spec/minReplicas
         value: 2
-  - target: { kind: VaultStaticSecret, name: diligence-backend-infrastructure }
+  - target: { kind: ExternalSecret, name: diligence-backend-infrastructure }
     patch: |-
       - op: replace
-        path: /spec/path
+        path: /spec/dataFrom/0/extract/key
         value: diligence/staging/backend/infrastructure
-  - target: { kind: VaultStaticSecret, name: diligence-gateway-redis }
+  - target: { kind: ExternalSecret, name: diligence-backend-application }
     patch: |-
       - op: replace
-        path: /spec/path
-        value: diligence/staging/backend/infrastructure
-  - target: { kind: VaultStaticSecret, name: diligence-backend-application }
-    patch: |-
-      - op: replace
-        path: /spec/path
+        path: /spec/dataFrom/0/extract/key
         value: diligence/staging/backend/application
-  - target: { kind: VaultStaticSecret, name: diligence-frontend-secrets }
+  - target: { kind: ExternalSecret, name: diligence-frontend-secrets }
     patch: |-
       - op: replace
-        path: /spec/path
+        path: /spec/dataFrom/0/extract/key
         value: diligence/staging/frontend
-  - target: { kind: VaultStaticSecret, name: diligence-frontend-redis }
+  - target: { kind: ExternalSecret, name: diligence-frontend-redis }
     patch: |-
       - op: replace
-        path: /spec/path
+        path: /spec/dataFrom/0/extract/key
         value: diligence/staging/frontend-redis
-  - target: { kind: VaultStaticSecret, name: opensearch-admin }
-    patch: |-
-      - op: replace
-        path: /spec/path
-        value: diligence/staging/opensearch-admin
-  - target: { kind: NetworkPolicy, name: opensearch-bootstrap-egress }
-    patch: |-
-      - op: replace
-        path: /spec/egress/0/to/0/ipBlock/cidr
-        value: 10.20.0.0/16 # vpc_cidr in infrastructure/terraform/environments/staging/main.tf
-  - target: { kind: NetworkPolicy, name: backend-egress-vpc-https }
-    patch: |-
-      - op: replace
-        path: /spec/egress/0/to/0/ipBlock/cidr
-        value: 10.20.0.0/16 # vpc_cidr in infrastructure/terraform/environments/staging/main.tf
   - target: { kind: NetworkPolicy, name: backend-egress-vpc-data }
     patch: |-
       - op: replace

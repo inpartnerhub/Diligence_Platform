@@ -17,16 +17,18 @@ detection, IP restriction per project).
    default 200 in 15 min). The user's `document.downloaded` / `document.bulk_downloaded` entries show what was taken.
    Bulk downloads of 50+ documents already required a fresh sign-in with MFA (step-up), so a stolen session alone
    cannot trigger this; a stolen password + second factor, or an insider, can.
-5. **Rate-limited users:** application logs and Kong logs for `429` by user. The backend allows each user 600
-   requests per minute and 60 per minute for search, downloads and exports (`USER_RATE_LIMIT_*`); Kong separately
-   allows 600 per minute per IP. A user hitting the limit from several IPs points at a shared or stolen account.
+5. **Rate-limited users:** application logs and NGINX Ingress logs for `429` by user. The backend allows each user 600
+   requests per minute and 60 per minute for search, downloads and exports (`USER_RATE_LIMIT_*`); the ingress
+   separately allows 600 per minute per IP (`limit-rpm`). A user hitting the limit from several IPs points at a shared
+   or stolen account.
 6. **403/404 spike:** audit and application logs by user — many different project or document IDs from one account
    suggests ID probing (IDOR). Row-level security blocks the data; the pattern is still a sign of a compromised or
    malicious account.
 
 ## Mitigate
 
-- Block the source IP(s) at Kong / the load balancer (`ip-restriction` plugin) for spraying.
+- Block the source IP(s) at the NGINX Ingress / the load balancer (ingress `denylist-source-range` annotation or a
+  security group rule) for spraying.
 - Disable the targeted or suspicious account and sign out its sessions; ask the user to reset the password and
   re-enrol TOTP.
 - For a blocked external user from a legitimate new location, the project manager adds that network to the

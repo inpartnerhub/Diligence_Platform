@@ -1,7 +1,7 @@
 # Failed event listeners
 
 Modules react to each other through events (Spring Modulith, transactional outbox in `public.event_publication`):
-search indexing after a scan, notifications, webhooks, audit entries, clause extraction, the RabbitMQ externalizer.
+search indexing after a scan, notifications, webhooks, audit entries, clause extraction.
 A publication is deleted as soon as its listener completes (`completion-mode: delete`, #115), so the table only
 holds work in progress and failures. When a listener throws, its publication is marked **FAILED**. The backend retries it on its own (issue #81):
 
@@ -20,7 +20,7 @@ Alerts: `DiligenceEventsFailing` (a listener has had FAILED publications for 30 
    `SELECT listener_id, status, count(*), max(completion_attempts) FROM public.event_publication
    WHERE completion_date IS NULL GROUP BY 1, 2;`
 2. Why: backend log for that listener (`kubectl -n diligence logs deploy/diligence-backend --since=1h`), usually a
-   dependency: OpenSearch (`SearchIndexer`), SMTP (notifications), a webhook target, RabbitMQ (`externalize`).
+   dependency: the search index write (`SearchIndexer`), SMTP (notifications), a webhook target.
 3. Fix the dependency first; publications that still have attempts left are retried within the interval.
 
 ## Mitigate
@@ -33,7 +33,7 @@ Alerts: `DiligenceEventsFailing` (a listener has had FAILED publications for 30 
   ```
 
 - **Search indexing:** instead of retrying thousands of `SearchIndexer` events, rebuild the index once
-  ([opensearch-reindex.md](opensearch-reindex.md)), then mark those publications completed so the alert clears:
+  ([search-reindex.md](search-reindex.md)), then mark those publications completed so the alert clears:
 
   ```sql
   UPDATE public.event_publication SET status = 'COMPLETED', completion_date = now()
@@ -44,5 +44,5 @@ Alerts: `DiligenceEventsFailing` (a listener has had FAILED publications for 30 
   in the incident register, then complete it as above with `AND id = '<id>'`. Never delete rows of the audit listener
   (`AuditEventListener`): those are audit entries that were not written yet.
 
-Document processing (scan, OCR, previews) runs through RabbitMQ, not these events: see
-[dead-letter-queue.md](dead-letter-queue.md).
+Document processing (scan, OCR, previews) runs through the PostgreSQL ingestion queue (`dr.ingestion_job`), not these
+events: see [ingestion-queue.md](ingestion-queue.md).

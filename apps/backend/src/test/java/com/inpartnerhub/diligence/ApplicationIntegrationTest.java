@@ -15,7 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Boots the full context against real PostgreSQL and RabbitMQ: Flyway migrations validated against Hibernate,
+ * Boots the full context against real PostgreSQL: Flyway migrations validated against Hibernate,
  * append-only audit log, and the row-level-security information barrier (PRD Bab 3).
  */
 @Tag("integration")

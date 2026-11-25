@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * @param baseUrl             Keycloak base URL reachable from the backend (internal network address)
  * @param adminClientId       confidential client with a service account holding realm-management roles
- * @param adminClientSecret   injected from the environment / Vault, never committed
+ * @param adminClientSecret   injected from the environment / AWS Secrets Manager, never committed
  * @param webClientId         client the invitation e-mail links back to after the required actions
  * @param webRedirectUri      where users land after completing the invitation actions
  * @param invitationLifespan  validity of the invitation e-mail link

@@ -57,7 +57,7 @@ class RedisAccessStringsIntegrationTest {
         @SuppressWarnings("unchecked")
         Map<String, String> accessStrings = JsonMapper.builder().build().readValue(Files.readString(ACCESS_STRINGS),
                 Map.class);
-        for (var user : List.of("backend", "web", "gateway")) {
+        for (var user : List.of("backend", "web")) {
             var command = new ArrayList<>(List.of("valkey-cli", "--no-auth-warning", "-a", ADMIN_PASSWORD,
                     "ACL", "SETUSER", user, "reset", ">" + password(user)));
             command.addAll(List.of(accessStrings.get(user).split(" ")));
@@ -91,7 +91,7 @@ class RedisAccessStringsIntegrationTest {
             var health = new DataRedisHealthIndicator(context.getBean(RedisConnectionFactory.class)).health();
             assertThat(health.getStatus().getCode()).isEqualTo("UP");
 
-            // Never the web app's sessions, nor Kong's counters.
+            // Never the web app's sessions.
             assertThatThrownBy(() -> redis.opsForValue().get("diligence:session:abc")).hasStackTraceContaining("NOPERM");
             assertThatThrownBy(() -> redis.opsForValue().get("diligence:web:ratelimit:ip")).hasStackTraceContaining("NOPERM");
             assertThatThrownBy(() -> redis.opsForValue().get("ratelimit:route:service:1.2.3.4:0:minute"))
@@ -106,13 +106,6 @@ class RedisAccessStringsIntegrationTest {
             redis.opsForValue().set("diligence:session:abc", "encrypted", Duration.ofMinutes(1));
             assertThat(redis.opsForValue().get("diligence:session:abc")).isEqualTo("encrypted");
             assertThatThrownBy(() -> redis.opsForValue().get("diligence:cache:organizations::id"))
-                    .hasStackTraceContaining("NOPERM");
-        });
-        backend("gateway", password("gateway")).run(context -> {
-            var redis = context.getBean(StringRedisTemplate.class);
-            assertThat(redis.opsForValue().increment("ratelimit:route:service:1.2.3.4:0:minute")).isEqualTo(1);
-            assertThatThrownBy(() -> redis.opsForValue().get("diligence:session:abc")).hasStackTraceContaining("NOPERM");
-            assertThatThrownBy(() -> redis.opsForValue().get("diligence:ratelimit:STANDARD:user:1"))
                     .hasStackTraceContaining("NOPERM");
         });
     }

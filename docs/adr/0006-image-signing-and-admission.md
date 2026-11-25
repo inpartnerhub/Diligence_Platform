@@ -1,6 +1,6 @@
 # ADR-0006: Signed images and admission control with Kyverno
 
-- **Status:** Accepted
+- **Status:** Partially superseded by [ADR-0011](0011-lean-architecture-simplification.md) (cosign signing retained in CI; Kyverno admission made opt-in post-launch)
 - **Date:** 2026-11-13
 - **Deciders:** Maintainer (repository owner)
 

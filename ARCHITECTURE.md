@@ -7,27 +7,28 @@ How the Diligence Platform is structured and how its parts interact. Requirement
 
 ```
                          ┌──────────────────────────────┐
-   Browser ──HTTPS──────▶│ Kong API Gateway              │
-   (consultant, client,  │ TLS, routing, rate limits,     │
-    target, auditor)     │ request IDs, metrics, tracing  │
+   Browser ──HTTPS──────▶│ NGINX Ingress Controller     │
+   (consultant, client,  │ TLS, routing, body limits,   │
+    target, auditor)     │ request IDs                  │
       │                  └──────┬───────────────────────┬─┘
       │ OIDC redirect           │ app.*                 │ api.* /api/v1
       ▼                         ▼                       ▼
  ┌──────────┐  code+PKCE  ┌──────────────┐  server-side  ┌──────────────────┐
  │ Keycloak │◀───────────│ Frontend BFF  │── fetch with ─▶│ Backend          │
  │ OIDC,MFA,│  tokens     │ Next.js       │  user token   │ Spring Boot      │
- │ SSO (Entra│───────────▶│ session in    │  (via Kong)   │ modular monolith │
+ │ SSO (Entra│───────────▶│ session in    │               │ modular monolith │
  │ /Google) │             │ Redis         │               └────────┬─────────┘
  └──────────┘◀── JWKS / Admin API (service account) ───────────────┤
-                                                                    │
-       ┌──────────────┬──────────────┬─────────────┬────────────────┼──────────────┬──────────────┬─────────┐
-       ▼              ▼              ▼             ▼                ▼              ▼              ▼         ▼
-  PostgreSQL       Redis        S3 storage     RabbitMQ        OpenSearch    Tika + OCR      Gotenberg   ClamAV
-  (Flyway, RLS)  (cache,       (documents,    (events,        (full-text    (extraction,    (Office →   (malware)
-                  sessions)     previews)      DLQs)           search)       Tesseract)      PDF)
+                                                                   │
+       ┌──────────────┬──────────────┬──────────────┬──────────────┼──────────────┬─────────┐
+       ▼              ▼              ▼              ▼              ▼              ▼         ▼
+  PostgreSQL       Redis        S3 storage      Tika + OCR     Gotenberg      ClamAV
+  (Flyway, RLS,  (cache,       (documents,     (extraction,    (Office →     (malware)
+   job queue,     sessions)     previews)       Tesseract)      PDF)
+   tsvector FTS)
 
-  Cross-cutting: Vault (secrets) · SMTP (Mailpit locally) · OpenTelemetry → Collector → OpenSearch (traces, logs)
-                 Prometheus → Grafana (metrics) · Sentry (errors)
+  Cross-cutting: AWS Secrets Manager + ESO (secrets) · SMTP (Mailpit locally)
+                 Prometheus → Grafana (metrics, alerts) · Sentry (errors) · JSON stdout logs
 ```
 
 ## 2. Technology map
@@ -41,19 +42,19 @@ How the Diligence Platform is structured and how its parts interact. Requirement
 | Relational data | PostgreSQL 17, Hibernate (validate only), Flyway, row-level security | `database/migrations`, `application.yml` |
 | Cache / sessions | Redis (Valkey in AWS) | `application.yml`, `REDIS_URL` |
 | Object storage | S3 API (SeaweedFS locally) via AWS SDK v2 | `dataroom/internal/S3DocumentStorage` |
-| Search | OpenSearch via opensearch-java | `search/internal/OpenSearchConfiguration` |
-| Messaging | RabbitMQ (quorum queues, DLQs) + Modulith transactional outbox | `ingestion/internal/IngestionMessagingConfiguration` |
+| Search | PostgreSQL full-text search (`tsvector` + GIN in `dr.document_search_index`) | `search` / `dataroom` modules, Flyway migrations |
+| Async queue | PostgreSQL transactional queue (`dr.ingestion_job` via `SKIP LOCKED`) + Modulith outbox | `ingestion` / `dataroom` modules |
 | Text extraction / OCR | Apache Tika Server (`-full` image bundles Tesseract) | `ingestion` ports, `TIKA_URL` |
 | Preview renditions | Gotenberg (LibreOffice → PDF) | `ingestion.PreviewRenderer`, `GOTENBERG_URL` |
 | Malware scanning | ClamAV `clamd` over TCP | `ingestion.ContentScanner`, `CLAMAV_HOST` |
 | Identity | Keycloak: OIDC, conditional OTP, NDA required action, Entra ID / Google brokering | `infrastructure/docker/keycloak/diligence-realm.json` |
 | Authorization | RBAC (7 PRD roles) + per-module access components + PostgreSQL RLS | `security` module, module `*Access` classes, `V5__row_level_security.sql` |
 | E-mail | Spring Mail (SMTP); Keycloak sends account e-mails itself | `notification` module |
-| Gateway | Kong (DB-less locally, Kong Ingress Controller in Kubernetes) | `infrastructure/docker/kong`, `kubernetes/base/gateway` |
-| Secrets | HashiCorp Vault + Vault Secrets Operator | `kubernetes/base/*/vault-secret.yaml`, Terraform stack |
-| Runtime | Docker images, Kubernetes (Kustomize), AWS via Terraform (hosting decision open, ADR-0003) | `apps/*/Dockerfile`, `infrastructure/` |
-| Delivery | GitHub Actions, SonarQube, Trivy, gitleaks | `.github/workflows` |
-| Observability | OpenTelemetry, Prometheus, Grafana, OpenSearch, Sentry | `application.yml`, `infrastructure/docker/*` |
+| Ingress | NGINX Ingress Controller in Kubernetes (direct BFF → backend locally) | `infrastructure/kubernetes/base/gateway` |
+| Secrets | AWS Secrets Manager + External Secrets Operator (Kubernetes Secrets) | `infrastructure/kubernetes/`, Terraform stack |
+| Runtime | Docker images, Kubernetes (AWS EKS `ap-southeast-3` via Terraform, [ADR-0011](docs/adr/0011-lean-architecture-simplification.md)) | `apps/*/Dockerfile`, `infrastructure/` |
+| Delivery | GitHub Actions, CodeQL, Trivy, gitleaks, cosign | `.github/workflows` |
+| Observability | Prometheus, Grafana, Sentry, structured JSON logs (stdout) | `application.yml`, `infrastructure/docker/*` |
 
 ## 3. Backend: modular monolith
 
@@ -63,15 +64,15 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 
 | Module | PRD | Responsibility | Status |
 |--------|-----|---------------|--------|
-| `shared` | — | Shared kernel (open): problem details, paging, API paths, messaging names, `AuditableEvent` | ✅ |
+| `shared` | — | Shared kernel (open): problem details, paging, API paths, `AuditableEvent` | ✅ |
 | `security` | ADM-02, Bab 3 | JWT validation, Keycloak role mapping, `Role`, `CurrentUserProvider`, RLS transaction context | ✅ |
 | `admin` | ADM-01 | Organizations, user accounts, groups, invitations; Keycloak Admin API adapter; `/api/v1/me` | ✅ sprint 1–2 |
 | `audit` | ADM-03, ADM-04 | Append-only audit log fed by every `AuditableEvent`; search API | ✅ sprint 1–2 |
 | `notification` | ADM-05, REQ-04 | `Notifier` API: in-app inbox and e-mail per user preference; SMTP adapter | ✅ sprint 9–10 |
 | `project` | PRJ | Projects, members, workstreams, templates, dashboards | ✅ sprint 3–4 |
 | `dataroom` | DOC | Folder tree with per-folder grants, uploads, versions, duplicates; watermarked preview, download control, search | ✅ sprint 5–8 |
-| `ingestion` | DOC-02/03/06 | RabbitMQ worker: ClamAV scan, Tika type detection, text/OCR, PDF rendition, page images | ✅ sprint 5–8 |
-| `search` | DOC-06 | Full-text search with permission filtering | ⏳ client config |
+| `ingestion` | DOC-02/03/06 | PostgreSQL queue worker (`dr.ingestion_job`): ClamAV scan, Tika type detection, text/OCR, PDF rendition, page images | ✅ sprint 5–8 |
+| `search` | DOC-06 | Full-text search with permission filtering (PostgreSQL `tsvector` + RLS) | ✅ |
 | `request` | REQ | Request lists from template/Excel, waves, six-status workflow, delivery by the target, reminders, Excel/PDF export | ✅ sprint 9–10 |
 | `finding` | FND | Findings with impact × likelihood rating (configurable matrix), source documents with pages, four-eyes review and partner release | ✅ sprint 11–12 |
 | `qna` | QNA | Questions linked to documents, request items or findings; approval before the target sees them; answers with documents; Excel/PDF log | ✅ sprint 13–14 |
@@ -84,8 +85,9 @@ anything under `internal` is private, and `ModularityTests` fails the build on v
 2. **Synchronous calls go through the public API only** (types in the module's root package).
 3. **Each module owns a PostgreSQL schema** (`adm`, `audit`, `ntf`, `prj`, `req`, `dr`, `fnd`, `qna`, `rpt`);
    no cross-schema foreign keys.
-4. **Integration events** (`@Externalized`) are published to RabbitMQ from the outbox.
-5. **Adapters are internal.** Keycloak, S3, OpenSearch, Tika, Gotenberg and ClamAV clients sit behind ports.
+4. **Asynchronous document ingestion** uses the transactional `dr.ingestion_job` table in PostgreSQL (claimed with
+   `FOR UPDATE SKIP LOCKED`) rather than an external broker; module-to-module integration runs through `event_publication`.
+5. **Adapters are internal.** Keycloak, S3, Tika, Gotenberg and ClamAV clients sit behind ports.
 6. **Auditable actions** publish an event implementing `shared.audit.AuditableEvent`; the audit module records it
    with actor, IP and user agent captured at publish time.
 
@@ -115,7 +117,7 @@ Enforcement is layered so a UI bug cannot leak data:
 1. **Frontend** shows navigation per role (`src/lib/auth/permissions.ts`) — convenience only.
 2. **API** checks global roles with `@PreAuthorize` and project-scoped rules in each module's access component
    (`ProjectAccess`, `DataRoomAccess`, `FindingAccess`, `RequestAccess`, …), which loads the caller's project roles and
-   refuses what they may not do (deny by default; see CONTRIBUTING.md, Backend guidelines).
+   refuses what they may not do (deny by default; see [CONTRIBUTING.md](CONTRIBUTING.md), Backend guidelines).
 3. **Database** row-level security ([ADR-0004](docs/adr/0004-row-level-security.md)): every transaction runs as the
    non-owner role `diligence_app` with `app.user_id` / `app.role` set by `RowLevelSecurityTransactionManager`; the
    application logs in as `diligence_app` too, only Flyway uses the owner credential (#177).
@@ -141,7 +143,7 @@ Browser ─GET /admin/users─▶ Next proxy.ts: no diligence_sid cookie → 307
 Keycloak: password → OTP if role has mfa_required → NDA (first login, externals) → 302 /auth/callback?code
         ─GET /auth/callback─▶ code exchange (back-channel) → tokens stored in Redis under a random session id,
                               cookie diligence_sid = sealed id (HttpOnly, SameSite=Lax, Secure on HTTPS)
-Server components / actions ─▶ getSession(): refresh access token when < 30 s left → apiFetch(Bearer) → Kong → API
+Server components / actions ─▶ getSession(): refresh access token when < 30 s left → apiFetch(Bearer) → API
 POST /auth/logout (same-origin only) ─▶ delete Redis session → Keycloak end-session → back to app
 ```
 
@@ -169,8 +171,8 @@ set realm role → `execute-actions-email` with `VERIFY_EMAIL`, `UPDATE_PASSWORD
 Browser ─▶ Next route handler (streams, adds token) ─▶ POST /folders/{id}/documents (multipart, relativePath)
    dataroom: SHA-256 while streaming to S3 (KMS-encrypted) → version row, scan_status=PENDING (logical quarantine:
              nothing PENDING/INFECTED/REJECTED/FAILED is ever served); same name → new version; same hash → unchanged
-   └─ DocumentUploaded (outbox, same transaction) ─▶ RabbitMQ diligence.dataroom.events ─▶ diligence.ingestion.document-uploaded
-        ingestion worker (@RabbitListener, JSON):
+   └─ dr.ingestion_job row (same transaction) ─▶ polled via SKIP LOCKED
+        ingestion worker:
           ContentScanner (ClamAV INSTREAM) ── infected ─▶ INFECTED (signature recorded, audited)
           │ clean: ContentTypeDetector (Tika 4 /detect or Tika 3 /detect/stream, magic bytes) ── not on allowlist ─▶ REJECTED
           │ allowed ─▶ enrich, then CLEAN          transient scan outage ×3 ─▶ FAILED (never stuck in PENDING)
@@ -179,26 +181,25 @@ Browser ─▶ Next route handler (streams, adds token) ─▶ POST /folders/{id
           │     ─▶ PageRasterizer (PDFBox, ≤ 300 pages, ≤ 2400 px) ─▶ renditions/{v}/pages/NNNN.png
           │     ─▶ non-PDF originals also keep renditions/{v}/document.pdf for downloads
           │   enrichment failures degrade (no preview / no text), they never fail a clean document
-   ScanResults.recordClean ─▶ SearchIndexRequested (event registry, after commit) ─▶ SearchIndexer ─▶ OpenSearch
+   ScanResults.recordClean ─▶ SearchIndexRequested (event registry, after commit) ─▶ SearchIndexer ─▶ dr.document_search_index (tsvector)
 View ─▶ GET /documents/{d}/preview (audit "document.viewed") ─▶ GET …/versions/{v}/pages/{n}: stored PNG stamped
         per request with name · e-mail · IP · time (Watermarker, Java2D); the PDF never reaches the browser
 Download ─▶ folder policy (deny by default; partners/PMs exempt) ─▶ watermarked PDF (PDFBox; print permission
             removed and AES-256 owner password when printing is not allowed) or the original (internal team,
             or types without a PDF form) ─▶ audit "document.downloaded"
-Search ─▶ GET /projects/{p}/search ─▶ OpenSearch query filtered to the project and the folders the caller can see
-          (RLS + workstream scope), hits re-checked against the database ─▶ highlights marked U+E000…U+E001
+Search ─▶ GET /projects/{p}/search ─▶ PostgreSQL tsvector query on dr.document_search_index filtered to the project
+          and the folders the caller can see (RLS + workstream scope) ─▶ highlights/snippets
 ```
 
-The index (`<prefix>-documents`) analyses content three ways (standard, Indonesian and English stemming). OCR uses
-`OCR_LANGUAGES` (default `eng`); the stock `apache/tika:*-full` image ships eng/deu/fra/ita/spa/jpn, so Indonesian
-trained data (`ind`) needs a derived image with `tesseract-ocr-ind`. Viewer watermark times use `WATERMARK_ZONE`
-(default Asia/Jakarta).
+Full-text search stores weighted `tsvector` terms (document name + extracted text) in `dr.document_search_index` with
+a GIN index, evaluated directly under PostgreSQL RLS. OCR uses `OCR_LANGUAGES` (default `eng`); the stock
+`apache/tika:*-full` image ships eng/deu/fra/ita/spa/jpn, so Indonesian trained data (`ind`) needs a derived image with
+`tesseract-ocr-ind`. Viewer watermark times use `WATERMARK_ZONE` (default Asia/Jakarta).
 
-Unexpected errors in the worker are retried by the listener container, then dead-lettered to
-`diligence.ingestion.document-uploaded.dlq`. In Kubernetes the worker runs as its own Deployment,
-`diligence-ingestion` (same image, `INGESTION_LISTENER_ENABLED=true`, 2 GiB, no Service), and the API pods do not
-consume the queue (#162): untrusted files are parsed and rendered only in pods that serve no API traffic. Locally one
-process does both.
+Unexpected errors in the ingestion worker increment attempts on `dr.ingestion_job` and mark exhausted jobs `FAILED`
+with diagnostic details. In Kubernetes the worker runs as its own Deployment, `diligence-ingestion` (same image,
+`INGESTION_LISTENER_ENABLED=true`, 2 GiB, no Service), and the API pods do not poll the queue (#162): untrusted files
+are parsed and rendered only in pods that serve no API traffic. Locally one process does both.
 
 ## 7. Request list and notifications (PRD REQ-01…REQ-06, ADM-05; sprint 9–10)
 
@@ -284,33 +285,34 @@ phase 2.
 
 | Signal | Producer | Path | Consumer |
 |--------|----------|------|----------|
-| Metrics | Micrometer (`:8081/actuator/prometheus`), Kong, RabbitMQ | Prometheus (ServiceMonitor in Kubernetes) | Grafana |
-| Traces | Micrometer Tracing → OTLP; Kong OTel plugin; AMQP propagation | OTel Collector → OpenSearch | Grafana, OpenSearch Dashboards |
-| Logs | Structured JSON (ECS) to stdout, OTLP | OTel Collector → OpenSearch | Grafana, OpenSearch Dashboards |
+| Metrics | Micrometer (`:8081/actuator/prometheus`), NGINX Ingress | Prometheus (`ServiceMonitor` in Kubernetes) | Grafana |
+| Logs | Structured JSON (ECS) to stdout | Container runtime / CloudWatch Logs | Log viewer / CLI |
 | Errors | Sentry SDK (backend + frontend), no PII | Sentry | Sentry |
 | Security events | Keycloak login events, `audit.audit_log` | Keycloak event store, PostgreSQL | Admin → Audit log, alerting |
 
 ## 12. Deployment
 
 ```
-GitHub Actions ──build/test/scan──▶ GHCR (sha-tagged images, SBOM, provenance)
+GitHub Actions ──build/test/scan/cosign──▶ GHCR (sha-tagged images, SBOM, provenance)
       └─ deploy.yml (manual, environment-protected) ──kustomize edit set image──▶ kubectl apply -k overlays/<env>
 
-Terraform (environments/<env>) ──▶ network, Kubernetes, PostgreSQL, Redis, RabbitMQ, OpenSearch, object storage
-                               └─▶ Vault kv/diligence/<env>/backend/infrastructure
-Cluster add-ons (GitOps/Helm): Kong Ingress Controller, Vault Secrets Operator, cert-manager,
-                               kube-prometheus-stack, OpenTelemetry Collector, Tika, Gotenberg and ClamAV workloads
+Terraform (environments/<env>) ──▶ network, EKS (ap-southeast-3), RDS PostgreSQL, ElastiCache Valkey, S3, AWS Secrets Manager
+                               └─▶ External Secrets Operator (ClusterSecretStore / ExternalSecret)
+Cluster add-ons (GitOps/Helm): NGINX Ingress Controller, External Secrets Operator, cert-manager,
+                               kube-prometheus-stack, Tika, Gotenberg and ClamAV workloads
 ```
 
 | Environment | Namespace | Min replicas | Notes |
 |-------------|-----------|--------------|-------|
-| local | compose | 1 | OpenSearch security off, Vault dev mode, Keycloak `start-dev`, Mailpit |
-| dev | `diligence-dev` | 1 | Full tracing, API docs on |
-| staging | `diligence-staging` | 2 | Production-like, API docs on |
-| prod | `diligence-prod` | 3 | Multi-AZ data services, API docs off, approval-gated deploys |
+| local | compose | 1 | PostgreSQL queue + FTS, Keycloak `start-dev`, Mailpit (~3.5–4 GiB RAM) |
+| dev | `diligence-dev` | 1 | `high_availability = false`, API docs on |
+| staging | `diligence-staging` | 1–2 | Production-like, API docs on |
+| prod | `diligence-prod` | 2+ (app) | AWS `ap-southeast-3`, `high_availability` toggle (Single-AZ lean launch → Multi-AZ HA), API docs off, approval-gated deploys |
 
-Hosting model and data residency (UU PDP) are still open — see [ADR-0003](docs/adr/0003-hosting-and-data-residency.md).
-Migrations run at backend startup (Flyway advisory lock) and must be backward compatible with the previous release.
+Data residency (UU PDP) and the lean single-cloud AWS Jakarta (`ap-southeast-3`) launch architecture are governed by
+[ADR-0003](docs/adr/0003-hosting-and-data-residency.md) and
+[ADR-0011](docs/adr/0011-lean-architecture-simplification.md). Migrations run at backend startup (Flyway advisory
+lock) and must be backward compatible with the previous release.
 
 ## 13. Integration boundaries
 
@@ -318,10 +320,10 @@ Migrations run at backend startup (Flyway advisory lock) and must be backward co
 |----------|----------|-------|
 | Browser ↔ Frontend | HTML/RSC + server actions; only an opaque session cookie | frontend |
 | Frontend ↔ Backend | OpenAPI 3 at `/v3/api-docs`, `/api/v1`, RFC 9457 errors, bearer token | backend |
-| Client ↔ Gateway | Kong routes `/api/v1/*`; rate/size limits | ops |
+| Client ↔ Ingress | NGINX Ingress Controller routes `/api/v1/*` and web traffic; TLS & body-size limits | ops |
 | Apps ↔ Keycloak | OIDC (code + PKCE), JWKS, `aud=diligence-api`, realm roles; Admin REST via service account | security |
-| Module ↔ Module | Public package API + domain events; verified by `ModularityTests` | each module |
-| Backend ↔ RabbitMQ | `MessagingTopology` names; JSON events; DLQ per queue | publishing / consuming module |
-| Backend ↔ Storage/Search/Tika/Gotenberg/ClamAV | Ports in module API, adapters in `internal` | owning module |
-| Backend ↔ PostgreSQL | Flyway migrations in `database/`, schema per module, RLS context per transaction | owning module |
-| Apps ↔ Secrets | Environment variables only; populated by Vault | ops |
+| Module ↔ Module | Public package API + domain events (`event_publication`); verified by `ModularityTests` | each module |
+| Backend ↔ Ingestion worker | `dr.ingestion_job` table in PostgreSQL; transactional enqueue + `SKIP LOCKED` claim | `dataroom` / `ingestion` |
+| Backend ↔ Storage/Tika/Gotenberg/ClamAV | Ports in module API, adapters in `internal` | owning module |
+| Backend ↔ PostgreSQL | Flyway migrations in `database/`, schema per module, RLS context per transaction, `tsvector` FTS | owning module |
+| Apps ↔ Secrets | Environment variables only; populated from AWS Secrets Manager via External Secrets Operator | ops |

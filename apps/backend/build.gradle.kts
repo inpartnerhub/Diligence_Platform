@@ -3,7 +3,6 @@ plugins {
     jacoco
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
-    alias(libs.plugins.sonarqube)
 }
 
 java {
@@ -12,8 +11,6 @@ java {
 }
 
 // Security overrides of Spring Boot managed versions. Remove each one once the Boot BOM ships the fix.
-// amqp-client 5.30.0: CVE-2026-63337, CVE-2026-69219, CVE-2026-69220, CVE-2026-75516 (HIGH), fixed in ≤ 5.34.0.
-extra["rabbit-amqp-client.version"] = "5.37.0"
 // opentelemetry-api 1.62.0: CVE-2026-118259 (MEDIUM), fixed in 1.67.0.
 extra["opentelemetry.version"] = "1.67.0"
 
@@ -43,21 +40,18 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-cache") // Redis-backed reference-data cache (#60)
     implementation("software.amazon.awssdk:s3")
-    implementation(libs.opensearch.java)
     implementation("org.apache.httpcomponents.client5:httpclient5")
     implementation(libs.pdfbox) // page rasterising (previews) and watermarked PDF downloads
     implementation(libs.poi.ooxml) // request-list Excel import/export (REQ-01, REQ-05)
     implementation(libs.shedlock.spring) // one replica runs scheduled jobs (REQ-04 reminders)
     implementation(libs.shedlock.jdbc)
 
-    // Messaging & notifications
-    implementation("org.springframework.boot:spring-boot-starter-amqp")
+    // Notifications
     implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // Modular monolith
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.springframework.modulith:spring-modulith-starter-jdbc")
-    implementation("org.springframework.modulith:spring-modulith-events-amqp")
     runtimeOnly("org.springframework.modulith:spring-modulith-actuator")
     runtimeOnly("org.springframework.modulith:spring-modulith-observability")
 
@@ -74,7 +68,6 @@ dependencies {
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
-    testImplementation("org.testcontainers:testcontainers-rabbitmq")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -131,11 +124,4 @@ tasks.bootJar {
 
 tasks.jar {
     enabled = false
-}
-
-sonar {
-    properties {
-        property("sonar.projectKey", "diligence-backend")
-        property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
-    }
 }

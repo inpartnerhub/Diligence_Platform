@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { contentSecurityPolicy } from "@/lib/security/csp";
 import { isCrossSiteWrite } from "@/lib/security/crossSite";
-import { checkRateLimit, resolveClientIp } from "@/lib/security/rateLimiter";
 
 /**
  * Optimistic check only: no session cookie → start the login flow. The session itself is validated (and tokens
@@ -10,9 +9,7 @@ import { checkRateLimit, resolveClientIp } from "@/lib/security/rateLimiter";
  * here, including the not-found page for file-like paths such as /robots.txt, gets a Content-Security-Policy with
  * a fresh script nonce.
  *
- * Sensitive paths (auth initiation/callback and server actions) are protected by a sliding-window rate limiter
- * to prevent brute-force attacks and mutation flooding. State-changing requests from another site (server actions,
- * logout) are rejected before anything else (issue #79).
+ * State-changing requests from another site (server actions, logout) are rejected before anything else (issue #79).
  */
 // Read by requireSession (src/lib/auth/session.ts); keep the names in sync.
 const RETURN_TO_HEADER = "x-diligence-return-to";
@@ -21,57 +18,11 @@ const NONCE_HEADER = "x-diligence-nonce";
 
 const FILE_PATH = /\.[a-z0-9]+$/;
 
-// Rate limiting can be disabled or relaxed in test/CI environments.
-// Hard security guardrail: Never allow disabling in production.
-const isRateLimitDisabled =
-  process.env.RATE_LIMIT_DISABLED === "true" && process.env.NODE_ENV !== "production";
-
-const parseLimit = (value: string | undefined, fallback: number): number => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const AUTH_LIMIT = {
-  windowSeconds: 60,
-  maxRequests: parseLimit(process.env.RATE_LIMIT_AUTH_MAX, 30),
-};
-const ACTION_LIMIT = {
-  windowSeconds: 60,
-  maxRequests: parseLimit(process.env.RATE_LIMIT_ACTION_MAX, 60),
-};
-
-export async function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuth = pathname.startsWith("/auth/");
   if (isCrossSiteWrite(request.method, request.headers, process.env.APP_BASE_URL)) {
     return NextResponse.json({ status: 403, detail: "Cross-site request rejected" }, { status: 403 });
-  }
-  const isServerAction =
-    request.headers.has("next-action") ||
-    (request.method === "POST" && !isAuth && !pathname.startsWith("/api/"));
-
-  if (!isRateLimitDisabled && (isAuth || isServerAction)) {
-    const trustedHops = Number(process.env.TRUSTED_PROXY_HOPS ?? "0");
-    const ip = resolveClientIp(request.headers, trustedHops);
-    const scope = isAuth ? "auth" : "action";
-    const options = isAuth ? AUTH_LIMIT : ACTION_LIMIT;
-    const result = await checkRateLimit(`${scope}:${ip}`, options);
-
-    if (!result.allowed) {
-      return new NextResponse(
-        JSON.stringify({ status: 429, detail: "Too Many Requests", retryAfter: result.retryAfter }),
-        {
-          status: 429,
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(result.retryAfter),
-            "X-RateLimit-Limit": String(result.limit),
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(result.retryAfter),
-          },
-        },
-      );
-    }
   }
 
   // Auth routes are route handlers with dedicated NON_DOCUMENT_POLICY from next.config.ts; do not inject page CSP.
