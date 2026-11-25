@@ -5,7 +5,8 @@ FROM gotenberg/gotenberg:8.40.0@sha256:53073e798c8ef39ea2187e44cb67bab77894ea250
 
 USER root
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade \
+    && apt-get -y upgrade \
+    && apt-get -y dist-upgrade \
     && rm -rf /var/lib/apt/lists/* \
     && groupmod -g 10101 gotenberg \
     && usermod -u 10101 -g 10101 gotenberg \
