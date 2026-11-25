@@ -1,6 +1,7 @@
 package com.inpartnerhub.diligence.ingestion.internal;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,18 +12,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.zip.ZipInputStream;
 
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+
 import com.inpartnerhub.diligence.ingestion.ScanException;
 
 /**
  * Lightweight content-based MIME type detector used when an external Apache Tika Server is not configured
- * ({@code TIKA_URL} is empty). Uses magic bytes and ZIP/OOXML container inspection so spoofed file extensions (e.g.
- * executables renamed to {@code .pdf}) still fail the ingestion allowlist.
+ * ({@code TIKA_URL} is empty). Uses magic bytes and ZIP/OOXML/OLE2 container inspection so spoofed file extensions
+ * (e.g. executables renamed to {@code .pdf} or {@code .xls} renamed to {@code .doc}) still reflect actual content.
  */
 final class EmbeddedContentTypeDetector {
 
     private static final int SAMPLE_BYTES = 8192;
     private static final int MAX_ZIP_ENTRIES = 512;
     private static final int MAX_MIMETYPE_ENTRY_BYTES = 128;
+    private static final int MAX_OLE2_INSPECT_BYTES = 16 * 1024 * 1024;
 
     private static final byte[] PDF_MAGIC = "%PDF-".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] PNG_MAGIC = new byte[] { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
@@ -67,7 +71,7 @@ final class EmbeddedContentTypeDetector {
                 return detectZipContainer(buffered);
             }
             if (startsWith(header, OLE2_MAGIC)) {
-                return detectOle2(fileName);
+                return detectOle2(buffered, fileName);
             }
             if (looksLikeUtf8Text(header)) {
                 return detectTextExtension(fileName);
@@ -128,7 +132,34 @@ final class EmbeddedContentTypeDetector {
         return out.toString(StandardCharsets.US_ASCII).strip();
     }
 
-    private static String detectOle2(String fileName) {
+    private static String detectOle2(InputStream stream, String fileName) throws IOException {
+        var bytes = stream.readNBytes(MAX_OLE2_INSPECT_BYTES + 1);
+        if (bytes.length > MAX_OLE2_INSPECT_BYTES) {
+            return detectOle2ByExtension(fileName);
+        }
+        try (var fs = new POIFSFileSystem(new ByteArrayInputStream(bytes))) {
+            var root = fs.getRoot();
+            if (root.hasEntryCaseInsensitive("WordDocument")) {
+                return "application/msword";
+            }
+            if (root.hasEntryCaseInsensitive("Workbook") || root.hasEntryCaseInsensitive("Book")) {
+                return "application/vnd.ms-excel";
+            }
+            if (root.hasEntryCaseInsensitive("PowerPoint Document")) {
+                return "application/vnd.ms-powerpoint";
+            }
+            for (var entryName : root.getEntryNames()) {
+                if (entryName.startsWith("__substg1.0_")) {
+                    return "application/vnd.ms-outlook";
+                }
+            }
+            return "application/x-ole-storage";
+        } catch (IOException | RuntimeException ex) {
+            return detectOle2ByExtension(fileName);
+        }
+    }
+
+    private static String detectOle2ByExtension(String fileName) {
         return switch (extensionOf(fileName)) {
             case "doc" -> "application/msword";
             case "xls" -> "application/vnd.ms-excel";

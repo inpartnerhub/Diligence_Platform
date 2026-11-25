@@ -18,12 +18,14 @@ import org.springframework.boot.context.properties.bind.ConstructorBinding;
  * @param serviceTimeout       read timeout for Tika and Gotenberg (OCR and Office conversion are slow)
  * @param pollInterval         delay between queue polls when no ingestion jobs are waiting
  * @param staleLockTimeout     how long a {@code PROCESSING} job may stay locked before being reclaimed
+ * @param clamavMode           antivirus enforcement mode: {@code required} (default, fail closed if host unset),
+ *                             {@code clamav}, {@code external}, or {@code disabled}
  */
 @ConfigurationProperties("diligence.ingestion")
 record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
         List<String> allowedContentTypes, Duration retryBackoff, String ocrLanguages, Integer maxTextChars,
         Integer previewMaxPages, Integer previewDpi, Duration serviceTimeout,
-        Duration pollInterval, Duration staleLockTimeout) {
+        Duration pollInterval, Duration staleLockTimeout, String clamavMode) {
 
     static final List<String> DEFAULT_ALLOWED = List.of(
             "application/pdf",
@@ -53,6 +55,17 @@ record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int
         serviceTimeout = serviceTimeout == null ? Duration.ofMinutes(5) : serviceTimeout;
         pollInterval = pollInterval == null ? Duration.ofSeconds(2) : pollInterval;
         staleLockTimeout = staleLockTimeout == null ? Duration.ofMinutes(10) : staleLockTimeout;
+        clamavMode = normalizeClamavMode(clamavMode);
+    }
+
+    static String normalizeClamavMode(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "required";
+        }
+        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
+            case "required", "clamav", "external", "disabled" -> raw.trim().toLowerCase(Locale.ROOT);
+            default -> "required";
+        };
     }
 
     static String normalizeOcrLanguages(String raw) {
@@ -70,19 +83,28 @@ record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int
         return list.isEmpty() ? "eng+ind" : String.join("+", list);
     }
 
+    /** Defaults for {@code clamavMode} (tests). */
+    IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
+            List<String> allowedContentTypes, Duration retryBackoff, String ocrLanguages, Integer maxTextChars,
+            Integer previewMaxPages, Integer previewDpi, Duration serviceTimeout,
+            Duration pollInterval, Duration staleLockTimeout) {
+        this(tikaUrl, gotenbergUrl, clamavHost, clamavPort, allowedContentTypes, retryBackoff, ocrLanguages,
+                maxTextChars, previewMaxPages, previewDpi, serviceTimeout, pollInterval, staleLockTimeout, null);
+    }
+
     /** Defaults for queue settings (tests). */
     IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
             List<String> allowedContentTypes, Duration retryBackoff, String ocrLanguages, Integer maxTextChars,
             Integer previewMaxPages, Integer previewDpi, Duration serviceTimeout) {
         this(tikaUrl, gotenbergUrl, clamavHost, clamavPort, allowedContentTypes, retryBackoff, ocrLanguages,
-                maxTextChars, previewMaxPages, previewDpi, serviceTimeout, null, null);
+                maxTextChars, previewMaxPages, previewDpi, serviceTimeout, null, null, null);
     }
 
     /** Defaults for everything but the service endpoints (tests). */
     IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
             List<String> allowedContentTypes, Duration retryBackoff) {
         this(tikaUrl, gotenbergUrl, clamavHost, clamavPort, allowedContentTypes, retryBackoff, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     boolean isAllowed(String contentType) {

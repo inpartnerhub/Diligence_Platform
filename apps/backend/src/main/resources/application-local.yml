@@ -15,6 +15,7 @@ diligence:
     tika-url: ${TIKA_URL:http://localhost:9998}
     gotenberg-url: ${GOTENBERG_URL:http://localhost:3002}
     clamav-host: ${CLAMAV_HOST:localhost}
+    clamav-mode: ${CLAMAV_MODE:required}
 springdoc:
   api-docs:
     enabled: true
