@@ -14,13 +14,19 @@ import java.util.zip.ZipOutputStream;
 
 import javax.imageio.ImageIO;
 
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.boot.health.contributor.Status;
 import org.springframework.web.client.RestClient;
 
 import com.inpartnerhub.diligence.ingestion.ScanException;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class EmbeddedIngestionTest {
 
@@ -47,6 +53,16 @@ class EmbeddedIngestionTest {
         assertThat(EmbeddedContentTypeDetector.detect(
                 stream("Plain notes".getBytes(StandardCharsets.UTF_8)), "notes.txt"))
                 .isEqualTo("text/plain");
+        assertThat(EmbeddedContentTypeDetector.detect(stream(xls("Revenue", 9900)), "legacy.xls"))
+                .isEqualTo("application/vnd.ms-excel");
+        assertThat(EmbeddedContentTypeDetector.detect(stream(odt("Akta Perusahaan")), "akta.odt"))
+                .isEqualTo("application/vnd.oasis.opendocument.text");
+    }
+
+    @Test
+    void detectsRealOle2ContainerTypeEvenWhenExtensionIsSpoofed() throws Exception {
+        assertThat(EmbeddedContentTypeDetector.detect(stream(xls("EBITDA", 42000)), "spoofed.doc"))
+                .isEqualTo("application/vnd.ms-excel");
     }
 
     @Test
@@ -90,6 +106,16 @@ class EmbeddedIngestionTest {
                 .contains("Executive Summary");
 
         assertThat(EmbeddedTextExtractor.extract(
+                stream(xls("Gross Profit", 75000)),
+                "application/vnd.ms-excel", 5000))
+                .contains("LegacySummary", "Gross Profit", "75000");
+
+        assertThat(EmbeddedTextExtractor.extract(
+                stream(odt("Perjanjian Investasi")),
+                "application/vnd.oasis.opendocument.text", 5000))
+                .contains("Perjanjian Investasi");
+
+        assertThat(EmbeddedTextExtractor.extract(
                 stream("  1234567890  ".getBytes(StandardCharsets.UTF_8)), "text/plain; charset=UTF-8", 5))
                 .isEqualTo("123");
 
@@ -105,8 +131,31 @@ class EmbeddedIngestionTest {
     void adaptersFallBackCleanlyWhenExternalUrlsAreUnset() throws Exception {
         var props = new IngestionProperties(null, null, "", 3310, null, null);
 
-        var scanner = new ClamAvScanner(props);
-        assertThat(scanner.scan(stream(new byte[] { 1, 2, 3 })).clean()).isTrue();
+        var requiredMeters = new SimpleMeterRegistry();
+        var requiredScanner = new ClamAvScanner(props, provider(requiredMeters));
+        assertThatThrownBy(() -> requiredScanner.scan(stream(new byte[] { 1, 2, 3 })))
+                .isInstanceOfSatisfying(ScanException.class, ex -> assertThat(ex.isTransientFailure()).isFalse());
+        assertThat(requiredScanner.health().getStatus()).isEqualTo(Status.DOWN);
+        assertThat(requiredMeters.get("diligence_ingestion_av_enabled").gauge().value()).isZero();
+
+        var externalProps = new IngestionProperties(null, null, "", 3310, null, null,
+                null, null, null, null, null, null, null, "external");
+        var externalMeters = new SimpleMeterRegistry();
+        var externalScanner = new ClamAvScanner(externalProps, provider(externalMeters));
+        assertThat(externalScanner.scan(stream(new byte[] { 1, 2, 3 })).clean()).isTrue();
+        assertThat(externalScanner.health().getStatus()).isEqualTo(Status.UP);
+        assertThat(externalMeters.get("diligence_ingestion_av_enabled").gauge().value()).isZero();
+
+        var activeProps = new IngestionProperties(null, null, "localhost", 3310, null, null);
+        var activeMeters = new SimpleMeterRegistry();
+        var activeScanner = new ClamAvScanner(activeProps, provider(activeMeters));
+        assertThat(activeScanner.health().getStatus()).isEqualTo(Status.UP);
+        assertThat(activeMeters.get("diligence_ingestion_av_enabled").gauge().value()).isEqualTo(1.0);
+
+        assertThat(IngestionProperties.normalizeClamavMode(null)).isEqualTo("required");
+        assertThat(IngestionProperties.normalizeClamavMode("  EXTERNAL ")).isEqualTo("external");
+        assertThat(IngestionProperties.normalizeClamavMode("Disabled")).isEqualTo("disabled");
+        assertThat(IngestionProperties.normalizeClamavMode("bogus")).isEqualTo("required");
 
         var detector = new TikaContentTypeDetector(RestClient.builder(), props);
         assertThat(detector.detect(stream(docx("Embedded detection")), "test.docx"))
@@ -118,15 +167,56 @@ class EmbeddedIngestionTest {
                 .contains("Embedded extraction");
 
         var renderer = new GotenbergPreviewRenderer(RestClient.builder(), props);
-        assertThat(renderer.supports("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
-                .isFalse();
-        assertThatThrownBy(() -> renderer.renderPdf(stream(new byte[0]), "test.docx",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", Path.of("unused.pdf")))
+        assertThat(renderer.supports("application/msword")).isFalse();
+        assertThatThrownBy(() -> renderer.renderPdf(stream(new byte[0]), "legacy.doc",
+                "application/msword", Path.of("unused.pdf")))
                 .isInstanceOfSatisfying(ScanException.class, ex -> assertThat(ex.isTransientFailure()).isFalse());
+    }
+
+    private static org.springframework.beans.factory.ObjectProvider<MeterRegistry> provider(MeterRegistry registry) {
+        var beans = new StaticListableBeanFactory();
+        beans.addBean("meterRegistry", registry);
+        return beans.getBeanProvider(MeterRegistry.class);
     }
 
     private static ByteArrayInputStream stream(byte[] bytes) {
         return new ByteArrayInputStream(bytes);
+    }
+
+    private static byte[] xls(String label, double value) throws IOException {
+        try (var wb = new HSSFWorkbook(); var out = new ByteArrayOutputStream()) {
+            var sheet = wb.createSheet("LegacySummary");
+            var row = sheet.createRow(0);
+            row.createCell(0).setCellValue(label);
+            row.createCell(1).setCellValue(value);
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private static byte[] odt(String text) throws IOException {
+        var out = new ByteArrayOutputStream();
+        try (var zip = new ZipOutputStream(out)) {
+            zip.putNextEntry(new ZipEntry("mimetype"));
+            zip.write("application/vnd.oasis.opendocument.text".getBytes(StandardCharsets.US_ASCII));
+            zip.closeEntry();
+
+            zip.putNextEntry(new ZipEntry("content.xml"));
+            var xml = """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+                                             xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
+                      <office:body>
+                        <office:text>
+                          <text:p>%s</text:p>
+                        </office:text>
+                      </office:body>
+                    </office:document-content>
+                    """.formatted(text);
+            zip.write(xml.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return out.toByteArray();
     }
 
     private static byte[] docx(String text) throws IOException {

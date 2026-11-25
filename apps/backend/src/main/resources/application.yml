@@ -206,6 +206,7 @@ diligence:
     gotenberg-url: ${GOTENBERG_URL:}
     clamav-host: ${CLAMAV_HOST:}
     clamav-port: ${CLAMAV_PORT:3310}
+    clamav-mode: ${CLAMAV_MODE:required}
     # Tesseract languages for scanned documents and images (the image must have the trained data installed).
     ocr-languages: ${OCR_LANGUAGES:eng+ind}
 

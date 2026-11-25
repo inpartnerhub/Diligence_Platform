@@ -8,6 +8,7 @@
 # Optional profiles:
 #   --profile local-storage          # self-hosted SeaweedFS S3 (if not using external AWS S3 / Cloudflare R2)
 #   --profile processing             # adds ClamAV, Tika OCR, and Gotenberg (~+5 GiB RAM; use 8 vCPU / 16 GiB VPS)
+#   --profile observability          # adds Prometheus + alert rules on 127.0.0.1:9090 (~+384 MiB RAM)
 
 name: diligence-prod
 
@@ -145,12 +146,16 @@ services:
       LOG_FORMAT: ${LOG_FORMAT:-ecs}
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
       # Single-server mode runs ingestion inside the backend process; set CLAMAV_HOST/TIKA_URL/GOTENBERG_URL if
-      # enabling --profile processing. Leave empty for embedded PDFBox/POI detection & extraction.
+      # enabling --profile processing. Leave empty for embedded PDFBox/POI detection, extraction & rendering.
+      # Backend fails closed when CLAMAV_MODE=required; "external" assumes AWS S3 GuardDuty Malware Protection
+      # (or similar). Pair --profile processing with CLAMAV_MODE=clamav and CLAMAV_HOST=clamav.
       INGESTION_LISTENER_ENABLED: "true"
       TIKA_URL: ${TIKA_URL:-}
       GOTENBERG_URL: ${GOTENBERG_URL:-}
+      CLAMAV_MODE: ${CLAMAV_MODE:-external}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
       OCR_LANGUAGES: ${OCR_LANGUAGES:-eng+ind}
+      HTTP_MAX_CONCURRENT_UPLOADS: ${HTTP_MAX_CONCURRENT_UPLOADS:-4}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-diligence}
       DB_USERNAME: ${POSTGRES_USER:-diligence}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
@@ -180,6 +185,9 @@ services:
       USER_RATE_LIMIT_ENABLED: ${USER_RATE_LIMIT_ENABLED:-true}
       API_DOCS_ENABLED: "false"
       SENTRY_DSN: ${SENTRY_DSN:-}
+    # Loopback-only management port (/actuator/health, /actuator/prometheus) for host monitoring or SSH tunnel.
+    ports:
+      - "127.0.0.1:8081:8081"
     networks: [internal]
 
   frontend:
@@ -274,6 +282,24 @@ services:
     command: ["gotenberg", "--api-disable-health-check-logging", "--api-timeout=120s"]
     networks: [internal]
 
+  # ---------------------------------------------------------------- opt-in: Prometheus + alert rules (--profile observability)
+  prometheus:
+    <<: *hardening
+    profiles: [observability]
+    image: prom/prometheus:v3.16.0
+    mem_limit: 384m
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=14d"
+    volumes:
+      - ./infrastructure/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/docker/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [internal]
+
 volumes:
   caddy-data:
   caddy-config:
@@ -281,3 +307,4 @@ volumes:
   redis-data:
   object-storage-data:
   clamav-data:
+  prometheus-data:

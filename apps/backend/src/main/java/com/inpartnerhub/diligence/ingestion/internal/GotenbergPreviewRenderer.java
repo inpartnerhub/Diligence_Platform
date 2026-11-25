@@ -47,7 +47,7 @@ class GotenbergPreviewRenderer implements PreviewRenderer {
     GotenbergPreviewRenderer(RestClient.Builder builder, IngestionProperties properties) {
         if (properties.gotenbergUrl() == null || properties.gotenbergUrl().toString().isBlank()) {
             this.http = null;
-            log.info("GOTENBERG_URL is not set — Office-to-PDF preview conversion disabled (PDF/image previews remain active)");
+            log.info("GOTENBERG_URL is not set — using embedded PDFBox/POI PDF renderer for DOCX/XLSX/PPTX/TXT/CSV");
         } else {
             this.http = IngestionHttp.client(builder, properties.gotenbergUrl(), properties.serviceTimeout());
         }
@@ -55,13 +55,17 @@ class GotenbergPreviewRenderer implements PreviewRenderer {
 
     @Override
     public boolean supports(String contentType) {
-        return http != null && contentType != null && EXTENSIONS.containsKey(IngestionProperties.baseType(contentType));
+        if (http == null) {
+            return EmbeddedPdfRenderer.supports(contentType);
+        }
+        return contentType != null && EXTENSIONS.containsKey(IngestionProperties.baseType(contentType));
     }
 
     @Override
     public void renderPdf(InputStream content, String fileName, String contentType, Path target) {
         if (http == null) {
-            throw new ScanException("Gotenberg is not configured (GOTENBERG_URL empty)", false, null);
+            EmbeddedPdfRenderer.renderPdf(content, contentType, target);
+            return;
         }
         var parts = new MultipartBodyBuilder();
         parts.part("files", new InputStreamResource(content))
