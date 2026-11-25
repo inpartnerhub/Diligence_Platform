@@ -48,11 +48,14 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 │   ├── guides/             User guides per role and the training plan
 │   ├── runbooks/           Operational runbooks
 │   ├── security/           Penetration test scope and findings, client addresses
-│   └── uat/                User acceptance test plan and scenarios
+│   ├── uat/                User acceptance test plan and scenarios
+│   └── deployment-single-server.md  Single-server production guide (compose.prod.yaml)
 ├── .github/                CI/CD workflows, Dependabot, CODEOWNERS, templates
 ├── compose.yaml            Local development stack
+├── compose.prod.yaml       Single-server production stack (Level 3 / ADR-0012, 4 vCPU / 8 GiB)
 ├── Makefile                Developer entry points (`make help`)
-└── .env.example            Local environment template (copy to .env)
+├── .env.example            Local environment template (copy to .env)
+└── .env.prod.example       Single-server production environment template (copy to .env.prod)
 ```
 
 ## Prerequisites

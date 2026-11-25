@@ -2,6 +2,8 @@ package com.inpartnerhub.diligence.ingestion.internal;
 
 import java.io.InputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
@@ -17,11 +19,13 @@ import com.inpartnerhub.diligence.ingestion.ScanException;
 /**
  * Apache Tika Server content-based detection, with the file name as a hint. Tika 4 serves it at {@code PUT /detect},
  * Tika 3 at {@code PUT /detect/stream}; the endpoint is probed once (with an empty body, since an upload stream
- * cannot be replayed) so the pipeline works with either server version during an upgrade.
+ * cannot be replayed) so the pipeline works with either server version during an upgrade. Falls back to
+ * {@link EmbeddedContentTypeDetector} when {@code TIKA_URL} is unset.
  */
 @Component
 class TikaContentTypeDetector implements ContentTypeDetector {
 
+    private static final Logger log = LoggerFactory.getLogger(TikaContentTypeDetector.class);
     static final String DETECT = "/detect";
     static final String LEGACY_DETECT = "/detect/stream";
 
@@ -29,11 +33,19 @@ class TikaContentTypeDetector implements ContentTypeDetector {
     private volatile String endpoint;
 
     TikaContentTypeDetector(RestClient.Builder builder, IngestionProperties properties) {
-        this.http = IngestionHttp.client(builder, properties.tikaUrl(), properties.serviceTimeout());
+        if (properties.tikaUrl() == null || properties.tikaUrl().toString().isBlank()) {
+            this.http = null;
+            log.info("TIKA_URL is not set — using embedded magic-byte and OOXML content type detector");
+        } else {
+            this.http = IngestionHttp.client(builder, properties.tikaUrl(), properties.serviceTimeout());
+        }
     }
 
     @Override
     public String detect(InputStream content, String fileName) {
+        if (http == null) {
+            return EmbeddedContentTypeDetector.detect(content, fileName);
+        }
         try {
             var detected = http.put().uri(endpoint())
                     .contentType(MediaType.APPLICATION_OCTET_STREAM)

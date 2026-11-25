@@ -202,9 +202,9 @@ diligence:
     listener-enabled: ${INGESTION_LISTENER_ENABLED:true}
     poll-interval: ${INGESTION_POLL_INTERVAL:2s}
     stale-lock-timeout: ${INGESTION_STALE_LOCK_TIMEOUT:10m}
-    tika-url: ${TIKA_URL:http://localhost:9998}
-    gotenberg-url: ${GOTENBERG_URL:http://localhost:3002}
-    clamav-host: ${CLAMAV_HOST:localhost}
+    tika-url: ${TIKA_URL:}
+    gotenberg-url: ${GOTENBERG_URL:}
+    clamav-host: ${CLAMAV_HOST:}
     clamav-port: ${CLAMAV_PORT:3310}
     # Tesseract languages for scanned documents and images (the image must have the trained data installed).
     ocr-languages: ${OCR_LANGUAGES:eng+ind}
