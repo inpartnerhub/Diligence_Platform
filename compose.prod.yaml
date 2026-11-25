@@ -1,0 +1,283 @@
+# Ultra-lean single-server production stack (Level 3 / ADR-0012).
+# Target footprint: 1 VPS with 4 vCPU / 8 GiB RAM (~2.5-3.5 GiB steady-state RAM).
+#
+# Quick start:
+#   cp .env.prod.example .env.prod   # fill in domains, S3/R2 bucket, SMTP, and generated secrets
+#   docker compose -f compose.prod.yaml --env-file .env.prod up -d
+#
+# Optional profiles:
+#   --profile local-storage          # self-hosted SeaweedFS S3 (if not using external AWS S3 / Cloudflare R2)
+#   --profile processing             # adds ClamAV, Tika OCR, and Gotenberg (~+5 GiB RAM; use 8 vCPU / 16 GiB VPS)
+
+name: diligence-prod
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+x-healthcheck: &healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 10
+  start_period: 30s
+
+networks:
+  internal:
+    driver: bridge
+
+services:
+  caddy:
+    <<: *hardening
+    image: caddy:2.10-alpine
+    mem_limit: 128m
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.prod}
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env.prod}
+      AUTH_DOMAIN: ${AUTH_DOMAIN:?set AUTH_DOMAIN in .env.prod}
+    volumes:
+      - ./infrastructure/docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+    networks: [internal]
+
+  postgres:
+    <<: *hardening
+    image: postgres:17-alpine
+    mem_limit: 1536m
+    command:
+      - postgres
+      - -c
+      - shared_buffers=384MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - work_mem=8MB
+      - -c
+      - max_connections=100
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-diligence}
+      POSTGRES_USER: ${POSTGRES_USER:-diligence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME:-keycloak}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env.prod}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init-keycloak-db.sh:/docker-entrypoint-initdb.d/10-keycloak-db.sh:ro
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    networks: [internal]
+
+  redis:
+    <<: *hardening
+    image: redis:8-alpine
+    mem_limit: 256m
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 192mb
+      - --maxmemory-policy
+      - volatile-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "redis-cli -a $${REDIS_PASSWORD} --no-auth-warning ping | grep PONG"]
+    networks: [internal]
+
+  keycloak:
+    <<: *hardening
+    image: ghcr.io/inpartnerhub/diligence-keycloak:${KEYCLOAK_IMAGE_TAG:-main}
+    mem_limit: 768m
+    command: ["start", "--optimized", "--import-realm", "--http-port=8080", "--management-port=9000"]
+    environment:
+      JAVA_OPTS_APPEND: "-Xms128m -Xmx512m"
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env.prod}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env.prod}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_EVENT_METRICS_USER_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: https://${AUTH_DOMAIN:?set AUTH_DOMAIN in .env.prod}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    depends_on:
+      postgres: { condition: service_healthy }
+    # Loopback only for break-glass /admin access over SSH tunnel (ssh -L 8180:127.0.0.1:8180).
+    ports:
+      - "127.0.0.1:8180:8080"
+    volumes:
+      - ./infrastructure/docker/keycloak/diligence-realm.json:/opt/keycloak/data/import/diligence-realm.json:ro
+    healthcheck:
+      <<: *healthcheck
+      start_period: 60s
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+    networks: [internal]
+
+  backend:
+    <<: *hardening
+    image: ghcr.io/inpartnerhub/diligence-backend:${IMAGE_TAG:-main}
+    mem_limit: 1536m
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+    environment:
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-prod}
+      LOG_FORMAT: ${LOG_FORMAT:-ecs}
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
+      # Single-server mode runs ingestion inside the backend process; set CLAMAV_HOST/TIKA_URL/GOTENBERG_URL if
+      # enabling --profile processing. Leave empty for embedded PDFBox/POI detection & extraction.
+      INGESTION_LISTENER_ENABLED: "true"
+      TIKA_URL: ${TIKA_URL:-}
+      GOTENBERG_URL: ${GOTENBERG_URL:-}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+      OCR_LANGUAGES: ${OCR_LANGUAGES:-eng+ind}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-diligence}
+      DB_USERNAME: ${POSTGRES_USER:-diligence}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}
+      REDIS_SSL_ENABLED: "false"
+      OIDC_ISSUER_URI: https://${AUTH_DOMAIN}/realms/diligence
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/diligence/protocol/openid-connect/certs
+      IDP_BASE_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:?set KEYCLOAK_ADMIN_CLIENT_SECRET in .env.prod}
+      APP_BASE_URL: https://${APP_DOMAIN}
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-ap-southeast-3}
+      S3_BUCKET: ${S3_BUCKET:?set S3_BUCKET in .env.prod}
+      S3_PATH_STYLE: ${S3_PATH_STYLE:-false}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST in .env.prod}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:?set MAIL_FROM in .env.prod}
+      WEBHOOK_KEY_ENCRYPTION_KEY: ${WEBHOOK_KEY_ENCRYPTION_KEY:?set WEBHOOK_KEY_ENCRYPTION_KEY in .env.prod}
+      USER_RATE_LIMIT_ENABLED: ${USER_RATE_LIMIT_ENABLED:-true}
+      API_DOCS_ENABLED: "false"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    networks: [internal]
+
+  frontend:
+    <<: *hardening
+    image: ghcr.io/inpartnerhub/diligence-frontend:${IMAGE_TAG:-main}
+    mem_limit: 512m
+    depends_on:
+      backend: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      keycloak: { condition: service_healthy }
+    environment:
+      APP_BASE_URL: https://${APP_DOMAIN}
+      API_BASE_URL: http://backend:8080
+      TRUSTED_PROXY_HOPS: "1"
+      OIDC_ISSUER: https://${AUTH_DOMAIN}/realms/diligence
+      OIDC_INTERNAL_ISSUER: http://keycloak:8080/realms/diligence
+      OIDC_CLIENT_ID: diligence-web
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set OIDC_CLIENT_SECRET in .env.prod}
+      OIDC_ALLOW_HTTP: "false"
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env.prod}
+      SESSION_ENCRYPTION_KEY: ${SESSION_ENCRYPTION_KEY:?set SESSION_ENCRYPTION_KEY in .env.prod}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    networks: [internal]
+
+  # ---------------------------------------------------------------- opt-in: self-hosted S3 (--profile local-storage)
+  object-storage:
+    <<: *hardening
+    profiles: [local-storage]
+    image: chrislusf/seaweedfs:4.53
+    mem_limit: 512m
+    environment:
+      S3_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-diligence}
+      S3_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-change-me-at-least-8-chars}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - printf '{"identities":[{"name":"diligence","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}'
+        "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" > /tmp/s3.json
+        && exec weed server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=9000 -s3.config=/tmp/s3.json
+    volumes:
+      - object-storage-data:/data
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9000/status || exit 1"]
+    networks: [internal]
+
+  object-storage-init:
+    profiles: [local-storage]
+    image: amazon/aws-cli:2.39.7
+    depends_on:
+      object-storage: { condition: service_healthy }
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-diligence}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-change-me-at-least-8-chars}
+      AWS_DEFAULT_REGION: ${S3_REGION:-ap-southeast-3}
+      S3_BUCKET: ${S3_BUCKET:-diligence-documents}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - aws --endpoint-url http://object-storage:9000 s3api head-bucket --bucket "$$S3_BUCKET" 2>/dev/null
+        || aws --endpoint-url http://object-storage:9000 s3 mb "s3://$$S3_BUCKET"
+    restart: "no"
+    networks: [internal]
+
+  # ---------------------------------------------------------------- opt-in: heavy document processors (--profile processing)
+  clamav:
+    <<: *hardening
+    profiles: [processing]
+    image: ghcr.io/inpartnerhub/diligence-clamav:${PROCESSING_IMAGE_TAG:-main}
+    mem_limit: 2560m
+    environment:
+      CLAMD_CONF_StreamMaxLength: 100M
+      CLAMD_CONF_MaxFileSize: 100M
+      CLAMD_CONF_AlertExceedsMax: "yes"
+      CLAMD_CONF_AlertEncryptedArchive: "yes"
+      CLAMD_CONF_AlertEncryptedDoc: "no"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    networks: [internal]
+
+  tika:
+    <<: *hardening
+    profiles: [processing]
+    image: ghcr.io/inpartnerhub/diligence-tika:${PROCESSING_IMAGE_TAG:-main}
+    mem_limit: 1536m
+    networks: [internal]
+
+  gotenberg:
+    <<: *hardening
+    profiles: [processing]
+    image: ghcr.io/inpartnerhub/diligence-gotenberg:${PROCESSING_IMAGE_TAG:-main}
+    mem_limit: 1024m
+    command: ["gotenberg", "--api-disable-health-check-logging", "--api-timeout=120s"]
+    networks: [internal]
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:
+  redis-data:
+  object-storage-data:
+  clamav-data:

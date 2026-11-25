@@ -2,10 +2,10 @@ name: Infrastructure
 
 on:
   pull_request:
-    paths: ["infrastructure/**", "compose.yaml", ".github/workflows/infrastructure.yml"]
+    paths: ["infrastructure/**", "compose.yaml", "compose.prod.yaml", ".env.prod.example", ".github/workflows/infrastructure.yml"]
   push:
     branches: [main]
-    paths: ["infrastructure/**", "compose.yaml", ".github/workflows/infrastructure.yml"]
+    paths: ["infrastructure/**", "compose.yaml", "compose.prod.yaml", ".env.prod.example", ".github/workflows/infrastructure.yml"]
 
 permissions:
   contents: read
@@ -69,7 +69,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: cp .env.example .env && docker compose --profile app --profile observability config -q
+      - run: |
+          cp .env.example .env && docker compose --profile app --profile observability config -q
+          docker compose -f compose.prod.yaml --env-file .env.prod.example --profile local-storage --profile processing config -q
       - name: clamd reports unscannable content in compose and Kubernetes (#140)
         run: |
           for setting in "AlertExceedsMax yes" "AlertEncryptedArchive yes"; do
@@ -78,6 +80,8 @@ jobs:
             key=${setting% *}
             [ "$(docker compose config --format json | jq -r ".services.clamav.environment.CLAMD_CONF_$key")" = yes ] \
               || { echo "::error::compose.yaml must set CLAMD_CONF_$key: yes"; exit 1; }
+            [ "$(docker compose -f compose.prod.yaml --env-file .env.prod.example --profile processing config --format json | jq -r ".services.clamav.environment.CLAMD_CONF_$key")" = yes ] \
+              || { echo "::error::compose.prod.yaml must set CLAMD_CONF_$key: yes"; exit 1; }
           done
 
   alert-rules:

@@ -8,27 +8,41 @@ import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.inpartnerhub.diligence.ingestion.ContentScanner;
 import com.inpartnerhub.diligence.ingestion.ScanException;
 
-/** clamd client using the INSTREAM command over TCP (no files touch the scanner's disk). */
+/**
+ * clamd client using the INSTREAM command over TCP (no files touch the scanner's disk). When {@code CLAMAV_HOST} is
+ * empty, in-process ClamAV scanning is skipped so lightweight deployments can rely on S3/external malware protection.
+ */
 @Component
 class ClamAvScanner implements ContentScanner {
 
+    private static final Logger log = LoggerFactory.getLogger(ClamAvScanner.class);
     private static final int CHUNK = 64 * 1024;
     private static final int CONNECT_TIMEOUT_MS = 5_000;
     private static final int READ_TIMEOUT_MS = 180_000;
 
     private final IngestionProperties properties;
+    private final boolean enabled;
 
     ClamAvScanner(IngestionProperties properties) {
         this.properties = properties;
+        this.enabled = properties.clamavHost() != null && !properties.clamavHost().isBlank();
+        if (!this.enabled) {
+            log.warn("CLAMAV_HOST is not set — in-process ClamAV scanning is disabled; ensure external or S3 malware protection is active");
+        }
     }
 
     @Override
     public ScanResult scan(InputStream content) {
+        if (!enabled) {
+            return new ScanResult(true, null);
+        }
         try (var socket = new Socket()) {
             socket.connect(new InetSocketAddress(properties.clamavHost(), properties.clamavPort()), CONNECT_TIMEOUT_MS);
             socket.setSoTimeout(READ_TIMEOUT_MS);

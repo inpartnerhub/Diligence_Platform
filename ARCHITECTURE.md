@@ -305,16 +305,17 @@ Cluster add-ons (GitOps/Helm): NGINX Ingress Controller, External Secrets Operat
                                Tika, Gotenberg and ClamAV workloads
 ```
 
-| Environment | Namespace | Min replicas | Notes |
-|-------------|-----------|--------------|-------|
-| local | compose | 1 | PostgreSQL queue + FTS, Keycloak `start-dev`, Mailpit (~3.5–4 GiB RAM) |
-| dev | `diligence-dev` | 1 | `high_availability = false`, API docs on |
-| staging | `diligence-staging` | 1–2 | Production-like, API docs on |
-| prod | `diligence-prod` | 2+ (app) | AWS `ap-southeast-3`, `high_availability` toggle (Single-AZ lean launch → Multi-AZ HA), API docs off, approval-gated deploys |
+| Environment | Target | Min replicas | Notes |
+|-------------|--------|--------------|-------|
+| local | `compose.yaml` | 1 | PostgreSQL queue + FTS, Keycloak `start-dev`, Mailpit (~3.5–4 GiB RAM) |
+| prod (early-scale default) | `compose.prod.yaml` | 1 | Single-server Docker Compose + Caddy HTTPS + embedded PDFBox/POI ingestion ([ADR-0012](docs/adr/0012-single-server-docker-compose-production.md), 4 vCPU / 8 GiB RAM; `--profile processing` & `--profile local-storage` opt-in) |
+| dev / staging | `diligence-{dev,staging}` | 1–2 | AWS EKS (`ap-southeast-3`), API docs on |
+| prod (scale-up path) | `diligence-prod` | 2+ (app) | AWS EKS `ap-southeast-3` ([ADR-0011](docs/adr/0011-lean-architecture-simplification.md)), `high_availability` toggle (Single-AZ → Multi-AZ HA), API docs off, approval-gated deploys |
 
-Data residency (UU PDP) and the lean single-cloud AWS Jakarta (`ap-southeast-3`) launch architecture are governed by
-[ADR-0003](docs/adr/0003-hosting-and-data-residency.md) and
-[ADR-0011](docs/adr/0011-lean-architecture-simplification.md). Migrations run at backend startup (Flyway advisory
+Data residency (UU PDP), single-server early-scale deployment, and the AWS Jakarta (`ap-southeast-3`) scale-up architecture are governed by
+[ADR-0003](docs/adr/0003-hosting-and-data-residency.md),
+[ADR-0011](docs/adr/0011-lean-architecture-simplification.md), and
+[ADR-0012](docs/adr/0012-single-server-docker-compose-production.md). Migrations run at backend startup (Flyway advisory
 lock) and must be backward compatible with the previous release.
 
 ## 13. Integration boundaries

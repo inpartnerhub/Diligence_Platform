@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -17,20 +19,30 @@ import com.inpartnerhub.diligence.ingestion.TextExtractor;
 /**
  * Apache Tika Server {@code /tika}: plain text of any supported format. Image-based content (photos, scanned PDF
  * pages) goes through Tesseract OCR inside Tika (DOC-06); the response is read only up to the configured limit.
+ * Falls back to {@link EmbeddedTextExtractor} (PDFBox + Apache POI) when {@code TIKA_URL} is unset.
  */
 @Component
 class TikaTextExtractor implements TextExtractor {
 
+    private static final Logger log = LoggerFactory.getLogger(TikaTextExtractor.class);
     private final RestClient http;
     private final String ocrLanguages;
 
     TikaTextExtractor(RestClient.Builder builder, IngestionProperties properties) {
-        this.http = IngestionHttp.client(builder, properties.tikaUrl(), properties.serviceTimeout());
+        if (properties.tikaUrl() == null || properties.tikaUrl().toString().isBlank()) {
+            this.http = null;
+            log.info("TIKA_URL is not set — using embedded PDFBox/POI text extraction (scanned image OCR disabled)");
+        } else {
+            this.http = IngestionHttp.client(builder, properties.tikaUrl(), properties.serviceTimeout());
+        }
         this.ocrLanguages = properties.ocrLanguages();
     }
 
     @Override
     public String extract(InputStream content, String contentType, int maxChars) {
+        if (http == null) {
+            return EmbeddedTextExtractor.extract(content, contentType, maxChars);
+        }
         try {
             return http.put().uri("/tika")
                     .contentType(MediaType.parseMediaType(contentType))

@@ -11,6 +11,10 @@ diligence:
     allow-insecure-targets: true
     # Developer machines only: an all-zero key unless WEBHOOK_KEY_ENCRYPTION_KEY is set. Never use it elsewhere.
     key-encryption-key: ${WEBHOOK_KEY_ENCRYPTION_KEY:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+  ingestion:
+    tika-url: ${TIKA_URL:http://localhost:9998}
+    gotenberg-url: ${GOTENBERG_URL:http://localhost:3002}
+    clamav-host: ${CLAMAV_HOST:localhost}
 springdoc:
   api-docs:
     enabled: true

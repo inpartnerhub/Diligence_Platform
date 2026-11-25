@@ -1,0 +1,47 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	request_body {
+		max_size 105MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy frontend:3000 {
+		flush_interval -1
+	}
+}
+
+# Expose ONLY the diligence realm and static login assets publicly (ADR-0009).
+# Use an SSH tunnel to 127.0.0.1:8180 on the server to access /admin.
+{$AUTH_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	@public_keycloak {
+		path /realms/diligence* /resources/* /js/*
+	}
+
+	handle @public_keycloak {
+		reverse_proxy keycloak:8080
+	}
+
+	handle {
+		respond 404
+	}
+}
