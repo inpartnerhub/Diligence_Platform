@@ -6,7 +6,7 @@ metadata:
   namespace: diligence-processing
   labels: { app.kubernetes.io/name: tika }
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 5
   selector:
     matchLabels: { app.kubernetes.io/name: tika }
@@ -15,6 +15,17 @@ spec:
       labels: { app.kubernetes.io/name: tika }
     spec:
       automountServiceAccountToken: false
+      # Prefer the cost-optimised Spot pool (infrastructure/terraform) and tolerate its taint; fall back to on-demand
+      # nodes when Spot capacity is unavailable, so document processing is never blocked. No-op where no Spot pool exists.
+      tolerations:
+        - { key: diligence.io/workload, operator: Equal, value: burstable, effect: NoSchedule }
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - { key: diligence.io/capacity-type, operator: In, values: [spot] }
       securityContext:
         runAsNonRoot: true
         runAsUser: 35002

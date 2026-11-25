@@ -64,9 +64,9 @@ class ClientAddressIntegrationTest {
 
     @Test
     void ignoresAddressesTheCallerWroteIntoTheChain() throws Exception {
-        // Browser-supplied entry, then the address the BFF reported, then the BFF pod appended by Kong.
+        // Browser-supplied entry, then the address the BFF reported, then the BFF pod appended by the ingress.
         assertThat(clientAddress("6.6.6.6, 203.0.113.7, 10.42.0.12")).isEqualTo("203.0.113.7");
-        // A direct API caller cannot pose as someone else either: Kong appends the address it really saw.
+        // A direct API caller cannot pose as someone else either: the ingress appends the address it really saw.
         assertThat(clientAddress("6.6.6.6, 198.51.100.4")).isEqualTo("198.51.100.4");
     }
 

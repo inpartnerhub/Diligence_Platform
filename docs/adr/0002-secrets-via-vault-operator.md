@@ -1,6 +1,6 @@
 # ADR-0002: Secrets delivered via Vault Secrets Operator as environment variables
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0011](0011-lean-architecture-simplification.md) (AWS Secrets Manager + External Secrets Operator)
 - **Date:** 2026-10-30
 - **Deciders:** Tech Lead / Architect, Security Officer
 

@@ -3,6 +3,7 @@ package com.inpartnerhub.diligence.dataroom.internal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -31,12 +32,14 @@ class DataRoomRetentionListener {
     private final SearchIndex searchIndex;
     private final PreviewPageCache previewPages;
     private final ApplicationEventPublisher events;
+    private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final TransactionTemplate readOnly;
 
     DataRoomRetentionListener(DocumentRepository documents, DocumentVersionRepository versions,
             FolderRepository folders, DocumentStorage storage, SearchIndex searchIndex,
-            PreviewPageCache previewPages, ApplicationEventPublisher events, PlatformTransactionManager txManager) {
+            PreviewPageCache previewPages, ApplicationEventPublisher events, JdbcTemplate jdbc,
+            PlatformTransactionManager txManager) {
         this.documents = documents;
         this.versions = versions;
         this.folders = folders;
@@ -44,13 +47,14 @@ class DataRoomRetentionListener {
         this.searchIndex = searchIndex;
         this.previewPages = previewPages;
         this.events = events;
+        this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(txManager);
         this.readOnly = new TransactionTemplate(txManager);
         readOnly.setReadOnly(true);
     }
 
     /**
-     * Runs outside a transaction ({@code NOT_SUPPORTED}, #123): the S3 and OpenSearch calls can take long for a large
+     * Runs outside a transaction ({@code NOT_SUPPORTED}, #123): the S3 deletion can take long for a large
      * data room and must not hold a database connection meanwhile. The database work happens in two short
      * transactions: counting first, deleting (and publishing {@link ProjectDataPurged}) last.
      */
@@ -75,9 +79,10 @@ class DataRoomRetentionListener {
         // Purged pages must not linger in memory either.
         previewPages.evictProject(projectId);
 
-        // 3. Delete documents (cascading versions, annotations and clauses) and then folders (cascading grants), one
-        // statement each; the audit event is published in the same transaction.
+        // 3. Delete queued ingestion jobs, documents (cascading versions, annotations and clauses) and then folders
+        // (cascading grants), one statement each; the audit event is published in the same transaction.
         transactions.executeWithoutResult(status -> {
+            jdbc.update("delete from dr.ingestion_job where project_id = ?", projectId);
             documents.deleteAllForProject(projectId);
             folders.deleteAllForProject(projectId);
             events.publishEvent(new ProjectDataPurged(projectId, event.code(), counts[0], counts[1],

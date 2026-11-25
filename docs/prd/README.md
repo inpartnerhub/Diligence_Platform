@@ -45,11 +45,11 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | REQ-05 | Export to Excel/PDF | S (MVP) | `RequestSpreadsheet` (Apache POI), PDF via Gotenberg, audited | ✅ |
 | REQ-06 | Staged waves with history | S | release per wave/workstream, status history | ✅ |
 | DOC-01 | Folders from template, per-folder permissions | M | `FolderService`, `dr.folder_access`, RLS V7 | ✅ |
-| DOC-02 | Bulk upload, indexing, malware scan | M | drag-and-drop/folder upload, RabbitMQ worker, ClamAV, `SearchIndexer` | ✅ |
+| DOC-02 | Bulk upload, indexing, malware scan | M | drag-and-drop/folder upload, PostgreSQL `dr.ingestion_job` worker, ClamAV, `SearchIndexer` | ✅ |
 | DOC-03 | In-browser preview | M | Gotenberg/PDFBox renditions, pre-rendered pages, `DocumentViewer` | ✅ |
 | DOC-04 | Dynamic watermark | M | `dataroom.Watermarker`: name, e-mail, IP, time on every page and download | ✅ |
 | DOC-05 | Disable download/print per folder; logged downloads | M | `DocumentViewService` policy, PDF print permission, print CSS, audit | ✅ |
-| DOC-06 | Full-text search incl. OCR | M | Tika + Tesseract, OpenSearch (`search`), barrier-filtered queries | ✅ |
+| DOC-06 | Full-text search incl. OCR | M | Tika + Tesseract, PostgreSQL FTS (`dr.document_search_index`), barrier-filtered queries | ✅ |
 | DOC-07 | Document versions | S (MVP) | `DocumentService`, versions drawer | ✅ |
 | DOC-08 | Annotations linked to findings | S | `dr.document_annotation`, `DocumentViewer` | ✅ |
 | DOC-09 | AI search, duplicates, key clauses | C | SHA-256 duplicate detection on upload; rule-based key clause extraction (`KeyClauseExtractor`, English patterns) | 🟡 duplicates and rule-based clauses; AI search/grouping and the AI principles of Bab 10.3 pending |
@@ -78,13 +78,13 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 
 | Aspect | Target | How it is addressed |
 |--------|--------|---------------------|
-| Performance | Pages ≤ 2 s P95; preview ≤ 3 s (≤ 20 MB); search ≤ 2 s on 500k docs | Async pipeline, pre-rendered PDF renditions, OpenSearch, Ant Design CSS extracted at build time; k6 in `tests/performance` (local stress results in its README) |
-| Scalability | ≥ 200 projects, ≥ 1,000 concurrent users, ≥ 20 TB | Stateless pods + HPA, Redis sessions, S3, OpenSearch |
-| Availability | 99.5% business hours; RPO ≤ 1 h, RTO ≤ 4 h | Multi-AZ data services in prod, PITR backups, quarterly restore test |
+| Performance | Pages ≤ 2 s P95; preview ≤ 3 s (≤ 20 MB); search ≤ 2 s on 500k docs | Async pipeline, pre-rendered PDF renditions, PostgreSQL FTS (`dr.document_search_index`), Ant Design CSS extracted at build time; k6 in `tests/performance` (local stress results in its README) |
+| Scalability | ≥ 200 projects, ≥ 1,000 concurrent users, ≥ 20 TB | Stateless pods + HPA, Redis sessions, S3, PostgreSQL FTS (OpenSearch scale-up trigger in ADR-0011) |
+| Availability | 99.5% business hours; RPO ≤ 1 h, RTO ≤ 4 h | Multi-AZ data services in prod when `high_availability = true` (ADR-0011), PITR backups, quarterly restore test |
 | Security | TLS 1.2+, AES-256 at rest | SECURITY.md; optional per-project IP allow-list for external users (Bab 10.1) |
 | Compliance | UU PDP, ISO/IEC 27001 | SECURITY.md, ADR-0003 |
 | Usability | Indonesian and English; tablet-responsive; WCAG 2.1 AA for key elements | next-intl, Ant Design responsive layout, accessible labels |
-| Observability | Central logs, metrics, tracing; alerts | OpenTelemetry, Prometheus/Grafana, OpenSearch, Sentry; alert rules for error rate, latency, failed/suspicious logins and blocked access (`infrastructure/docker/prometheus/alerts.yml`, `PrometheusRule`) linked to [runbooks](../runbooks/README.md) |
+| Observability | Central logs, metrics; alerts | Prometheus/Grafana (metrics, alerting), structured JSON logs to stdout, Sentry (errors); alert rules for error rate, latency, failed/suspicious logins and blocked access (`infrastructure/docker/prometheus/alerts.yml`, `PrometheusRule`) linked to [runbooks](../runbooks/README.md) |
 | Maintainability | ≥ 70% unit coverage on business logic; CI/CD; current OpenAPI | Jacoco gate in `build.gradle.kts`, springdoc |
 
 ## Open questions (Bab 15.2)

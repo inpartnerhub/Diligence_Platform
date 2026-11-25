@@ -1,8 +1,8 @@
 # Ingestion worker (#162): the backend image with only the upload listener doing work. Uploaded files are scanned,
 # type-checked, text-extracted and rendered (PDFBox, ImageIO) here instead of in the pods that serve the API, so a
 # parser bug or a hostile file can exhaust this pod's memory or CPU without taking the API down. It has no Service:
-# it pulls from RabbitMQ and only exposes the management port to monitoring (ingestion-ingress). Same service account
-# as the backend for its S3 Pod Identity role (#158).
+# it only exposes the management port to monitoring (ingestion-ingress). Same service account as the backend for its
+# S3 Pod Identity role (#158).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,7 +23,18 @@ spec:
     spec:
       serviceAccountName: diligence-backend
       automountServiceAccountToken: false
-      terminationGracePeriodSeconds: 120 # let a document in progress finish; unacknowledged ones are redelivered
+      terminationGracePeriodSeconds: 120 # let a document in progress finish
+      # Prefer the cost-optimised Spot pool (infrastructure/terraform) and tolerate its taint; fall back to on-demand
+      # nodes when Spot capacity is unavailable. No-op without Spot.
+      tolerations:
+        - { key: diligence.io/workload, operator: Equal, value: burstable, effect: NoSchedule }
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - { key: diligence.io/capacity-type, operator: In, values: [spot] }
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

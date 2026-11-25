@@ -1,12 +1,12 @@
-# Server-side runtime configuration (non-secret). Secrets come from Vault (see vault-secret.yaml).
+# Server-side runtime configuration (non-secret). Secrets come from AWS Secrets Manager (see external-secret.yaml).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: diligence-frontend-config
 data:
   APP_BASE_URL: https://app.example.com
-  API_BASE_URL: http://kong-gateway-proxy.kong.svc:80
-  # Kong (ingress) appends the browser's address to X-Forwarded-For; see docs/security/client-addresses.md.
+  API_BASE_URL: http://diligence-backend:8080
+  # NGINX Ingress appends the browser's address to X-Forwarded-For; see docs/security/client-addresses.md.
   TRUSTED_PROXY_HOPS: "1"
   OIDC_ISSUER: https://auth.example.com/realms/diligence
   OIDC_CLIENT_ID: diligence-web

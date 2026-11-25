@@ -3,11 +3,11 @@ name: DAST
 # Dynamic application security testing with OWASP ZAP against the full stack (issue #67, PRD Bab 8.2 and Bab 14):
 # a passive baseline scan of the web app signed in as a project manager, and an active API scan of the backend from
 # its OpenAPI spec with a bearer token. Fails on high-risk alerts and on rules marked FAIL in
-# tests/security/baseline.conf. Runs nightly on main and on demand; reports are kept as artifacts.
+# tests/security/baseline.conf. Runs weekly on Sunday and on demand; reports are kept as artifacts.
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 2 * * *" # nightly
+    - cron: "0 2 * * 0" # weekly (Sunday)
 
 permissions:
   contents: read
@@ -106,4 +106,4 @@ jobs:
 
       - name: Service logs on failure
         if: failure()
-        run: docker compose --profile app logs --tail 200 backend frontend keycloak kong
+        run: docker compose --profile app logs --tail 200 backend frontend keycloak

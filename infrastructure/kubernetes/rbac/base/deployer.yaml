@@ -1,9 +1,9 @@
 # Rights of the deploy workflow in one environment (#164). The deploy role (Terraform modules/deploy-identity) is
 # mapped by an EKS access entry to the Kubernetes group diligence-deployer, and this Role lets that group apply exactly
-# the kinds the overlay contains, in its own namespace. No Secrets (the Vault Secrets Operator writes them), no RBAC
+# the kinds the overlay contains, in its own namespace. No Secrets (the External Secrets Operator writes them), no RBAC
 # objects (no self-escalation), nothing in other namespaces, and no delete except for Jobs (kubectl apply never deletes;
-# a finished one-off Job such as opensearch-bootstrap may have to be re-created). Removing a resource from the overlay
-# is a manual step for a cluster administrator. Applied once per environment by a cluster administrator:
+# a finished one-off Job may have to be re-created). Removing a resource from the overlay is a manual step for a cluster
+# administrator. Applied once per environment by a cluster administrator:
 #   kubectl apply -k infrastructure/kubernetes/rbac/<env>   (this file: rbac/base)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -38,11 +38,8 @@ rules:
   - apiGroups: [monitoring.coreos.com]
     resources: [servicemonitors, prometheusrules]
     verbs: [get, list, watch, create, update, patch]
-  - apiGroups: [secrets.hashicorp.com]
-    resources: [vaultauths, vaultstaticsecrets]
-    verbs: [get, list, watch, create, update, patch]
-  - apiGroups: [configuration.konghq.com]
-    resources: [kongplugins]
+  - apiGroups: [external-secrets.io]
+    resources: [externalsecrets]
     verbs: [get, list, watch, create, update, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

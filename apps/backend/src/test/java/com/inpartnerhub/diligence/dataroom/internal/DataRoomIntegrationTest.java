@@ -48,16 +48,17 @@ import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
 /**
- * Sprint 5–6 end to end against real PostgreSQL and RabbitMQ: template folders, target grants enforced by row-level
- * security (V7), upload with folder paths, and the outbox → RabbitMQ → ingestion worker → scan status round trip.
- * Object storage, ClamAV, Tika, Gotenberg and OpenSearch are replaced by test doubles.
+ * Sprint 5–6 end to end against real PostgreSQL: template folders, target grants enforced by row-level
+ * security (V7), upload with folder paths, and the PostgreSQL queue → ingestion worker → scan status round trip.
+ * Object storage, ClamAV, Tika, Gotenberg and SearchIndex are replaced by test doubles.
  */
 @Tag("integration")
 @SpringBootTest(properties = {
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:0/realms/test",
         "spring.cache.type=none",
         "diligence.identity.admin-client-secret=test-only",
-        "diligence.ingestion.retry-backoff=10ms"
+        "diligence.ingestion.retry-backoff=10ms",
+        "diligence.ingestion.poll-interval=100ms"
 })
 @Import({ TestContainersConfiguration.class, com.inpartnerhub.diligence.project.internal.ProjectTestApi.class })
 class DataRoomIntegrationTest {
@@ -136,7 +137,7 @@ class DataRoomIntegrationTest {
     }
 
     @Test
-    void targetUploadsIntoGrantedFolderAndPipelineScansThroughRabbitMq() {
+    void targetUploadsIntoGrantedFolderAndPipelineScansThroughPostgresQueue() {
         signIn(pm, Role.PROJECT_MANAGER);
         var projectId = projects.createWithFolders(pm.toString().substring(0, 8), clientOrg, targetOrg,
                 List.of("01 Inbox", "02 Internal", "02 Internal/Memo"));
@@ -159,7 +160,7 @@ class DataRoomIntegrationTest {
         assertThat(folders.tree(projectId)).extracting(Folder::getName)
                 .containsExactlyInAnyOrder("01 Inbox", "Kontrak", "2025");
 
-        // The worker consumes DocumentUploaded from RabbitMQ and records the outcome.
+        // The worker claims DocumentUploaded from dr.ingestion_job and records the outcome.
         signIn(pm, Role.PROJECT_MANAGER);
         assertThat(awaitStatus(() -> status(clean))).isEqualTo("CLEAN");
         assertThat(awaitStatus(() -> status(infected))).isEqualTo("INFECTED");

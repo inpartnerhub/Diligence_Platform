@@ -3,7 +3,8 @@
 #   2. Every diligence-* image carries a keyless cosign signature made by this repository's image workflow on main
 #      (.github/workflows/container-image.yml), recorded in the public Rekor log. The image reference is pinned to the
 #      verified digest.
-# Kubernetes' own system namespaces and the add-on namespaces (kong, monitoring, vault…) are not matched.
+# Opt-in for post-launch scale: Kyverno admission enforcement is optional at early launch and applied when ready.
+# Kubernetes' own system namespaces and the add-on namespaces (ingress-nginx, monitoring, external-secrets…) are not matched.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:

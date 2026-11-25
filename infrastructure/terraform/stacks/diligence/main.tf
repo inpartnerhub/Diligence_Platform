@@ -1,13 +1,14 @@
 # Composition of the Diligence Platform's cloud resources for one environment.
-# Generated credentials are written to Vault (kv/diligence/<env>/backend/*) and synced into Kubernetes by the
-# Vault Secrets Operator — see infrastructure/kubernetes/base/backend/vault-secret.yaml.
+# Generated credentials are written to AWS Secrets Manager (diligence/<env>/backend/infrastructure,
+# diligence/<env>/frontend-redis) and synced into Kubernetes by the External Secrets Operator — see
+# infrastructure/kubernetes/base/{backend,frontend}/external-secret.yaml.
 
 locals {
   name = "diligence-${var.environment}"
   tags = merge(var.tags, { project = "diligence", environment = var.environment, managed-by = "terraform" })
 }
 
-# Shared customer-managed key for CloudWatch log groups (VPC flow logs, EKS control plane, OpenSearch).
+# Shared customer-managed key for CloudWatch log groups (VPC flow logs, EKS control plane).
 module "log_key" {
   source                = "../../modules/kms-key"
   alias                 = "${local.name}-logs"
@@ -16,12 +17,20 @@ module "log_key" {
   tags                  = local.tags
 }
 
+# Customer-managed key for AWS Secrets Manager secrets managed by this stack.
+module "secrets_key" {
+  source      = "../../modules/kms-key"
+  alias       = "${local.name}-secrets"
+  description = "Encryption key for ${local.name} Secrets Manager secrets"
+  tags        = local.tags
+}
+
 module "network" {
   source             = "../../modules/network"
   name               = local.name
   cidr               = var.vpc_cidr
   azs                = var.availability_zones
-  single_nat_gateway = var.environment != "prod"
+  single_nat_gateway = !var.high_availability
   log_kms_key_arn    = module.log_key.arn
   tags               = local.tags
 }
@@ -34,6 +43,8 @@ module "cluster" {
   node_instance_types = var.node_instance_types
   node_min_size       = var.node_min_size
   node_max_size       = var.node_max_size
+  spot_instance_types = var.spot_instance_types
+  spot_max_size       = var.spot_max_size
   log_kms_key_arn     = module.log_key.arn
   tags                = local.tags
 }
@@ -45,7 +56,7 @@ module "postgresql" {
   subnet_ids                 = module.network.private_subnet_ids
   allowed_security_group_ids = [module.cluster.node_security_group_id]
   instance_class             = var.db_instance_class
-  multi_az                   = var.environment == "prod"
+  multi_az                   = var.high_availability
   tags                       = local.tags
 }
 
@@ -55,30 +66,7 @@ module "redis" {
   vpc_id                     = module.network.vpc_id
   subnet_ids                 = module.network.private_subnet_ids
   allowed_security_group_ids = [module.cluster.node_security_group_id]
-  num_cache_clusters         = var.environment == "prod" ? 2 : 1
-  tags                       = local.tags
-}
-
-module "rabbitmq" {
-  source                     = "../../modules/rabbitmq"
-  name                       = local.name
-  vpc_id                     = module.network.vpc_id
-  subnet_ids                 = module.network.private_subnet_ids
-  allowed_security_group_ids = [module.cluster.node_security_group_id]
-  cluster_mode               = var.environment == "prod"
-  instance_type              = var.environment == "prod" ? "mq.m7g.large" : "mq.m7g.medium"
-  tags                       = local.tags
-}
-
-module "opensearch" {
-  source                     = "../../modules/opensearch"
-  name                       = local.name
-  vpc_id                     = module.network.vpc_id
-  subnet_ids                 = module.network.private_subnet_ids
-  allowed_security_group_ids = [module.cluster.node_security_group_id]
-  instance_count             = var.environment == "prod" ? 3 : 1
-  instance_type              = var.environment == "prod" ? "r7g.large.search" : "t3.medium.search"
-  log_kms_key_arn            = module.log_key.arn
+  num_cache_clusters         = var.high_availability ? 2 : 1
   tags                       = local.tags
 }
 
@@ -114,6 +102,7 @@ data "aws_iam_policy_document" "backend_documents" {
   }
 }
 
+data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 module "backend_identity" {
@@ -137,49 +126,71 @@ module "deploy_identity" {
   tags               = local.tags
 }
 
-# Terraform owns kv/diligence/<env>/backend/infrastructure exclusively (a KV v2 write replaces the whole secret).
-# Operator-managed values (DB_USERNAME, DB_PASSWORD, SENTRY_DSN) live in kv/diligence/<env>/backend/application.
-# REDIS_GATEWAY_* is Kong's own Redis user (#171), kept out of the backend's Kubernetes secret by its transformation.
-resource "vault_kv_secret_v2" "backend_infrastructure" {
-  mount = "kv"
-  name  = "diligence/${var.environment}/backend/infrastructure"
-  data_json = jsonencode({
-    DB_URL                 = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
-    REDIS_HOST             = module.redis.primary_endpoint
-    REDIS_USERNAME         = module.redis.users.backend.username
-    REDIS_PASSWORD         = module.redis.users.backend.password
-    REDIS_GATEWAY_USERNAME = module.redis.users.gateway.username
-    REDIS_GATEWAY_PASSWORD = module.redis.users.gateway.password
-    RABBITMQ_HOST          = trimprefix(split(":", module.rabbitmq.amqps_endpoint)[1], "//")
-    RABBITMQ_USERNAME      = module.rabbitmq.username
-    RABBITMQ_PASSWORD      = module.rabbitmq.password
-    OPENSEARCH_URL         = module.opensearch.endpoint
-    OPENSEARCH_USERNAME    = module.opensearch.backend_user_name
-    OPENSEARCH_PASSWORD    = module.opensearch.backend_user_password
+# Terraform owns diligence/<env>/backend/infrastructure in AWS Secrets Manager.
+# Operator-managed values (DB_USERNAME, DB_PASSWORD, FLYWAY_*, SENTRY_DSN, KEYCLOAK_ADMIN_CLIENT_SECRET, SMTP_*,
+# MAIL_FROM, WEBHOOK_KEY_ENCRYPTION_KEY) live in diligence/<env>/backend/application.
+resource "aws_secretsmanager_secret" "backend_infrastructure" {
+  name       = "diligence/${var.environment}/backend/infrastructure"
+  kms_key_id = module.secrets_key.arn
+  tags       = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "backend_infrastructure" {
+  secret_id = aws_secretsmanager_secret.backend_infrastructure.id
+  secret_string = jsonencode({
+    DB_URL         = "jdbc:postgresql://${module.postgresql.endpoint}:${module.postgresql.port}/${module.postgresql.database_name}?sslmode=verify-full"
+    REDIS_HOST     = module.redis.primary_endpoint
+    REDIS_USERNAME = module.redis.users.backend.username
+    REDIS_PASSWORD = module.redis.users.backend.password
   })
 }
 
-# The web app's (BFF) Redis connection with its own user, which alone may read sessions (#171). A separate path: the
-# rest of kv/diligence/<env>/frontend is managed by operators and a KV v2 write replaces the whole secret.
-resource "vault_kv_secret_v2" "frontend_redis" {
-  mount = "kv"
-  name  = "diligence/${var.environment}/frontend-redis"
-  data_json = jsonencode({
+# The web app's (BFF) Redis connection with its own user, which alone may read sessions (#171). A separate secret:
+# diligence/<env>/frontend is managed by operators.
+resource "aws_secretsmanager_secret" "frontend_redis" {
+  name       = "diligence/${var.environment}/frontend-redis"
+  kms_key_id = module.secrets_key.arn
+  tags       = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "frontend_redis" {
+  secret_id = aws_secretsmanager_secret.frontend_redis.id
+  secret_string = jsonencode({
     REDIS_URL = "rediss://${module.redis.users.web.username}:${module.redis.users.web.password}@${module.redis.primary_endpoint}:6379/0"
   })
 }
 
-# The OpenSearch master credential is read only by the opensearch-bootstrap Job (Vault role
-# diligence-opensearch-bootstrap), which creates the backend's least-privilege user above (#159).
-resource "vault_kv_secret_v2" "opensearch_admin" {
-  mount = "kv"
-  name  = "diligence/${var.environment}/opensearch-admin"
-  data_json = jsonencode({
-    OPENSEARCH_URL             = module.opensearch.endpoint
-    OPENSEARCH_MASTER_USERNAME = module.opensearch.master_user_name
-    OPENSEARCH_MASTER_PASSWORD = module.opensearch.master_user_password
-    OPENSEARCH_APP_USERNAME    = module.opensearch.backend_user_name
-    OPENSEARCH_APP_PASSWORD    = module.opensearch.backend_user_password
-    OPENSEARCH_INDEX_PREFIX    = "diligence"
-  })
+# External Secrets Operator Pod Identity: allows reading this environment's Secrets Manager secrets and decrypting
+# the Terraform-managed secrets key.
+data "aws_iam_policy_document" "external_secrets" {
+  statement {
+    sid     = "ReadEnvironmentSecrets"
+    actions = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    resources = [
+      aws_secretsmanager_secret.backend_infrastructure.arn,
+      aws_secretsmanager_secret.frontend_redis.arn,
+      "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:diligence/${var.environment}/backend/application-*",
+      "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:diligence/${var.environment}/frontend-*",
+    ]
+  }
+  statement {
+    sid       = "DecryptSecretsKey"
+    actions   = ["kms:Decrypt"]
+    resources = [module.secrets_key.arn]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["secretsmanager.${data.aws_region.current.region}.amazonaws.com"]
+    }
+  }
+}
+
+module "external_secrets_identity" {
+  source          = "../../modules/workload-identity"
+  name            = "${local.name}-external-secrets"
+  cluster_name    = module.cluster.cluster_name
+  namespace       = "external-secrets"
+  service_account = "external-secrets"
+  policy_json     = data.aws_iam_policy_document.external_secrets.json
+  tags            = local.tags
 }

@@ -12,4 +12,3 @@ resources:
   - ingestion
   - frontend
   - gateway
-  - search

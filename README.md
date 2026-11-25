@@ -30,7 +30,7 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 │   ├── migrations/         Flyway migrations (one schema per module, RLS policies)
 │   └── seeds/              Local-only seed data (PRD Appendix B request-list template)
 ├── infrastructure/
-│   ├── docker/             Local stack service configs (Keycloak realm, Kong, Prometheus, Grafana, OTel)
+│   ├── docker/             Local stack service configs (Keycloak realm, Prometheus, Grafana, Tika, Gotenberg, ClamAV)
 │   ├── kubernetes/         Kustomize base + dev/staging/prod overlays
 │   └── terraform/          Cloud infrastructure: modules, stack, per-environment roots
 ├── tests/
@@ -62,22 +62,21 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 
 ### Host & Virtual Machine Resource Requirements
 
-Running the Diligence multi-container stack locally requires adequate memory allocation for the Docker Desktop / Colima / OrbStack Linux virtual machine.
+Running the simplified Diligence container stack locally requires modest memory allocation for the Docker Desktop / Colima / OrbStack Linux virtual machine (see [ADR-0011](docs/adr/0011-lean-architecture-simplification.md)):
 
 | Stack Profile | Minimum Allocated RAM | Recommended RAM | Minimum CPUs | Notes |
 |---------------|-----------------------|-----------------|--------------|-------|
-| **Core Dev** (`make up` + local apps) | **6.0 GiB** | **8.0 GiB** | 4 cores | ClamAV (~900 MB), JVM backend (~800 MB), Keycloak (~450 MB), Kong (~500 MB), Tika, Gotenberg, SeaweedFS, Postgres, Redis, RabbitMQ |
-| **Full Containerized** (`make up-all`) | **8.0 GiB** | **10.0 GiB** | 6 cores | Adds OpenSearch 3 (~800 MB), Prometheus, Grafana, OpenSearch Dashboards, OpenTelemetry Collector |
+| **Core Dev** (`make up` + local apps) | **3.5 GiB** | **4.0+ GiB** | 4 cores | ClamAV (~900 MB), JVM backend (~512–800 MB), Keycloak (~384–450 MB), Tika, Gotenberg, SeaweedFS, Postgres (with queue + FTS), Redis |
+| **Full Containerized** (`make up-all`) | **4.5 GiB** | **6.0 GiB** | 4+ cores | Adds containerized backend and frontend, Prometheus, and Grafana |
 
-> **Warning:** On macOS hosts with default Docker Desktop virtual machine settings (3.8–4.0 GiB RAM), running `make up-all` or high-throughput file ingestion alongside OpenSearch can trigger the Linux kernel Out-Of-Memory (OOM) Killer (`Exit 137`), terminating `clamd` or `backend`.
-> Increase your VM memory allocation via **Docker Desktop Settings → Resources → Advanced → Memory: ≥ 6 GiB** (and Swap: ≥ 2 GiB).
+> **Note:** On macOS hosts with default 4.0 GiB Docker Desktop VM memory, `make up` runs comfortably alongside host-run backend and frontend processes. If running `make up-all` or high-throughput bulk ingestion alongside `clamd`, allocate **≥ 6 GiB** (and Swap: ≥ 2 GiB) via **Docker Desktop Settings → Resources → Advanced** to avoid OOM kills (`Exit 137`).
 
 ## Quick start
 
 ```bash
 cp .env.example .env            # replace every "change-me" value (see comments for how to generate secrets)
-make up                         # PostgreSQL, Redis, RabbitMQ, SeaweedFS (S3), OpenSearch, Tika, Gotenberg, ClamAV,
-                                # Keycloak, Kong, Vault, Mailpit
+make up                         # PostgreSQL (FTS + ingestion queue), Redis, SeaweedFS (S3), Tika, Gotenberg,
+                                # ClamAV, Keycloak, Mailpit
 make keycloak-bootstrap         # admin-api client secret + local admin and PM users from .env
 make backend-run                # backend on http://localhost:8080 (second terminal)
 cp apps/frontend/.env.example apps/frontend/.env.local   # set SESSION_SECRET, SESSION_ENCRYPTION_KEY, OIDC_CLIENT_SECRET, Redis password
@@ -107,16 +106,12 @@ make up-all && make keycloak-bootstrap
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Frontend | http://localhost:3000 | |
-| API via Kong | http://localhost:8000/api/v1 | the path clients use |
+| Frontend | http://localhost:3000 | Calls the backend directly over `API_BASE_URL` |
 | Backend direct | http://localhost:8080 | Swagger UI at `/swagger-ui.html`, spec at `/v3/api-docs` |
 | Backend management | http://localhost:8081/actuator | health, Prometheus metrics, module graph |
 | Keycloak | http://localhost:8180 | realm `diligence`; admin console on the master realm |
 | Mailpit | http://localhost:8025 | every e-mail sent locally |
-| RabbitMQ UI | http://localhost:15672 | |
 | Object storage (S3 API) | http://localhost:9000 | SeaweedFS; credentials from `.env` |
-| OpenSearch | http://localhost:9200 | Dashboards on :5601 (observability profile) |
-| Vault (dev mode) | http://localhost:8200 | |
 | Grafana | http://localhost:3001 | observability profile |
 | Prometheus | http://localhost:9090 | observability profile |
 
@@ -151,8 +146,8 @@ Every environment-specific value is an environment variable (12-factor).
 |-------|--------|
 | Local (compose / host) | `.env` from `.env.example`, `apps/frontend/.env.local` from `apps/frontend/.env.example` |
 | Kubernetes, non-secret | ConfigMaps in `infrastructure/kubernetes` overlays |
-| Kubernetes, secret | HashiCorp Vault → Vault Secrets Operator → Kubernetes Secret |
-| CI | GitHub Actions secrets/variables: `SONAR_TOKEN`, `SONAR_HOST_URL`, `SENTRY_AUTH_TOKEN` |
+| Kubernetes, secret | AWS Secrets Manager → External Secrets Operator → Kubernetes Secret |
+| CI | GitHub Actions secrets/variables: `SENTRY_AUTH_TOKEN` |
 
 Secrets are never committed. `.env`, `*.tfvars` and `backend.hcl` are git-ignored, and CI runs gitleaks on every push.
 
@@ -160,10 +155,11 @@ Secrets are never committed. `.env`, `*.tfvars` and `backend.hcl` are git-ignore
 
 | Workflow | Trigger | Does |
 |----------|---------|------|
-| `backend.yml` | changes in `apps/backend`, `database` | build, unit, modularity and integration tests, coverage gate, SonarQube, image build + Trivy scan, push on `main` |
-| `frontend.yml` | changes in `apps/frontend` | format, lint, typecheck, unit tests, build, SonarQube, image build + Trivy scan, push on `main` |
-| `infrastructure.yml` | changes in `infrastructure`, `compose.yaml` | Terraform fmt/validate/tflint, kubeconform on all overlays, compose validation |
-| `security.yml` | every PR/push, weekly | gitleaks, dependency review, Trivy filesystem + IaC misconfiguration scan |
+| `backend.yml` | changes in `apps/backend`, `database` | build, unit, modularity and integration tests, coverage gate, image build + Trivy scan, cosign sign + push on `main` |
+| `frontend.yml` | changes in `apps/frontend` | format, lint, typecheck, unit tests, build, image build + Trivy scan, cosign sign + push on `main` |
+| `infrastructure.yml` | changes in `infrastructure`, `compose.yaml` | Terraform fmt/validate/tflint, kubeconform on all overlays, image pin & NetworkPolicy checks, compose & alert-rules validation |
+| `security.yml` | every PR/push, weekly | gitleaks, pinned-actions check, dependency review, Trivy filesystem + IaC misconfiguration scan |
+| `dast.yml` | weekly (Sunday), manual | OWASP ZAP baseline + API scan against the full compose stack |
 | `deploy.yml` | manual | promotes an immutable image tag to dev / staging / prod (GitHub environment protection) |
 
 Images are published to GHCR as `ghcr.io/<owner>/diligence-{backend,frontend}:sha-<git sha>` with SBOM and provenance.

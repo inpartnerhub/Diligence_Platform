@@ -22,8 +22,8 @@ images:
   # updates, UIDs above 10000), made by the Processing images workflow. GHCR is the only trusted registry
   # (.trivy/data). Pinned by digest (#166), never by a moving tag: these are the signed images (#167) the Processing
   # images run for commit 232b853 pushed (also tagged sha-232b853b9b84960ff650cd0f5c1a3c6bf7284c62). After a new build on main, copy
-  # the digests from that run's "pushing manifest for …:main@sha256:…" log lines and update them here and in
-  # base/search/job.yaml (Gotenberg) in one pull request; CI refuses images without a digest.
+  # the digests from that run's "pushing manifest for …:main@sha256:…" log lines and update them here in one pull
+  # request; CI refuses images without a digest.
   - name: ghcr.io/inpartnerhub/diligence-clamav
     digest: sha256:57277b9d53741604c26a51843917b98954f4d96bf23019f2cbc2ffc01b26007f
   - name: ghcr.io/inpartnerhub/diligence-gotenberg

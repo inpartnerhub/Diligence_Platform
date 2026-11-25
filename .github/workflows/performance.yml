@@ -3,7 +3,7 @@ name: Performance
 # Runs a k6 test from tests/performance against a deployed environment on demand: load.js (pages, preview, search
 # and API under load) or upload.js (bulk upload through the ingestion pipeline). The environment's secrets hold a
 # dedicated test user (PERF_USER / PERF_PASSWORD) that manages the target project. See tests/performance/README.md
-# for profiles, the PRD-scale run on staging and what to exempt from Kong's per-IP rate limit.
+# for profiles, the PRD-scale run on staging and what to exempt from the NGINX Ingress per-IP rate limit.
 on:
   workflow_dispatch:
     inputs:

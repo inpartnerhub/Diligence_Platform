@@ -124,7 +124,7 @@ class FailedEventRetryIntegrationTest {
 
     @Test
     void retriesAFailedListenerWithoutARestart() {
-        FLAKY_FAILURES.set(1); // the first call fails, like the indexer while OpenSearch is down
+        FLAKY_FAILURES.set(1); // the first call fails, like the indexer while a search index write fails
         var probe = publish("flaky");
         await(() -> "FAILED".equals(status(probe, "FlakyListener")));
 

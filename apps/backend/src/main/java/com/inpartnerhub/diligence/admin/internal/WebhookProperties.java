@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *                                   for developer machines (local profile); production must keep the default
  *                                   {@code false} so webhooks cannot reach internal services (SSRF, PRD Bab 10.1).
  * @param keyEncryptionKey           base64 AES-256 key that encrypts webhook signing keys at rest (#64); delivered
- *                                   from Vault as {@code WEBHOOK_KEY_ENCRYPTION_KEY} (ADR-0002)
+ *                                   from AWS Secrets Manager as {@code WEBHOOK_KEY_ENCRYPTION_KEY} (ADR-0011)
  * @param previousKeyEncryptionKey   the key before the last rotation, still accepted for reading until the startup
  *                                   job has re-encrypted every signing key with the current one
  * @param logRetention               how long delivery logs (with their payload) are kept; 30 days when not set (#90)

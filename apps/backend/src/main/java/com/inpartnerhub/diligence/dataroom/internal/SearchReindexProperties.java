@@ -9,7 +9,7 @@ import org.springframework.util.unit.DataSize;
  * Bulk re-index of the search index (issue #80).
  *
  * @param batchSize    documents read from PostgreSQL per query
- * @param bulkMaxSize  largest bulk request to OpenSearch (extracted text is up to 500,000 characters per document)
+ * @param bulkMaxSize  largest bulk re-index request (extracted text is up to 500,000 characters per document)
  * @param parallelism  extracted texts read from object storage at the same time
  * @param staleAfter   a running run whose heartbeat is older than this is considered interrupted (pod gone)
  */

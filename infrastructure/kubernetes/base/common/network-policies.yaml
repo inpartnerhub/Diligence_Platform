@@ -21,7 +21,7 @@ spec:
         - { protocol: UDP, port: 53 }
         - { protocol: TCP, port: 53 }
 ---
-# Backend accepts API traffic only from Kong; metrics port only from the monitoring namespace.
+# Backend accepts API traffic from NGINX Ingress and the frontend BFF; metrics port only from the monitoring namespace.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -31,7 +31,10 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+      ports: [{ protocol: TCP, port: 8080 }]
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: diligence-frontend } }
       ports: [{ protocol: TCP, port: 8080 }]
     - from:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
@@ -63,7 +66,7 @@ spec:
   policyTypes: [Egress]
   egress:
     # HTTPS to the internet only (S3, Keycloak, Sentry, webhook receivers): webhooks must not reach internal services
-    # such as the Kubernetes API, Vault or the cloud metadata endpoint (#87). Private HTTPS: backend-egress-vpc-https.
+    # such as the Kubernetes API or the cloud metadata endpoint (#87).
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
@@ -89,13 +92,9 @@ spec:
         - { protocol: TCP, port: 9998 } # Tika
         - { protocol: TCP, port: 3000 } # Gotenberg
         - { protocol: TCP, port: 3310 } # ClamAV
-    # OpenTelemetry Collector (OTLP over HTTP: OTEL_EXPORTER_OTLP_*_ENDPOINT).
-    - to:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
-      ports: [{ protocol: TCP, port: 4318 }]
 ---
-# Managed data stores inside the environment's VPC (RDS, ElastiCache, Amazon MQ). Each overlay sets its VPC CIDR; the
-# base value matches nothing (#180).
+# Managed data stores inside the environment's VPC (RDS, ElastiCache). Each overlay sets its VPC CIDR; the base value
+# matches nothing (#180).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -111,23 +110,6 @@ spec:
       ports:
         - { protocol: TCP, port: 5432 } # PostgreSQL
         - { protocol: TCP, port: 6379 } # Redis
-        - { protocol: TCP, port: 5671 } # RabbitMQ (TLS)
----
-# HTTPS inside the environment's VPC: the OpenSearch domain (VPC endpoint). Each overlay sets its VPC CIDR; the base
-# value matches nothing.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: backend-egress-vpc-https
-spec:
-  podSelector:
-    matchExpressions:
-      - { key: app.kubernetes.io/name, operator: In, values: [diligence-backend, diligence-ingestion] }
-  policyTypes: [Egress]
-  egress:
-    - to:
-        - ipBlock: { cidr: 192.0.2.0/32 } # TEST-NET-1 placeholder, replaced per overlay
-      ports: [{ protocol: TCP, port: 443 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -138,7 +120,7 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress:
     - from:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
       ports: [{ protocol: TCP, port: 3000 }]
   egress:
     # Keycloak (token endpoint, same public address as the backend uses) and Sentry: public addresses only (#180).
@@ -147,10 +129,10 @@ spec:
             cidr: 0.0.0.0/0
             except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
       ports: [{ protocol: TCP, port: 443 }]
-    # Kong proxy (API_BASE_URL; the Service's port 80 targets the proxy container's 8000).
+    # Backend API directly within the environment namespace (API_BASE_URL).
     - to:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kong } }
-      ports: [{ protocol: TCP, port: 8000 }]
+        - podSelector: { matchLabels: { app.kubernetes.io/name: diligence-backend } }
+      ports: [{ protocol: TCP, port: 8080 }]
 ---
 # Redis session store (ElastiCache) inside the environment's VPC. Each overlay sets its VPC CIDR; the base value matches
 # nothing (#180).

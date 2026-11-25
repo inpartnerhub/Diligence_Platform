@@ -1,13 +1,19 @@
 # Secret rotation
 
-Secrets come from HashiCorp Vault via the Vault Secrets Operator (ADR-0002); none are in Git (gitleaks in CI).
+Secrets come from AWS Secrets Manager, synced into Kubernetes Secrets by the External Secrets Operator (ESO) via EKS
+Pod Identity (ADR-0011); none are in Git (gitleaks in CI). Terraform owns the generated infrastructure credentials
+(`diligence/<env>/backend/infrastructure`, `diligence/<env>/frontend-redis`); operators own the rest
+(`diligence/<env>/backend/application`, `diligence/<env>/frontend`). The base manifests reference
+`diligence/base/...`; each overlay patches the key to its environment.
 
 ## Routine (at least yearly, and after any suspected exposure)
 
-1. Write the new value to Vault under `diligence/base/backend/infrastructure` (database, RabbitMQ, Redis,
-   OpenSearch credentials) or `diligence/base/backend/application` (Keycloak admin client secret, …); the frontend's
-   `SESSION_SECRET` lives under `diligence/base/frontend` (overlays may change the prefix).
-2. The operator updates the Kubernetes secret and triggers a rolling restart of the consuming deployment.
+1. Write the new value to the Secrets Manager secret: `diligence/<env>/backend/infrastructure` (database, Redis
+   connection) or `diligence/<env>/backend/application` (Keycloak admin client secret, SMTP, …); the frontend's
+   `SESSION_SECRET` lives in `diligence/<env>/frontend`.
+2. ESO syncs the new value into the Kubernetes Secret within its refresh interval (1 min). Restart the consuming
+   deployment so it is read (env vars from `envFrom` are read at startup): `kubectl -n diligence-<env> rollout restart
+   deploy/<name>`.
 3. Verify: pods ready, no authentication errors in logs, sign-in works.
 4. Revoke the old credential at the source (RDS user password, Keycloak client secret).
 
@@ -15,12 +21,12 @@ Rotating `SESSION_SECRET` signs every user out of the web application; announce 
 
 ## Web client secret (#175)
 
-`OIDC_CLIENT_SECRET` (in `diligence/base/frontend`) authenticates the frontend to Keycloak as the confidential
+`OIDC_CLIENT_SECRET` (in `diligence/<env>/frontend`) authenticates the frontend to Keycloak as the confidential
 client `diligence-web`. Keycloak holds one secret per client, so a rotation briefly fails sign-ins and token refreshes
 until the frontend has restarted with the new value:
 
 1. Keycloak admin console → Clients → `diligence-web` → Credentials → *Regenerate*; copy the new secret.
-2. Write it to Vault as `OIDC_CLIENT_SECRET`; the operator restarts the frontend.
+2. Write it to Secrets Manager as `OIDC_CLIENT_SECRET`; once ESO has synced it, restart the frontend.
 3. Update the GitHub secret `PERF_OIDC_CLIENT_SECRET` of that environment (performance tests).
 
 Sessions whose refresh fails sign in again. Rotate outside business hours.
@@ -28,30 +34,24 @@ Sessions whose refresh fails sign in again. Rotate outside business hours.
 ## Session encryption key (#172)
 
 The frontend encrypts the session records it keeps in Redis (access, refresh and ID tokens) with
-`SESSION_ENCRYPTION_KEY` (base64, 32 bytes, in `diligence/base/frontend`). Each record names the key it was written
+`SESSION_ENCRYPTION_KEY` (base64, 32 bytes, in `diligence/<env>/frontend`). Each record names the key it was written
 with. To rotate it without signing users out:
 
-1. In Vault, copy the current value to `SESSION_ENCRYPTION_KEY_PREVIOUS` and set a new `SESSION_ENCRYPTION_KEY`
-   (`openssl rand -base64 32`). The operator restarts the frontend; new and refreshed sessions use the new key, existing
-   ones stay readable with the previous key.
+1. In Secrets Manager, copy the current value to `SESSION_ENCRYPTION_KEY_PREVIOUS` and set a new
+   `SESSION_ENCRYPTION_KEY` (`openssl rand -base64 32`). Once ESO has synced it, restart the frontend; new and
+   refreshed sessions use the new key, existing ones stay readable with the previous key.
 2. After 10 hours (the maximum session age) no session written with the old key is left: remove
    `SESSION_ENCRYPTION_KEY_PREVIOUS`.
 
 After a suspected exposure skip the waiting: set a new key without `_PREVIOUS`, which signs every user out.
 
-Redis (ElastiCache) has one user per workload (#171): `backend`, `web` (the BFF; only it reads sessions) and
-`gateway` (Kong's rate-limit counters, #150); access strings in `modules/redis/access-strings.json`. Each password is a
-`random_password.user["<name>"]` in `modules/redis`: taint it and apply. Terraform updates the ElastiCache user and
-writes the new value to Vault (`backend/infrastructure` for `backend` and `gateway`, `frontend-redis` for `web`); the
-operator restarts the backend or frontend. Kong picks up `diligence-gateway-redis` on the Ingress Controller's next
-sync; until then it cannot reach Redis and lets requests through (no per-address limit for that short window; the
-backend's per-user limit still applies). Check afterwards that the Kong proxy logs show no Redis authentication errors.
+## Redis credentials (#171)
 
-The backend's OpenSearch password (#159) is generated by Terraform (`random_password.backend` in
-`modules/opensearch`): taint it and apply; Terraform writes the new value to both `backend/infrastructure` and
-`opensearch-admin`. Then run the `opensearch-bootstrap` Job again (`kubectl -n diligence-<env> delete job
-opensearch-bootstrap --ignore-not-found` and re-apply the overlay): it sets the new password before the backend's
-rolling restart uses it. The master credential lives only in `kv/diligence/<env>/opensearch-admin`.
+Redis (ElastiCache) has one user per workload: `backend` and `web` (the BFF; only it reads sessions); access strings
+in `modules/redis/access-strings.json`. Each password is a `random_password.user["<name>"]` in `modules/redis`: taint
+it and apply. Terraform updates the ElastiCache user and writes the new value to Secrets Manager
+(`backend/infrastructure` for `backend`, `frontend-redis` for `web`); once ESO has synced it, restart the backend or
+frontend. Check afterwards that the logs show no Redis authentication errors.
 
 ## Webhook signing keys (ADM-07)
 
@@ -61,11 +61,11 @@ over a secure channel. The old key stops working immediately, so coordinate the 
 ## Webhook key-encryption key (#64)
 
 Webhook signing keys are stored encrypted with `WEBHOOK_KEY_ENCRYPTION_KEY` (base64, 32 bytes, in
-`diligence/base/backend/application`). To rotate it:
+`diligence/<env>/backend/application`). To rotate it:
 
-1. In Vault, copy the current value to `WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS` and set a new
+1. In Secrets Manager, copy the current value to `WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS` and set a new
    `WEBHOOK_KEY_ENCRYPTION_KEY` (`openssl rand -base64 32`).
-2. The operator restarts the backend; at startup every signing key is re-encrypted with the new key
+2. Once ESO has synced it, restart the backend; at startup every signing key is re-encrypted with the new key
    ("Encrypted N webhook signing keys" in the log).
 3. Remove `WEBHOOK_KEY_ENCRYPTION_KEY_PREVIOUS`.
 
@@ -74,4 +74,5 @@ webhook would need a new signing key (key button in `/admin/webhooks`).
 
 ## KMS keys
 
-Customer-managed KMS keys (S3, RDS, logs) rotate automatically every year (`modules/kms-key`). No action needed.
+Customer-managed KMS keys (S3, RDS, logs, Secrets Manager) rotate automatically every year (`modules/kms-key`). No
+action needed.

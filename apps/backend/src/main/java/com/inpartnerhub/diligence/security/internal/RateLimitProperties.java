@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Per-user API rate limits, in addition to Kong's per-IP limit (issue #63).
+ * Per-user API rate limits, in addition to the NGINX Ingress per-IP limit (issue #63).
  *
  * @param enabled            switch for test and CI environments; production keeps it on
  * @param perMinute          requests one user may make per minute

@@ -23,7 +23,7 @@ class DocumentSearchService {
 
     static final int MAX_PAGE_SIZE = 50;
 
-    /** OpenSearch's {@code index.max_result_window}: results beyond it cannot be paged to (#89). */
+    /** Maximum result window: results beyond it cannot be paged to (#89). */
     static final int MAX_RESULT_WINDOW = 10_000;
 
     record Result(Document document, SearchHit hit) {

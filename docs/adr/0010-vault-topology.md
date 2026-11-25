@@ -1,6 +1,6 @@
 # ADR-0010: Secrets platform on Azure — Vault topology and Kubernetes authentication per environment
 
-- **Status:** Accepted (2026-11-14); implementation in #170
+- **Status:** Superseded by [ADR-0011](0011-lean-architecture-simplification.md) (replaced by AWS Secrets Manager)
 - **Date:** 2026-11-13, decided 2026-11-14
 - **Deciders:** Tech Lead / Architect, Security Officer, platform owner (ADR-0007)
 - **Vault owner:** irsalshydiq (unseal configuration, upgrades, snapshots), the platform owner of ADR-0007

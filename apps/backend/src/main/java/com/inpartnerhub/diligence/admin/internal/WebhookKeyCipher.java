@@ -18,8 +18,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Component;
 
 /**
- * Encrypts webhook signing keys at rest with AES-256-GCM (issue #64). The key-encryption key comes from Vault through
- * the environment (ADR-0002: no Vault client in the application). Stored values look like
+ * Encrypts webhook signing keys at rest with AES-256-GCM (issue #64). The key-encryption key comes from AWS Secrets
+ * Manager through the environment (ADR-0011: no cloud secrets client in the application). Stored values look like
  * {@code enc:v1:<key id>:<base64 nonce + ciphertext>}; the key id (first bytes of the key's SHA-256) lets the previous
  * key decrypt old values during a rotation. Values without the prefix are legacy plain text.
  */

@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
 /**
- * Retries module listeners whose invocation failed (issue #81). A listener that throws — the search indexer while
- * OpenSearch is down, a notification while the mail server is unreachable — leaves its event publication FAILED in
+ * Retries module listeners whose invocation failed (issue #81). A listener that throws — the search indexer while a
+ * PostgreSQL write fails, a notification while the mail server is unreachable — leaves its event publication FAILED in
  * {@code public.event_publication}. Before this job such publications were only retried when the backend restarted.
  * <p>
  * Every {@code interval} one replica (ShedLock) resubmits FAILED publications older than {@code min-age} that have

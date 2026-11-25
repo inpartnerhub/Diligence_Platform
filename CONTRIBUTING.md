@@ -16,7 +16,7 @@ One issue, one branch, one pull request.
 5. Review and merge (current practice): the author reviews the diff and the CI results, fixes CodeQL/Trivy alerts and
    review comments, and squash-merges once CI is green. The squash subject is the PR title plus `(#<PR>)`; close the
    issue with a short summary of what changed and what is still to do outside the repository (deployments, realm or
-   Vault changes, legal follow-ups).
+   AWS Secrets Manager changes, legal follow-ups).
 
 `main` is not branch-protected and `.github/CODEOWNERS` still holds placeholder teams. Before go-live: protect `main`
 (required status checks, at least one approving review from someone other than the author) and replace the
@@ -63,10 +63,10 @@ placeholders with real teams; this section then changes to "merge requires an ap
   (upper case). For this repository a change is breaking when it:
   - changes the API in a way an existing client notices (removed or renamed field, a field that can now be `null`,
     stricter validation, different status code) — `/api/v1` stays compatible, so such changes need `/api/v2`;
-  - removes or renames a configuration property, environment variable, Vault key or Kubernetes resource that a
+  - removes or renames a configuration property, environment variable, secret or Kubernetes resource that a
     deployment sets;
   - needs a step outside the repository before or with the deployment, without which the system stops working
-    (a Keycloak realm change, a Vault role, `terraform apply`, a data migration).
+    (a Keycloak realm change, an AWS Secrets Manager secret, `terraform apply`, a data migration).
 - Squash merges keep this format: the PR title is the commit subject, and GitHub appends `(#<PR>)`.
 
 ### Pre-commit hook and `--no-verify`
@@ -92,10 +92,9 @@ say so in the pull request. A real secret is never committed: rotate it if it wa
 | JSON fields | camelCase | `documentId` |
 | Config properties | `diligence.<area>.<property>`, kebab-case; the area is a module or a cross-cutting concern | `diligence.object-storage.bucket`, `diligence.step-up.max-age` |
 | Environment variables | UPPER_SNAKE_CASE | `S3_BUCKET`, `OIDC_ISSUER_URI` |
-| RabbitMQ | `diligence.<module>.<purpose>`, DLQ suffix `.dlq`; one dead-letter exchange `diligence.dlx`; names in `shared.messaging.MessagingTopology` | `diligence.ingestion.document-uploaded` |
 | DB schemas / tables / columns | snake_case; one short schema per module (`adm` admin, `audit`, `ntf` notification, `prj` project, `req` request, `dr` data room, `fnd` finding, `qna`, `rpt` report); `public` only for the Modulith outbox and ShedLock | `dr.document_version`, `fnd.finding` |
 | Flyway migrations | `V<yyyyMMddHHmm>__<description>.sql`, snake_case; start the description with the module when it fits (about half of the existing ones do). `V1`…`V19` are the original baseline | `V202611131000__project_member_organization_check.sql` |
-| Kubernetes resources | Workloads and their config/secrets `diligence-<app>[-<purpose>]`; NetworkPolicies `<workload>-<ingress\|egress>[-<target>]` (plus `default-deny-all`, `allow-dns-egress`); one-off Jobs and their own resources named after the Job | `diligence-backend-config`, `backend-egress-vpc-https`, `opensearch-bootstrap` |
+| Kubernetes resources | Workloads and their config/secrets `diligence-<app>[-<purpose>]`; NetworkPolicies `<workload>-<ingress\|egress>[-<target>]` (plus `default-deny-all`, `allow-dns-egress`); one-off Jobs and their own resources named after the Job | `diligence-backend-config`, `backend-egress-vpc-data` |
 | Terraform | snake_case resources, kebab-case module dirs | `module "object_storage"` → `modules/object-storage` |
 | Keycloak realm roles | lower-case `Role` enum name | `project_manager` ↔ `Role.PROJECT_MANAGER` |
 | i18n message keys | `<area>.<key>` in `messages/{id,en}.json` (both files, same keys) | `users.inviteTitle` |

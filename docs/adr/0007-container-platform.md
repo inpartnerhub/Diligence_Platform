@@ -1,6 +1,6 @@
 # ADR-0007: Container platform — Kubernetes on AKS, with an ownership trigger for Azure Container Apps
 
-- **Status:** Accepted (2026-11-13, #183)
+- **Status:** Superseded by [ADR-0011](0011-lean-architecture-simplification.md) (standardizes AWS EKS ap-southeast-3 with lean launch defaults and resolves ADR-0007 branch collision)
 - **Date:** 2026-11-13
 - **Deciders:** Tech Lead / Architect, Security Officer, platform owner
 - **Platform owner:** irsalshydiq (cluster and add-ons); deputy to be named before go-live

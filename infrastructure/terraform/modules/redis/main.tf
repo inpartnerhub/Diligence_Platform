@@ -1,9 +1,9 @@
-# One RBAC user per workload, restricted by key pattern (#171): the backend, the web app (BFF sessions, which hold
-# tokens) and Kong (rate-limit counters) cannot read each other's keys. Access strings: access-strings.json, also read
-# by RedisAccessStringsIntegrationTest. ElastiCache requires a user named "default" in the group; it is disabled.
+# One RBAC user per workload, restricted by key pattern (#171): the backend and the web app (BFF sessions, which hold
+# tokens) cannot read each other's keys. Access strings: access-strings.json, also read by
+# RedisAccessStringsIntegrationTest. ElastiCache requires a user named "default" in the group; it is disabled.
 locals {
   access_strings = jsondecode(file("${path.module}/access-strings.json"))
-  users          = toset(["default", "backend", "web", "gateway"])
+  users          = toset(["default", "backend", "web"])
 }
 
 resource "random_password" "user" {

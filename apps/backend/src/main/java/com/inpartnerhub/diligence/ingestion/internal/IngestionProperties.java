@@ -16,11 +16,14 @@ import org.springframework.boot.context.properties.bind.ConstructorBinding;
  * @param previewMaxPages      pages rendered for preview; longer documents are previewed up to this page
  * @param previewDpi           resolution of preview page images
  * @param serviceTimeout       read timeout for Tika and Gotenberg (OCR and Office conversion are slow)
+ * @param pollInterval         delay between queue polls when no ingestion jobs are waiting
+ * @param staleLockTimeout     how long a {@code PROCESSING} job may stay locked before being reclaimed
  */
 @ConfigurationProperties("diligence.ingestion")
 record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
         List<String> allowedContentTypes, Duration retryBackoff, String ocrLanguages, Integer maxTextChars,
-        Integer previewMaxPages, Integer previewDpi, Duration serviceTimeout) {
+        Integer previewMaxPages, Integer previewDpi, Duration serviceTimeout,
+        Duration pollInterval, Duration staleLockTimeout) {
 
     static final List<String> DEFAULT_ALLOWED = List.of(
             "application/pdf",
@@ -48,6 +51,8 @@ record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int
         previewMaxPages = previewMaxPages == null ? 300 : previewMaxPages;
         previewDpi = previewDpi == null ? 120 : previewDpi;
         serviceTimeout = serviceTimeout == null ? Duration.ofMinutes(5) : serviceTimeout;
+        pollInterval = pollInterval == null ? Duration.ofSeconds(2) : pollInterval;
+        staleLockTimeout = staleLockTimeout == null ? Duration.ofMinutes(10) : staleLockTimeout;
     }
 
     static String normalizeOcrLanguages(String raw) {
@@ -65,11 +70,19 @@ record IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int
         return list.isEmpty() ? "eng+ind" : String.join("+", list);
     }
 
+    /** Defaults for queue settings (tests). */
+    IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
+            List<String> allowedContentTypes, Duration retryBackoff, String ocrLanguages, Integer maxTextChars,
+            Integer previewMaxPages, Integer previewDpi, Duration serviceTimeout) {
+        this(tikaUrl, gotenbergUrl, clamavHost, clamavPort, allowedContentTypes, retryBackoff, ocrLanguages,
+                maxTextChars, previewMaxPages, previewDpi, serviceTimeout, null, null);
+    }
+
     /** Defaults for everything but the service endpoints (tests). */
     IngestionProperties(URI tikaUrl, URI gotenbergUrl, String clamavHost, int clamavPort,
             List<String> allowedContentTypes, Duration retryBackoff) {
         this(tikaUrl, gotenbergUrl, clamavHost, clamavPort, allowedContentTypes, retryBackoff, null, null, null,
-                null, null);
+                null, null, null, null);
     }
 
     boolean isAllowed(String contentType) {
