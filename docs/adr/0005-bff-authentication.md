@@ -1,6 +1,6 @@
 # ADR-0005: Backend-for-frontend authentication with server-side sessions
 
-- **Status:** Accepted
+- **Status:** Accepted *(secrets source and API routing updated by [ADR-0011](0011-lean-architecture-simplification.md))*
 - **Date:** 2026-10-30
 - **Deciders:** Tech Lead / Architect, Security Officer
 
@@ -13,11 +13,13 @@ JS-readable cookies) are exposed to XSS; MFA and SSO must be handled by Keycloak
 
 The Next.js server is the OIDC client (`diligence-web`, Authorization Code + PKCE, `openid-client`). Since #175 the
 client is confidential: the server authenticates its token requests with the client secret (`client_secret_post`,
-`OIDC_CLIENT_SECRET` from Vault), so tokens for this client cannot be obtained without it. Tokens are kept
-server-side in Redis keyed by a random session id; the browser only receives that id sealed in an `HttpOnly`,
-`SameSite=Lax` cookie (`iron-session`). Server components and server actions call the API through Kong with the
-user's access token, refreshing it when it is about to expire. Logout is a same-origin POST that deletes the
-session and ends the Keycloak session.
+`OIDC_CLIENT_SECRET` from AWS Secrets Manager via External Secrets Operator per
+[ADR-0011](0011-lean-architecture-simplification.md), originally Vault), so tokens for this client cannot be obtained
+without it. Tokens are kept server-side in Redis keyed by a random session id; the browser only receives that id
+sealed in an `HttpOnly`, `SameSite=Lax` cookie (`iron-session`). Server components and server actions call the backend
+API directly over internal networking (originally routed via Kong, simplified in
+[ADR-0011](0011-lean-architecture-simplification.md)) with the user's access token, refreshing it when it is about to
+expire. Logout is a same-origin POST that deletes the session and ends the Keycloak session.
 
 ## Alternatives considered
 

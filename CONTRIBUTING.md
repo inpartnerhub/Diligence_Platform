@@ -107,7 +107,8 @@ say so in the pull request. A real secret is never committed: rotate it if it wa
 - Prefer domain events over direct calls between modules. Other modules react with `@ApplicationModuleListener`
   (asynchronous, after commit, in its own transaction without a user: the RLS `system` context). Inside a module,
   `@TransactionalEventListener` is used for after-commit housekeeping (cache eviction) and `@EventListener` where the
-  reaction must run in the caller's transaction (login bookkeeping). The upload pipeline is the only `@RabbitListener`.
+  reaction must run in the caller's transaction (login bookkeeping, enqueueing ingestion jobs). The upload pipeline
+  runs asynchronously via the PostgreSQL `dr.ingestion_job` queue (`IngestionJobQueue` / `IngestionJobWorker`).
 - No `ddl-auto` schema changes; every schema change is a Flyway migration in `database/migrations/postgresql`,
   backward compatible with the previous release.
 - A new migration's version must sort **after every migration already on `main`** (Flyway refuses an older version

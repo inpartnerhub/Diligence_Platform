@@ -129,7 +129,8 @@ Enforcement is layered so a UI bug cannot leak data:
    groups) are row-level secured too (#154): the internal team sees the whole directory; an external user sees their
    own account and organization, the consultant team, the people they share a project with and the organizations of
    their projects. The integration tests `rowLevelSecurityEnforcesInformationBarrier` and
-   `identityTablesFollowTheProjectsAUserBelongsTo` prove it.
+   `identityTablesFollowTheProjectsAUserBelongsTo` prove it. `V202611251000` also enforces RLS on `dr.ingestion_job`
+   and `dr.document_search_index`.
 4. **Audit**: `audit.audit_log` accepts only INSERT/SELECT from the runtime role and triggers reject UPDATE, DELETE
    and TRUNCATE for everyone.
 
@@ -148,7 +149,8 @@ POST /auth/logout (same-origin only) ─▶ delete Redis session → Keycloak en
 ```
 
 Tokens never reach the browser. The OIDC client builds browser-facing endpoints from `OIDC_ISSUER` and back-channel
-endpoints from `OIDC_INTERNAL_ISSUER`, so container networks and the token `iss` claim stay consistent.
+endpoints from `OIDC_INTERNAL_ISSUER`, so container networks and the token `iss` claim stay consistent. `src/proxy.ts`
+also rejects cross-site state-changing requests (`isCrossSiteWrite`) and injects a fresh per-request CSP nonce.
 
 ### API
 
@@ -192,7 +194,7 @@ Search ─▶ GET /projects/{p}/search ─▶ PostgreSQL tsvector query on dr.do
 ```
 
 Full-text search stores weighted `tsvector` terms (document name + extracted text) in `dr.document_search_index` with
-a GIN index, evaluated directly under PostgreSQL RLS. OCR uses `OCR_LANGUAGES` (default `eng`); the stock
+a GIN index, evaluated directly under PostgreSQL RLS. OCR uses `OCR_LANGUAGES` (default `eng+ind`); the stock
 `apache/tika:*-full` image ships eng/deu/fra/ita/spa/jpn, so Indonesian trained data (`ind`) needs a derived image with
 `tesseract-ocr-ind`. Viewer watermark times use `WATERMARK_ZONE` (default Asia/Jakarta).
 
@@ -266,13 +268,13 @@ Download: team ─▶ Word or PDF; client ─▶ issued PDF stamped by dataroom.
 
 The finding link of a question is never returned to the target or the client, and the target never sees drafts or
 questions awaiting approval (RLS on `qna.question`). Report wording exists in Indonesian and English; the layout is
-neutral until the firm's official template is available (PRD Bab 15.2). Tiered report approval (RPT-03) follows in
-phase 2.
+neutral until the firm's official template is available (PRD Bab 15.2). Tiered report approval (`RPT-03`,
+`rpt.report_approval`, `rpt.report_version`) and PowerPoint/Excel finding exports (`RPT-04`) are implemented.
 
 ## 10. Frontend
 
 - App Router; `src/app/(app)` is the authenticated area rendered inside `AppShell` (Ant Design layout, role-based
-  navigation from PRD Bab 11.1, language switch, user menu). Pages for later sprints show their sprint and PRD IDs.
+  navigation from PRD Bab 11.1, language switch, user menu).
 - Server components fetch through `apiFetch` (server-only); mutations use server actions
   (`src/features/<feature>/actions.ts`). Filters and paging live in the URL.
 - Ant Design compound components are used from client components; one theme in `src/theme/themeConfig.ts`,

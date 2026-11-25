@@ -26,7 +26,7 @@ Only the latest release deployed from `main` receives security fixes.
 | Strong passwords, brute-force protection | Realm password policy (length 12, history 5, not username/e-mail, blacklist of 100,000 common/breached passwords from SecLists: `infrastructure/docker/keycloak/password-blacklists`), lockout after 5 failures | ✅ |
 | Step-up for sensitive actions | `@RequiresRecentSignIn`: report release/issue, project purge, IP allow-list changes, webhook changes and role changes need a sign-in with MFA within 10 min: `auth_time` within `STEP_UP_MAX_AGE` **and** `amr` containing `otp` (`STEP_UP_MFA_METHOD`; Keycloak `amr` mapper on `diligence-web`, reference values on the password and OTP forms, #160), so a password-only sign-in never satisfies it; the same rule covers bulk downloads; the web app re-authenticates with `prompt=login` | ✅ |
 | Internal SSO | Microsoft Entra ID / Google brokering via `make keycloak-bootstrap` (credentials from env/AWS Secrets Manager), limited to the firm's tenant / Workspace domain; imported accounts have no role until assigned (#152) | ✅ |
-| Server-side RBAC, tested against cross-project access (IDOR) | `@PreAuthorize`, module access components (`ProjectAccess`, `DataRoomAccess`, …), PostgreSQL RLS per project; `AdminEndpointSecurityTest`, `rowLevelSecurityEnforcesInformationBarrier` | ✅ foundation |
+| Server-side RBAC, tested against cross-project access (IDOR) | `@PreAuthorize`, module access components (`ProjectAccess`, `DataRoomAccess`, …), PostgreSQL RLS per project; `AdminEndpointSecurityTest`, `CrossProjectAccessIntegrationTest`, `rowLevelSecurityEnforcesInformationBarrier` | ✅ |
 | Information barriers (Bab 3) | Project as the security boundary, one operating firm per deployment ([ADR-0008](docs/adr/0008-tenant-model.md)). RLS: target never sees findings and only sees data-room folders granted to it; client has no data room and sees released findings / issued reports / own questions only; identity tables (`adm.*`) are row-level secured as well, so external users never read other organizations' people (#154); CLIENT/TARGET members must belong to the project's client/target organization (database trigger, #155), deactivating an organization ends its members' project access (#156), and data-room folders, documents and versions cannot point into another project (composite foreign keys, #181) | ✅ |
 | Immutable audit log, stored separately, exportable | `audit` schema, insert-only grants + triggers rejecting UPDATE/DELETE/TRUNCATE; search API indexed by user, object and action; CSV export streamed in batches (#116) | ✅ |
 | Encryption in transit (TLS 1.2+) and at rest (AES-256) | TLS at the NGINX Ingress, `sslmode=verify-full`; outgoing mail with STARTTLS required (no plaintext fallback), TLS 1.2/1.3 and server identity checked when `SMTP_STARTTLS=true` (#127); customer-managed KMS keys (rotated) for S3 documents, RDS, Secrets Manager and log groups; encrypted ElastiCache | ✅ IaC |
@@ -42,8 +42,9 @@ Only the latest release deployed from `main` receives security fixes.
 ## Compliance and data governance (PRD 10.2)
 
 - **UU No. 27/2022 (PDP)**: processing basis, data subject rights, incident notification and the data protection
-  officer are mapped in the compliance register (owner: Security Officer). Hosting location is an open decision
-  ([ADR-0003](docs/adr/0003-hosting-and-data-residency.md)).
+  officer are mapped in the compliance register (owner: Security Officer). Launch hosting is standardized on AWS
+  `ap-southeast-3` (Jakarta) per [ADR-0011](docs/adr/0011-lean-architecture-simplification.md); Legal subprocessor
+  and transfer-basis questions in [ADR-0003](docs/adr/0003-hosting-and-data-residency.md) remain tracked.
 - **Retention**: project data is deleted after closure per client agreement (ADM-06): when an archived project passes
   its retention period every module deletes its data (data room files and search entries, findings, request items,
   Q&A, reports, notifications, timesheet, webhook logs; #114). Documents are deleted with every S3 object version

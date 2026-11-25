@@ -18,8 +18,11 @@ All MVP requirements marked **M** (and the S items delivered in the MVP) in the
 - administration;
 - information barriers.
 
-Out of scope: phase 2 and 3 items (PRJ-05, DOC-08, FND-05, RPT-03, ADM-06, AI features). Load and security are
-covered separately ([performance](../../tests/performance/README.md), [penetration test](../security/penetration-test.md)).
+Core UAT gate scope covers the MVP **M** requirements (and MVP **S** items). Phase 2/3 capabilities (`PRJ-05`,
+`PRJ-06`, `DOC-08`, `FND-05`, `FND-06`, `RPT-03`, `RPT-04`, `ADM-06`, `ADM-07`, and rule-based key clauses) are also
+implemented in the codebase and may be validated alongside UAT; AI-assisted search/grouping (PRD Bab 10.3) remains
+Phase 3. Load and security are covered separately
+([performance](../../tests/performance/README.md), [penetration test](../security/penetration-test.md)).
 
 ## Participants
 

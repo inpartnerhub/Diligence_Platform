@@ -6,10 +6,10 @@ the platform, so these services run apart from the application (#92):
 
 | Control | How |
 |---------|-----|
-| Network | Default deny. Ingress only from `diligence-backend` pods of namespaces labelled `app.kubernetes.io/part-of: diligence`, on 3310/9998/3000. Egress only DNS; ClamAV additionally HTTPS to public addresses for signature updates. No access to the metadata endpoint, other namespaces or the internet. |
+| Network | Default deny. Ingress only from `diligence-backend` and `diligence-ingestion` pods of namespaces labelled `app.kubernetes.io/part-of: diligence`, on 3310/9998/3000. Egress only DNS; ClamAV additionally HTTPS to public addresses for signature updates. No access to the metadata endpoint, other namespaces or the internet. |
 | Pods | Pod Security `restricted`: non-root with UIDs above 10000 (ClamAV 10100, Gotenberg 10101, Tika 35002), read-only root filesystem, all capabilities dropped, `RuntimeDefault` seccomp, no service-account token. Writable paths are size-limited `emptyDir`s. |
 | Images | All three are rebuilt into GHCR, the only trusted registry (`.trivy/data/trusted-registries.yaml`): `infrastructure/docker/{clamav,gotenberg,tika}` start from digest-pinned upstream images, apply security updates and move the service user above UID 10000. The *Processing images* workflow builds, Trivy-scans (fails on fixable High/Critical) and pushes them. Dependabot proposes base updates. |
-| Capacity | Requests and limits per container, two replicas each, a PodDisruptionBudget each. |
+| Capacity | Requests and limits per container, one replica each by default (lean launch, [ADR-0011](../../../docs/adr/0011-lean-architecture-simplification.md); scale up as needed) with Spot tolerations and preferred node affinity (automatic fallback to on-demand), plus a PodDisruptionBudget each. |
 
 ClamAV does not use the image's `/init` (it needs root): an init container downloads the signatures, `clamd` scans,
 and a `freshclam` sidecar updates them; `clamd` reloads them itself (`SelfCheck`). Configuration is in the
@@ -23,7 +23,7 @@ One processing namespace per cluster serves every Diligence environment in it (t
 
 The images are pinned by digest in `kustomization.yaml` (#166); CI refuses a moving tag. To roll out new builds,
 update the three digests from the *Processing images* run on `main` (its "pushing manifest for …:main@sha256:…" log
-lines; Gotenberg also in `../base/search/job.yaml`) in a pull request, then:
+lines) in a pull request, then:
 
 ```bash
 cd infrastructure/kubernetes/processing

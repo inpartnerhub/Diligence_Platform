@@ -21,8 +21,8 @@ the English labels.
 2. Enter your e-mail (or username) and password.
    - Internal users of the consulting firm may see a button to sign in with the company account (Microsoft or
      Google) instead.
-3. **Two-factor authentication.** Target, client, observer and administrator accounts must use an authenticator app
-   (Microsoft Authenticator, Google Authenticator or FreeOTP).
+3. **Two-factor authentication.** Every account (internal consultant team, target, client, observer and
+   administrator) uses an authenticator app (Microsoft Authenticator, Google Authenticator or FreeOTP).
    - The first time, scan the QR code and enter the 6-digit code.
    - Afterwards, enter the current code at every sign-in.
 4. **NDA.** External users accept the confidentiality terms (NDA) at their first sign-in.

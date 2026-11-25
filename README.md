@@ -8,12 +8,16 @@ The product specification is the PRD *Konsep Produk & Spesifikasi untuk Tim IT �
 30 Oct 2026). Requirement IDs used throughout the code and docs (`PRJ-01`, `DOC-04`, `ADM-02`, …) refer to it;
 see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 
-> **Status:** MVP sprints 1–14 delivered — foundation, authentication & SSO, MFA, administration and audit log;
-> projects, teams, templates and dashboards; data room with folder grants, drag-and-drop/folder upload, versions,
-> malware scanning and type validation; watermarked preview, download/print control and full-text search with OCR;
-> request list with waves, delivery by the target, Excel import/export, PDF export, in-app and e-mail notifications
-> and daily reminders; findings with configurable risk rating, source documents, four-eyes review and partner release;
-> Q&A with approval and Word/PDF reports from released findings. Next: hardening, UAT and training (sprint 15–16).
+> **Status:** MVP sprints 1–16 technical scope and Phase 2/3 capabilities delivered — foundation, authentication & SSO,
+> MFA for all roles, administration and immutable audit log; projects, teams, templates, project & portfolio
+> dashboards, and time tracking; data room with folder grants, drag-and-drop/folder upload, versions, ClamAV malware
+> scanning, Tika type validation/OCR, Gotenberg previews, dynamic watermark, download/print control, annotations,
+> duplicate detection, and rule-based key-clause extraction; request list with waves, target delivery, Excel
+> import/export, PDF export, notifications, and daily reminders; findings with configurable risk matrix, source
+> citations, four-eyes review, partner release, remediation tracking, and finding library; Q&A with approval; Word/PDF
+> reports with tiered approval and PPTX/XLSX exports; retention/purge, outbound webhooks, and the lean AWS/PostgreSQL
+> architecture ([ADR-0011](docs/adr/0011-lean-architecture-simplification.md)). Remaining go-live gates: business-run
+> external penetration test, UAT sign-off, and first backup/restore test.
 
 - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Security policy: [SECURITY.md](SECURITY.md)
@@ -35,7 +39,8 @@ see [docs/prd](docs/prd/README.md) for the summary and traceability matrix.
 │   └── terraform/          Cloud infrastructure: modules, stack, per-environment roots
 ├── tests/
 │   ├── e2e/                Playwright end-to-end tests
-│   └── performance/        k6 load tests
+│   ├── performance/        k6 load tests
+│   └── security/           OWASP ZAP DAST baseline and API scan configs
 ├── docs/
 │   ├── prd/                PRD summary and requirement traceability
 │   ├── adr/                Architecture Decision Records
@@ -158,8 +163,12 @@ Secrets are never committed. `.env`, `*.tfvars` and `backend.hcl` are git-ignore
 | `backend.yml` | changes in `apps/backend`, `database` | build, unit, modularity and integration tests, coverage gate, image build + Trivy scan, cosign sign + push on `main` |
 | `frontend.yml` | changes in `apps/frontend` | format, lint, typecheck, unit tests, build, image build + Trivy scan, cosign sign + push on `main` |
 | `infrastructure.yml` | changes in `infrastructure`, `compose.yaml` | Terraform fmt/validate/tflint, kubeconform on all overlays, image pin & NetworkPolicy checks, compose & alert-rules validation |
+| `processing-images.yml` | changes in `infrastructure/docker/{clamav,gotenberg,tika}` | rebuilds digest-pinned ClamAV, Gotenberg, and Indonesian-OCR Tika images + Trivy scan, cosign sign + push on `main` |
+| `container-image.yml` | called by `backend`, `frontend`, `processing-images` | reusable Docker build, Trivy scan, GHCR push, SBOM, provenance, and keyless `cosign` signing |
+| `codeql.yml` | every PR/push to `main`, weekly | CodeQL SAST for Java, TypeScript, and GitHub Actions workflows |
 | `security.yml` | every PR/push, weekly | gitleaks, pinned-actions check, dependency review, Trivy filesystem + IaC misconfiguration scan |
 | `dast.yml` | weekly (Sunday), manual | OWASP ZAP baseline + API scan against the full compose stack |
+| `performance.yml` | manual | k6 load or upload stress tests against `dev` or `staging` |
 | `deploy.yml` | manual | promotes an immutable image tag to dev / staging / prod (GitHub environment protection) |
 
 Images are published to GHCR as `ghcr.io/<owner>/diligence-{backend,frontend}:sha-<git sha>` with SBOM and provenance.

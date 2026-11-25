@@ -8,10 +8,10 @@
 
 ## In CI
 
-`.github/workflows/dast.yml` runs nightly and on demand (`gh workflow run DAST --ref main`, issue #67):
+`.github/workflows/dast.yml` runs weekly (Sunday 02:00 UTC) and on demand (`gh workflow run DAST --ref main`, issue #67):
 
 1. starts the full compose stack (`--profile app`) with throw-away secrets and creates the Keycloak users;
-2. signs in as the local project manager (no OTP) and checks the session and the token work;
+2. signs in as the local project manager (with TOTP via `KEYCLOAK_DEV_TOTP_SECRET`) and checks the session and the token work;
 3. **baseline scan** of the web app from `/dashboard`, signed in (sign-in/out and Keycloak's own pages excluded);
 4. **API scan** of the backend from `/v3/api-docs` with the bearer token (active, at most 30 minutes; the per-user
    rate limit is off for the run);

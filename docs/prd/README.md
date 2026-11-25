@@ -82,13 +82,15 @@ the code. Priorities follow MoSCoW: **M** = MVP must, **S** = should (phase 2 un
 | Scalability | ≥ 200 projects, ≥ 1,000 concurrent users, ≥ 20 TB | Stateless pods + HPA, Redis sessions, S3, PostgreSQL FTS (OpenSearch scale-up trigger in ADR-0011) |
 | Availability | 99.5% business hours; RPO ≤ 1 h, RTO ≤ 4 h | Multi-AZ data services in prod when `high_availability = true` (ADR-0011), PITR backups, quarterly restore test |
 | Security | TLS 1.2+, AES-256 at rest | SECURITY.md; optional per-project IP allow-list for external users (Bab 10.1) |
-| Compliance | UU PDP, ISO/IEC 27001 | SECURITY.md, ADR-0003 |
+| Compliance | UU PDP, ISO/IEC 27001 | SECURITY.md, ADR-0003, ADR-0011 |
 | Usability | Indonesian and English; tablet-responsive; WCAG 2.1 AA for key elements | next-intl, Ant Design responsive layout, accessible labels |
 | Observability | Central logs, metrics; alerts | Prometheus/Grafana (metrics, alerting), structured JSON logs to stdout, Sentry (errors); alert rules for error rate, latency, failed/suspicious logins and blocked access (`infrastructure/docker/prometheus/alerts.yml`, `PrometheusRule`) linked to [runbooks](../runbooks/README.md) |
 | Maintainability | ≥ 70% unit coverage on business logic; CI/CD; current OpenAPI | Jacoco gate in `build.gradle.kts`, springdoc |
 
 ## Open questions (Bab 15.2)
 
-Hosting model and data residency (ADR-0003); internal-only vs. licensed to third parties (affects multi-tenancy and
-billing); expected active projects and data-room sizes; official report templates and risk methodology; Product
-Owner and user representatives; budget and build-vs-buy for the virtual data room.
+Launch hosting (`AWS ap-southeast-3`, [ADR-0011](../adr/0011-lean-architecture-simplification.md)) and tenant model
+(one operating firm, project as security boundary, [ADR-0008](../adr/0008-tenant-model.md)) are decided. Remaining
+business and legal open items: Legal UU PDP transfer-basis sign-off for non-Indonesian subprocessors
+([ADR-0003](../adr/0003-hosting-and-data-residency.md)); expected active projects and data-room sizes; official report
+templates and risk methodology; Product Owner / UAT sign-off; and external penetration test execution.

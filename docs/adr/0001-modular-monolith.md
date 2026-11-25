@@ -1,6 +1,6 @@
 # ADR-0001: Modular monolith for the backend
 
-- **Status:** Accepted
+- **Status:** Accepted *(async ingestion transport updated by [ADR-0011](0011-lean-architecture-simplification.md))*
 - **Date:** 2026-10-30
 - **Deciders:** Tech Lead / Architect
 
@@ -18,7 +18,8 @@ Build the backend as a single Spring Boot deployable organised into **Spring Mod
 - Each top-level package under `com.inpartnerhub.diligence` is a module; `internal` sub-packages are private.
 - Boundaries and allowed dependencies are verified in the build (`ModularityTests`).
 - Modules interact through public APIs and domain events persisted in a transactional outbox
-  (`event_publication`); integration events are externalized to RabbitMQ.
+  (`event_publication`); integration events were originally externalized to RabbitMQ and are now handled by the
+  PostgreSQL `dr.ingestion_job` queue ([ADR-0011](0011-lean-architecture-simplification.md)).
 - Each module owns its own PostgreSQL schema; no cross-module foreign keys.
 
 ## Alternatives considered

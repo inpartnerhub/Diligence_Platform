@@ -45,6 +45,12 @@ The **Dashboard** tab shows:
 - findings by risk level;
 - progress per workstream.
 
+The firm-wide **Portfolio dashboard** (`/dashboard`, `PRJ-05`) aggregates progress, overdue items and risk counts
+across all active projects you belong to.
+
+Under a project's **Time** tab (`PRJ-06`), team members can log hours per workstream/activity and export the timesheet
+to CSV.
+
 ## 2. Request list
 
 1. **Request list → open the project.** Items from the template are already there.
@@ -76,16 +82,18 @@ receive a daily overdue summary.
     then can it be opened.
   - Uploading a file with the same name adds a new version. **Versions** lists them all.
 - **Viewer.** Click a document to open it. Each page is watermarked for you. From a page you can:
+  - **Annotate (`DOC-08`)**: add page annotations and link them directly to findings;
   - **Finding from page N**: records a finding with this document and page as its source;
   - **Ask a question**: asks the target about this document.
-- **Search documents** finds names and contents, including scanned documents (OCR). Use `"quotes"` for phrases and
-  `-word` to exclude a word. Results only include folders you may see.
+- **Search documents** finds names and contents, including scanned documents (OCR) and extracted key clauses (`DOC-09`).
+  Use `"quotes"` for phrases and `-word` to exclude a word. Results only include folders you may see.
 
 ## 4. Findings
 
-1. **Findings → New finding**, or **Finding from page N** in the viewer. Enter:
+1. **Findings → New finding**, **Import from library** (`FND-06`), or **Finding from page N** in the viewer. Enter:
    - the workstream, category, title and description;
-   - the impact, monetary impact and recommendation;
+   - the impact, monetary impact, recommendation, and optional remediation / SPA clause references (`FND-05`, exportable
+     as a remediation schedule CSV);
    - **Impact** and **Likelihood**, each 1 (very low) to 5 (very high).
 
    The risk level follows the firm's risk matrix. A high or critical rating notifies the project managers, and for
@@ -132,9 +140,11 @@ The heat map at the top shows open findings by impact × likelihood.
    - the released findings per workstream, with their sources.
 
    Each generation is a new version, in Word and PDF.
-2. Download Word or PDF to review. Delete a draft version you do not need.
-3. **Issue (partner).** The version is final: it can no longer be changed or deleted. The client is notified and
-   downloads a PDF watermarked with their own name.
+2. Download Word or PDF to review, or export findings to PowerPoint (`PPTX`) / Excel (`XLSX`) (`RPT-04`). Delete a
+   draft version you do not need.
+3. **Approval & Issue (`RPT-03`).** Draft versions support tiered sign-off (e.g. manager/partner review) before a
+   partner runs **Issue**. The issued version is final: it can no longer be changed or deleted. The client is notified
+   and downloads a PDF watermarked with their own name.
 
 ## Good practice
 

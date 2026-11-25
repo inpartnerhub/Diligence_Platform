@@ -11,7 +11,7 @@ Test pyramid and where each layer lives:
 | Frontend unit | `apps/frontend/src/**/*.test.ts` (Vitest): role navigation, token parsing | every PR | nothing |
 | Cross-project access | `CrossProjectAccessIntegrationTest`: every object ID of project B through project A's URL and by outsiders (IDOR) | every PR | Docker |
 | Client address | `ClientAddressIntegrationTest` (real Tomcat): forged `X-Forwarded-For` entries are ignored | every PR | Docker |
-| Passive DAST | `tests/security` (OWASP ZAP baseline, `make zap-baseline`) | before releases | running stack |
+| Passive & active DAST | `tests/security` (OWASP ZAP baseline + API scan, `dast.yml` / `make zap-baseline`) | weekly (Sunday) & on demand | running stack |
 | End-to-end | `tests/e2e` (Playwright): one engagement end to end in every role, information barriers ([README](e2e/README.md)) | before UAT and after deploys to dev/staging | running stack + e2e users |
 | Performance | `tests/performance/load.js` (k6): pages, preview and search against the PRD Bab 7 targets; seed data in `tests/performance/seed` ([README](performance/README.md)) | on demand (Performance workflow) | running stack + test user |
 

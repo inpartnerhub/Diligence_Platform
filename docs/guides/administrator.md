@@ -36,7 +36,7 @@ projects while it is inactive. Reactivating it does not restore access: add the 
 
 - **Invite user.** Enter the e-mail, name, organization, role and language.
   - The user receives an e-mail to set a password.
-  - Roles that require it also set up two-factor authentication.
+  - Every invited user also sets up two-factor authentication (TOTP).
   - External roles accept the NDA.
   - The user shows as **Invited** until their first sign-in, then **Active**.
 - **Change role.** This takes effect within a few minutes, when the user's session next refreshes.
@@ -78,6 +78,28 @@ They must increase.
 
 **Save thresholds** re-rates every open finding and reports how many changed. Released findings keep the level they
 were released with. Agree changes with the partners first: they affect ratings in all projects.
+
+## Finding library
+
+**Administration → Finding library** (or from the finding register's import drawer) maintains reusable standard
+findings (`FND-06`) that analysts and managers can import into a project. Only Super Admins may create, edit or
+deactivate library entries.
+
+## Search index
+
+**Administration → Search index** (`/admin/search`) lets a Super Admin trigger a full re-index of all `CLEAN`
+documents into PostgreSQL full-text search (`dr.document_search_index`), view the current run progress and see the
+latest completed run. Starting a re-index requires a recent MFA sign-in (step-up authentication).
+
+## Webhooks
+
+**Administration → Webhooks** (`/admin/webhooks`, `ADM-07`) registers outbound HTTPS webhook subscriptions for
+integration events:
+
+- Targets must use public HTTPS endpoints (private/loopback/link-local addresses are blocked to prevent SSRF).
+- Signing secrets are encrypted at rest and displayed once on creation/rotation.
+- Managing subscriptions requires a recent MFA sign-in (step-up authentication). Delivery logs are automatically
+  purged after the retention period (`30` days by default) and on project purge.
 
 ## Audit log
 
