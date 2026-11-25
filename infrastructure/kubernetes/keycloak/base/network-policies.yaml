@@ -1,0 +1,75 @@
+# Default deny; only explicitly declared flows are allowed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Keycloak accepts HTTP traffic from NGINX Ingress and Diligence application namespaces on 8080, and metrics/health
+# scrapes from monitoring on 9000.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-ingress
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: keycloak } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+      ports: [{ protocol: TCP, port: 8080 }]
+    - from:
+        - namespaceSelector: { matchLabels: { app.kubernetes.io/part-of: diligence } }
+          podSelector: {}
+      ports: [{ protocol: TCP, port: 8080 }]
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      ports: [{ protocol: TCP, port: 9000 }]
+---
+# Public HTTPS (external IdP brokering: Entra ID / Google) and SMTP (account/invitation e-mails); internal/metadata
+# ranges are excluded (#180).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-egress
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: keycloak } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 587 }
+---
+# Managed PostgreSQL inside the environment's VPC (RDS). Each overlay sets its VPC CIDR; the base value matches nothing.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-egress-vpc-db
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: keycloak } }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 192.0.2.0/32 } # TEST-NET-1 placeholder, replaced per overlay
+      ports:
+        - { protocol: TCP, port: 5432 } # PostgreSQL

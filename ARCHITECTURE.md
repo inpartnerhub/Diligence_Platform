@@ -47,7 +47,7 @@ How the Diligence Platform is structured and how its parts interact. Requirement
 | Text extraction / OCR | Apache Tika Server (`-full` image bundles Tesseract) | `ingestion` ports, `TIKA_URL` |
 | Preview renditions | Gotenberg (LibreOffice → PDF) | `ingestion.PreviewRenderer`, `GOTENBERG_URL` |
 | Malware scanning | ClamAV `clamd` over TCP | `ingestion.ContentScanner`, `CLAMAV_HOST` |
-| Identity | Keycloak: OIDC, conditional OTP, NDA required action, Entra ID / Google brokering | `infrastructure/docker/keycloak/diligence-realm.json` |
+| Identity | Keycloak: OIDC, conditional OTP, NDA required action, Entra ID / Google brokering | `infrastructure/docker/keycloak/diligence-realm.json`, `infrastructure/docker/keycloak/Dockerfile`, `infrastructure/kubernetes/keycloak/` |
 | Authorization | RBAC (7 PRD roles) + per-module access components + PostgreSQL RLS | `security` module, module `*Access` classes, `V5__row_level_security.sql` |
 | E-mail | Spring Mail (SMTP); Keycloak sends account e-mails itself | `notification` module |
 | Ingress | NGINX Ingress Controller in Kubernetes (direct BFF → backend locally) | `infrastructure/kubernetes/base/gateway` |
@@ -301,7 +301,8 @@ GitHub Actions ──build/test/scan/cosign──▶ GHCR (sha-tagged images, SB
 Terraform (environments/<env>) ──▶ network, EKS (ap-southeast-3), RDS PostgreSQL, ElastiCache Valkey, S3, AWS Secrets Manager
                                └─▶ External Secrets Operator (ClusterSecretStore / ExternalSecret)
 Cluster add-ons (GitOps/Helm): NGINX Ingress Controller, External Secrets Operator, cert-manager,
-                               kube-prometheus-stack, Tika, Gotenberg and ClamAV workloads
+                               kube-prometheus-stack, Keycloak (`infrastructure/kubernetes/keycloak/`),
+                               Tika, Gotenberg and ClamAV workloads
 ```
 
 | Environment | Namespace | Min replicas | Notes |

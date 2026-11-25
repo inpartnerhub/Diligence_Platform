@@ -35,3 +35,13 @@ misconfigurations:
       Deploy role (#164): the overlay contains Services, Ingresses and the NetworkPolicies themselves, so the deploy
       must be able to apply them; same scoping as KSV-0048 (one namespace, no delete). Changes to these manifests go
       through pull request review and CI (kubeconform, Trivy).
+
+vulnerabilities:
+  - id: CVE-2026-102554
+    paths:
+      - "opt/keycloak/lib/lib/main/com.google.guava.guava-33.6.0-jre.jar"
+    statement: >-
+      Upstream quay.io/keycloak/keycloak:26.8.2 (latest stable release) bundles com.google.guava:guava:33.6.0-jre.
+      CVE-2026-102554 requires Java ObjectInputStream deserialization of untrusted input; Keycloak exposes only
+      HTTP/OIDC endpoints (Ingress restricted to /realms/diligence, /resources, /js) and does not perform Java
+      serialization deserialization on untrusted streams. Remove once upstream Keycloak ships Guava >= 33.7.2.

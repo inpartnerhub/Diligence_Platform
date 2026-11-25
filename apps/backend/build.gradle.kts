@@ -10,10 +10,6 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
-// Security overrides of Spring Boot managed versions. Remove each one once the Boot BOM ships the fix.
-// opentelemetry-api 1.62.0: CVE-2026-118259 (MEDIUM), fixed in 1.67.0.
-extra["opentelemetry.version"] = "1.67.0"
-
 dependencyManagement {
     imports {
         mavenBom(libs.spring.modulith.bom.get().toString())
@@ -57,7 +53,6 @@ dependencies {
 
     // Observability
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     implementation("io.sentry:sentry-spring-boot-4-starter")
 

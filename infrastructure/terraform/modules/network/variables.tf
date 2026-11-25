@@ -18,3 +18,8 @@ variable "log_retention_days" {
   type    = number
   default = 365
 }
+variable "enable_interface_endpoints" {
+  type        = bool
+  default     = false
+  description = "Provision ECR, STS and CloudWatch Logs interface VPC endpoints. The S3 gateway endpoint is always enabled (free); interface endpoints charge hourly per AZ and are opt-in for high-traffic scale."
+}

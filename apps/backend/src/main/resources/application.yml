@@ -246,22 +246,11 @@ management:
         http.server.requests: true
       slo:
         http.server.requests: 500ms, 1s, 2s, 3s
-  tracing:
-    sampling:
-      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
-  opentelemetry:
-    tracing:
-      export:
-        otlp:
-          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
-  otlp:
-    logging:
-      endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://localhost:4318/v1/logs}
 
 sentry:
   dsn: ${SENTRY_DSN:}
   environment: ${APP_ENVIRONMENT:local}
-  traces-sample-rate: 0.0 # traces go to OpenTelemetry; Sentry is for errors only
+  traces-sample-rate: 0.0 # Sentry is for errors only
   send-default-pii: false
 
 logging:

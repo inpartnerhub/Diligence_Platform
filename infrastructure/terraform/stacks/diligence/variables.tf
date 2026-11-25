@@ -20,6 +20,12 @@ variable "high_availability" {
   default = false
 }
 
+variable "enable_interface_endpoints" {
+  type        = bool
+  default     = false
+  description = "Provision ECR, STS and CloudWatch Logs interface VPC endpoints. The S3 gateway endpoint is always enabled (free); interface endpoints charge hourly per AZ and are opt-in for high-traffic scale."
+}
+
 # Optional Spot pool for document-processing workloads. Empty keeps every node on-demand (dev/staging default).
 variable "spot_instance_types" {
   type    = list(string)

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: diligence-keycloak
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: diligence
+      app.kubernetes.io/component: identity
+    includeSelectors: false
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - external-secret.yaml
+  - deployment.yaml
+  - service.yaml
+  - servicemonitor.yaml
+  - ingress.yaml
+  - network-policies.yaml
