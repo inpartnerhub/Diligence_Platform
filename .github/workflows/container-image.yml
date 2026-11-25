@@ -49,8 +49,7 @@ jobs:
           tags: ${{ env.IMAGE }}:scan
           cache-from: type=gha,scope=${{ inputs.image-name }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image-name }}
-          secrets: |
-            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+          secrets: ${{ secrets.SENTRY_AUTH_TOKEN != '' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
       - name: Vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -78,8 +77,7 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.image-name }}
           provenance: mode=max
           sbom: true
-          secrets: |
-            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+          secrets: ${{ secrets.SENTRY_AUTH_TOKEN != '' && format('sentry_auth_token={0}', secrets.SENTRY_AUTH_TOKEN) || '' }}
       # Keyless signature (#167): Sigstore issues a short-lived certificate for this workflow's GitHub OIDC identity;
       # the signature and the certificate go to GHCR and the Rekor transparency log. Kyverno admits only images signed
       # this way (infrastructure/kubernetes/policies, ADR-0006).
