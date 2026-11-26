@@ -1,8 +1,8 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
-  external_labels:
-    environment: local
+  # No hardcoded environment label: this file is shared by the local stack and the single-server prod observability
+  # profile, so a static value would mislabel one of them. Set the environment via remote-write/federation if needed.
 
 rule_files:
   - /etc/prometheus/alerts.yml

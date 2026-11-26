@@ -105,6 +105,11 @@ clients can disable AI per project (`prj.project.ai_features_enabled`, default o
 
 ## Infrastructure baseline
 
+These controls describe the Kubernetes deployment (the scale-up target). The default single-server Docker Compose
+stack (ADR-0012) applies `no-new-privileges`, a private internal bridge network, loopback-only admin/management ports
+(Keycloak `/admin`, actuator, Prometheus), and capped container logs; read-only root filesystems and per-container
+capability dropping are a tracked hardening item for that mode (see [deployment-single-server.md](docs/deployment-single-server.md)).
+
 - Non-root containers (UID 10001), read-only root filesystem, all capabilities dropped, `restricted` Pod Security.
 - Default-deny NetworkPolicies, enforced by the VPC CNI network policy agent (`modules/kubernetes-cluster`, #157) and
   checked after deployment with `infrastructure/kubernetes/scripts/verify-network-policies.sh`; backend reachable only

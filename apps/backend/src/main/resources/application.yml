@@ -17,6 +17,11 @@ spring:
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:20}
       connection-timeout: 5000
+      # Server-side guardrails on every pooled connection: a runaway query or a transaction left idle must not pin a
+      # pooled connection indefinitely and exhaust the small pool (a handful of such events otherwise downs the
+      # backend). Long jobs (report render, search reindex, bulk export) raise statement_timeout locally within their
+      # own transaction. Flyway uses its own datasource, so migrations are unaffected.
+      connection-init-sql: "SET statement_timeout = '${DB_STATEMENT_TIMEOUT:30s}'; SET idle_in_transaction_session_timeout = '${DB_IDLE_IN_TX_TIMEOUT:60s}'"
   jpa:
     open-in-view: false
     hibernate:
@@ -237,6 +242,13 @@ management:
       probes:
         enabled: true
       show-details: when-authorized
+      # Readiness gates on the database so a pod/container with a dead or exhausted connection pool is pulled from
+      # the load balancer (503) instead of serving 500s. Liveness stays lifecycle-only (Spring default) so a brief
+      # DB blip does not restart-loop the process. Antivirus/sidecar health is enforced per-upload (fail-closed),
+      # deliberately not via readiness, so an AV outage does not take the whole API out of rotation.
+      group:
+        readiness:
+          include: readinessState, db
   observations:
     key-values:
       application: ${spring.application.name}

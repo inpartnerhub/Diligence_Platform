@@ -11,6 +11,11 @@ unexpected error, set back to `PENDING` with a short delay — up to `max_attemp
 A worker that dies mid-job leaves the row `PROCESSING`; after `INGESTION_STALE_LOCK_TIMEOUT` (10 min) the next claim
 reclaims it.
 
+> **Single-server (compose).** There is no separate `diligence-ingestion` Deployment: the backend container is the
+> queue consumer (`INGESTION_LISTENER_ENABLED=true` on `backend` in `compose.prod.yaml`). "No consumer" therefore
+> means the backend is down or unhealthy — see [backend-unavailable.md](backend-unavailable.md). Use
+> `docker compose -f compose.prod.yaml` in place of the `kubectl` commands below.
+
 ## Check
 
 1. Queue depth and state:

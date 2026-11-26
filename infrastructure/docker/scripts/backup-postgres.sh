@@ -25,6 +25,16 @@ POSTGRES_USER="${POSTGRES_USER:-diligence}"
 POSTGRES_DB="${POSTGRES_DB:-diligence}"
 KEYCLOAK_DB_NAME="${KEYCLOAK_DB_NAME:-keycloak}"
 
+# Cluster-global roles (diligence_app, diligence, keycloak) are not part of per-database dumps. Capture them so a
+# restore onto a fresh host can recreate the login/RLS roles before the data is loaded.
+globals_out="$BACKUP_DIR/globals-${STAMP}.sql.gz"
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
+  pg_dumpall -U "$POSTGRES_USER" --roles-only | gzip -9 > "$globals_out"
+echo "Created backup: $globals_out"
+if [ -n "${BACKUP_S3_URI:-}" ]; then
+  aws s3 cp "$globals_out" "${BACKUP_S3_URI%/}/globals-${STAMP}.sql.gz"
+fi
+
 for db in "$POSTGRES_DB" "$KEYCLOAK_DB_NAME"; do
   out="$BACKUP_DIR/${db}-${STAMP}.sql.gz"
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \

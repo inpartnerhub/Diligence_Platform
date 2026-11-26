@@ -6,6 +6,25 @@ Pod Identity (ADR-0011); none are in Git (gitleaks in CI). Terraform owns the ge
 (`diligence/<env>/backend/application`, `diligence/<env>/frontend`). The base manifests reference
 `diligence/base/...`; each overlay patches the key to its environment.
 
+## Single-server (Docker Compose)
+
+The default deployment (ADR-0012) has no AWS Secrets Manager or ESO: secrets live in the git-ignored `.env.prod`
+file read by `compose.prod.yaml`. The rotation *concepts* below apply unchanged; the mechanics become:
+
+1. Edit the value in `.env.prod`.
+2. Recreate the consuming container(s) so the new env is read:
+   `docker compose -f compose.prod.yaml --env-file .env.prod up -d <service>` (`backend`, `frontend`, …).
+3. Verify (containers healthy, no auth errors in logs, sign-in works), then revoke the old credential at its source.
+
+- The zero-downtime `_PREVIOUS` flows (`SESSION_ENCRYPTION_KEY`, `WEBHOOK_KEY_ENCRYPTION_KEY`) map 1:1: set the new
+  key and the `*_PREVIOUS` key in `.env.prod`, `up -d` the service, wait the documented window, remove `*_PREVIOUS`,
+  then `up -d` again.
+- DB / Redis passwords: change them in `.env.prod` **and** in the running store (`ALTER ROLE … PASSWORD` in Postgres;
+  `requirepass` for Redis), then `up -d` the dependent services; coordinate (easiest during a short maintenance stop)
+  to avoid a window where the app and store disagree.
+- Keycloak web client-secret regeneration (below) is stack-agnostic — admin console over the SSH tunnel to
+  `127.0.0.1:8180` — then write the new value to `OIDC_CLIENT_SECRET` / `KEYCLOAK_ADMIN_CLIENT_SECRET` in `.env.prod`.
+
 ## Routine (at least yearly, and after any suspected exposure)
 
 1. Write the new value to the Secrets Manager secret: `diligence/<env>/backend/infrastructure` (database, Redis
