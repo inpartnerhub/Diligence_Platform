@@ -6,9 +6,10 @@ Deploy the Diligence Platform on a single Linux VPS using [compose.prod.yaml](..
 
 | Profile | Command | Steady-State RAM | Recommended VPS | Estimated Cost |
 |---|---|---|---|---|
-| **Default (Ultra-Lean)** | `up -d` | ~2.5–3.5 GiB | **4 vCPU / 8 GiB RAM / 80 GB NVMe** | ~$25–$60/mo |
-| **With Local S3** | `--profile local-storage up -d` | ~3.0–4.0 GiB | **4 vCPU / 8 GiB RAM / 120 GB NVMe** | ~$30–$60/mo |
-| **With Prometheus** | `--profile observability up -d` | ~2.9–3.9 GiB (+384 MiB) | **4 vCPU / 8 GiB RAM / 80 GB NVMe** | ~$25–$60/mo |
+| **Starter (Default Ultra-Lean, <30 users)** | `up -d` | ~1.6–2.2 GiB | **2 vCPU / 4 GiB RAM + 2 GiB swap / 60 GB NVMe** | ~$10–$24/mo |
+| **Growth Preset (`.env.prod` 8 GiB preset)** | `up -d` | ~2.5–3.5 GiB | **4 vCPU / 8 GiB RAM / 80 GB NVMe** | ~$25–$60/mo |
+| **With Local S3** | `--profile local-storage up -d` | +512 MiB | **4 vCPU / 8 GiB RAM / 120 GB NVMe** | ~$30–$60/mo |
+| **With Prometheus** | `--profile observability up -d` | +384 MiB | **4 vCPU / 8 GiB RAM / 80 GB NVMe** | ~$25–$60/mo |
 | **With ClamAV + Tika OCR + Gotenberg** | `--profile processing up -d` | ~7.5–9.0 GiB | **8 vCPU / 16 GiB RAM / 120 GB NVMe** | ~$60–$100/mo |
 
 ### Capability Matrix: Ultra-Lean Default vs. `--profile processing`
@@ -25,12 +26,12 @@ Deploy the Diligence Platform on a single Linux VPS using [compose.prod.yaml](..
 
 ### Security & Operational Trade-offs
 
-- **Shared API + Ingestion process:** Single-server mode runs `INGESTION_LISTENER_ENABLED=true` inside the API JVM (`1.5 GiB` container memory limit / `1024 MiB` heap). Heavy or malformed uploads share memory with API requests. This is mitigated by `ZipSecureFile` zip-bomb limits, a 32 MiB OOXML/HSSF cap, `HTTP_MAX_CONCURRENT_UPLOADS=4`, and `-XX:+ExitOnOutOfMemoryError` + `restart: unless-stopped`. If you handle high volumes of untrusted uploads, migrate to dedicated ingestion workers on AWS EKS ([ADR-0011](adr/0011-lean-architecture-simplification.md)).
-- **Fail-closed AV default:** The backend defaults to `CLAMAV_MODE=required` and refuses uploads when `CLAMAV_HOST` is blank. `compose.prod.yaml` explicitly sets `CLAMAV_MODE=external` assuming AWS S3 GuardDuty Malware Protection (or an equivalent external scanner) is enabled on the bucket. Always verify `avScannerHealthIndicator` in `/actuator/health` and the `diligence_ingestion_av_enabled` gauge in `/actuator/prometheus`.
+- **Shared API + Ingestion process:** Single-server mode runs `INGESTION_LISTENER_ENABLED=true` inside the API JVM (default `1 GiB` container limit / `640 MiB` heap on 4 GiB VPS, or `1.5 GiB` / `1024 MiB` on 8 GiB VPS). Heavy or malformed uploads share memory with API requests. This is mitigated by `ZipSecureFile` zip-bomb limits, a 32 MiB OOXML/HSSF cap, `HTTP_MAX_CONCURRENT_UPLOADS=2` (raise to `4` on 8 GiB), and `-XX:+ExitOnOutOfMemoryError` + `restart: unless-stopped`. If you handle high volumes of untrusted uploads, scale to 8 GiB RAM or migrate to dedicated ingestion workers on AWS EKS ([ADR-0011](adr/0011-lean-architecture-simplification.md)).
+- **Fail-closed AV default:** The backend and `compose.prod.yaml`/`.env.prod.example` default to `CLAMAV_MODE=required`, which refuses uploads until scanning is configured. Set `CLAMAV_MODE=external` **only** when external/S3 malware scanning (e.g. AWS S3 GuardDuty Malware Protection) is enabled on the bucket, or enable `--profile processing` with `CLAMAV_MODE=clamav` + `CLAMAV_HOST=clamav`. Always verify `avScannerHealthIndicator` in `/actuator/health` and the `diligence_ingestion_av_enabled` gauge in `/actuator/prometheus`.
 
 ## 2. Prerequisites
 
-1. Ubuntu 24.04 / Debian 12+ with Docker Engine 24+ and Docker Compose v2.
+1. Ubuntu 24.04 / Debian 12+ with Docker Engine 24+ and Docker Compose v2 (on a 4 GiB VPS, enable 2 GiB swap as an OOM safety net: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`).
 2. Firewall open **only** on TCP `22` (SSH), `80` (ACME HTTP-01), and `443` (HTTPS).
 3. DNS `A` (and optionally `AAAA`) records pointing both `APP_DOMAIN` and `AUTH_DOMAIN` to the VPS public IP.
 4. S3-compatible bucket (AWS S3 in `ap-southeast-3` with GuardDuty Malware Protection, or Cloudflare R2) — or skip by enabling `--profile local-storage`.
@@ -53,7 +54,7 @@ openssl rand -base64 48  # SESSION_SECRET
 openssl rand -base64 32  # SESSION_ENCRYPTION_KEY, WEBHOOK_KEY_ENCRYPTION_KEY, DB/Redis passwords
 ```
 
-Pin immutable GHCR image tags (`IMAGE_TAG`, `KEYCLOAK_IMAGE_TAG`) to the `sha-<commit>` output from CI on `main`, and configure `APP_DOMAIN`, `AUTH_DOMAIN`, `ACME_EMAIL`, S3 credentials, `SMTP_*`, and `SENTRY_DSN` in `.env.prod`. Keep `CLAMAV_MODE=external` only when external/S3 malware scanning is active; leaving `CLAMAV_MODE=required` with blank `CLAMAV_HOST` fails closed on uploads. Keep `HTTP_MAX_CONCURRENT_UPLOADS=4` to bound in-process ingestion memory.
+Pin immutable GHCR image tags (`IMAGE_TAG`, `KEYCLOAK_IMAGE_TAG`) to the `sha-<commit>` output from CI on `main`, and configure `APP_DOMAIN`, `AUTH_DOMAIN`, `ACME_EMAIL`, S3 credentials, `SMTP_*`, and `SENTRY_DSN` in `.env.prod`. The default `CLAMAV_MODE=required` fails closed on uploads until you either set `CLAMAV_MODE=external` (external/S3 scanning active) or enable `--profile processing` (`CLAMAV_MODE=clamav`, `CLAMAV_HOST=clamav`). Defaults in `.env.prod.example` size the stack for a 2 vCPU / 4 GiB VPS (`HTTP_MAX_CONCURRENT_UPLOADS=2`, `DB_POOL_SIZE=10`); uncomment the 4 vCPU / 8 GiB preset when scaling up.
 
 If enabling `--profile processing`, also set in `.env.prod`:
 

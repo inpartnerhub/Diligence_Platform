@@ -59,7 +59,9 @@
     "stepUpConfirm": "Sign in again",
     "notFoundTitle": "Page not found",
     "notFoundBody": "The page you are looking for does not exist or has moved.",
-    "notFoundBack": "Back to projects"
+    "notFoundBack": "Back to projects",
+    "errorTitle": "Something went wrong",
+    "errorRetry": "Try again"
   },
   "comingSoon": {
     "title": "{feature} is on the roadmap",

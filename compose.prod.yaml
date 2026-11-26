@@ -1,5 +1,6 @@
 # Ultra-lean single-server production stack (Level 3 / ADR-0012).
-# Target footprint: 1 VPS with 4 vCPU / 8 GiB RAM (~2.5-3.5 GiB steady-state RAM).
+# Default tuning fits 1 VPS with 2 vCPU / 4 GiB RAM + 2 GiB swap (~1.6-2.2 GiB steady-state RAM, ~2.84 GiB cap).
+# For higher concurrency (>30 active users), uncomment the 4 vCPU / 8 GiB preset in .env.prod.
 #
 # Quick start:
 #   cp .env.prod.example .env.prod   # fill in domains, S3/R2 bucket, SMTP, and generated secrets
@@ -16,6 +17,16 @@ x-hardening: &hardening
   restart: unless-stopped
   security_opt:
     - no-new-privileges:true
+  # Cap per-container log growth: Docker's default json-file driver is unbounded, so a chatty backend or a
+  # crash-looping service would otherwise fill the VPS disk and take Postgres (and the whole stack) down.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+  # Bound process/thread creation so a fork bomb or thread leak in any one container cannot exhaust host PIDs.
+  # Generous headroom over steady-state (Postgres ~80, JVM carrier/GC threads ~200); raise via PIDS_LIMIT if needed.
+  pids_limit: ${PIDS_LIMIT:-2048}
 
 x-healthcheck: &healthcheck
   interval: 15s
@@ -31,7 +42,7 @@ services:
   caddy:
     <<: *hardening
     image: caddy:2.10-alpine
-    mem_limit: 128m
+    mem_limit: ${CADDY_MEM_LIMIT:-96m}
     ports:
       - "80:80"
       - "443:443"
@@ -51,17 +62,17 @@ services:
   postgres:
     <<: *hardening
     image: postgres:17-alpine
-    mem_limit: 1536m
+    mem_limit: ${POSTGRES_MEM_LIMIT:-768m}
     command:
       - postgres
       - -c
-      - shared_buffers=384MB
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-192MB}
       - -c
-      - effective_cache_size=1GB
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-512MB}
       - -c
-      - work_mem=8MB
+      - work_mem=${POSTGRES_WORK_MEM:-4MB}
       - -c
-      - max_connections=100
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-60}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-diligence}
       POSTGRES_USER: ${POSTGRES_USER:-diligence}
@@ -80,7 +91,7 @@ services:
   redis:
     <<: *hardening
     image: redis:8-alpine
-    mem_limit: 256m
+    mem_limit: ${REDIS_MEM_LIMIT:-128m}
     command:
       - redis-server
       - --requirepass
@@ -88,7 +99,7 @@ services:
       - --appendonly
       - "yes"
       - --maxmemory
-      - 192mb
+      - ${REDIS_MAXMEMORY:-96mb}
       - --maxmemory-policy
       - volatile-lru
     environment:
@@ -103,10 +114,10 @@ services:
   keycloak:
     <<: *hardening
     image: ghcr.io/inpartnerhub/diligence-keycloak:${KEYCLOAK_IMAGE_TAG:-main}
-    mem_limit: 768m
+    mem_limit: ${KEYCLOAK_MEM_LIMIT:-512m}
     command: ["start", "--optimized", "--import-realm", "--http-port=8080", "--management-port=9000"]
     environment:
-      JAVA_OPTS_APPEND: "-Xms128m -Xmx512m"
+      JAVA_OPTS_APPEND: ${KEYCLOAK_JAVA_OPTS:--Xms128m -Xmx320m}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
@@ -136,7 +147,7 @@ services:
   backend:
     <<: *hardening
     image: ghcr.io/inpartnerhub/diligence-backend:${IMAGE_TAG:-main}
-    mem_limit: 1536m
+    mem_limit: ${BACKEND_MEM_LIMIT:-1024m}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -144,18 +155,22 @@ services:
     environment:
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-prod}
       LOG_FORMAT: ${LOG_FORMAT:-ecs}
-      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx1024m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom"
-      # Single-server mode runs ingestion inside the backend process; set CLAMAV_HOST/TIKA_URL/GOTENBERG_URL if
-      # enabling --profile processing. Leave empty for embedded PDFBox/POI detection, extraction & rendering.
-      # Backend fails closed when CLAMAV_MODE=required; "external" assumes AWS S3 GuardDuty Malware Protection
-      # (or similar). Pair --profile processing with CLAMAV_MODE=clamav and CLAMAV_HOST=clamav.
+      JAVA_TOOL_OPTIONS: ${BACKEND_JAVA_OPTS:--Xms128m -Xmx640m -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/urandom}
+      # Single-server mode runs ingestion inside the backend process; embedded PDFBox/POI handle type detection,
+      # text extraction and rendering with no Tika/Gotenberg. Malware scanning is NOT embedded — choose one:
+      #   1. --profile processing + CLAMAV_MODE=clamav + CLAMAV_HOST=clamav (needs the 8 GiB preset), OR
+      #   2. CLAMAV_MODE=external ONLY when an external scanner (e.g. AWS S3 GuardDuty Malware Protection) is active.
+      # Default is CLAMAV_MODE=required (fail-closed): uploads are refused until scanning is configured, so the data
+      # room never silently accepts unscanned files.
       INGESTION_LISTENER_ENABLED: "true"
       TIKA_URL: ${TIKA_URL:-}
       GOTENBERG_URL: ${GOTENBERG_URL:-}
-      CLAMAV_MODE: ${CLAMAV_MODE:-external}
+      CLAMAV_MODE: ${CLAMAV_MODE:-required}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
       OCR_LANGUAGES: ${OCR_LANGUAGES:-eng+ind}
-      HTTP_MAX_CONCURRENT_UPLOADS: ${HTTP_MAX_CONCURRENT_UPLOADS:-4}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      HTTP_MAX_CONCURRENT_UPLOADS: ${HTTP_MAX_CONCURRENT_UPLOADS:-2}
+      PREVIEW_CACHE_MAX_SIZE: ${PREVIEW_CACHE_MAX_SIZE:-32MB}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-diligence}
       DB_USERNAME: ${POSTGRES_USER:-diligence}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
@@ -193,12 +208,13 @@ services:
   frontend:
     <<: *hardening
     image: ghcr.io/inpartnerhub/diligence-frontend:${IMAGE_TAG:-main}
-    mem_limit: 512m
+    mem_limit: ${FRONTEND_MEM_LIMIT:-384m}
     depends_on:
       backend: { condition: service_healthy }
       redis: { condition: service_healthy }
       keycloak: { condition: service_healthy }
     environment:
+      NODE_OPTIONS: ${FRONTEND_NODE_OPTS:---max-old-space-size=256}
       APP_BASE_URL: https://${APP_DOMAIN}
       API_BASE_URL: http://backend:8080
       TRUSTED_PROXY_HOPS: "1"

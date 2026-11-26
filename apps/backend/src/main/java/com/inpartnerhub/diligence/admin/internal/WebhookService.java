@@ -248,6 +248,12 @@ class WebhookService {
                 }
                 // The response body is never stored or returned: it could expose an internal service (SSRF).
                 lastError = "HTTP " + lastStatusCode;
+                // A 4xx (other than 408 Request Timeout and 429 Too Many Requests) is a permanent rejection of this
+                // payload: retrying the same request cannot succeed, so stop now and record the failure.
+                if (lastStatusCode >= 400 && lastStatusCode < 500
+                        && lastStatusCode != 408 && lastStatusCode != 429) {
+                    break;
+                }
             } catch (WebhookTargetPolicy.BlockedAddressException e) {
                 // The host now resolves to an internal address (DNS rebinding): retrying cannot help.
                 lastError = "Blocked by target policy: " + e.getMessage();

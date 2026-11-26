@@ -45,3 +45,5 @@ vulnerabilities:
       CVE-2026-102554 requires Java ObjectInputStream deserialization of untrusted input; Keycloak exposes only
       HTTP/OIDC endpoints (Ingress restricted to /realms/diligence, /resources, /js) and does not perform Java
       serialization deserialization on untrusted streams. Remove once upstream Keycloak ships Guava >= 33.7.2.
+      Review by 2026-12-31 (or sooner if a Keycloak release with Guava >= 33.7.2 is available): re-confirm the
+      no-untrusted-deserialization assumption with the security officer and bump Keycloak rather than extend silently.

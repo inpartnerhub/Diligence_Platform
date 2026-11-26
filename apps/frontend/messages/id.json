@@ -59,7 +59,9 @@
     "stepUpConfirm": "Masuk kembali",
     "notFoundTitle": "Halaman tidak ditemukan",
     "notFoundBody": "Halaman yang Anda cari tidak ada atau sudah dipindahkan.",
-    "notFoundBack": "Kembali ke proyek"
+    "notFoundBack": "Kembali ke proyek",
+    "errorTitle": "Terjadi kesalahan",
+    "errorRetry": "Coba lagi"
   },
   "comingSoon": {
     "title": "{feature} sedang dikembangkan",

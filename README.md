@@ -74,10 +74,30 @@ Running the simplified Diligence container stack locally requires modest memory 
 
 | Stack Profile | Minimum Allocated RAM | Recommended RAM | Minimum CPUs | Notes |
 |---------------|-----------------------|-----------------|--------------|-------|
-| **Core Dev** (`make up` + local apps) | **3.5 GiB** | **4.0+ GiB** | 4 cores | ClamAV (~900 MB), JVM backend (~512–800 MB), Keycloak (~384–450 MB), Tika, Gotenberg, SeaweedFS, Postgres (with queue + FTS), Redis |
-| **Full Containerized** (`make up-all`) | **4.5 GiB** | **6.0 GiB** | 4+ cores | Adds containerized backend and frontend, Prometheus, and Grafana |
+| **Core Dev** (`make up` + local apps) | **3.5 GiB (~3.8 GB)** | **4.0+ GiB (~4.3+ GB)** | 4 cores | Infrastructure containers only; JVM backend and Next.js frontend run directly on host |
+| **Full Containerized** (`make up-all`) | **5.0 GiB (~5.4 GB)** | **6.0+ GiB (~6.4+ GB)** | 4+ cores | Adds containerized backend, frontend, Prometheus, and Grafana |
 
-> **Note:** On macOS hosts with default 4.0 GiB Docker Desktop VM memory, `make up` runs comfortably alongside host-run backend and frontend processes. If running `make up-all` or high-throughput bulk ingestion alongside `clamd`, allocate **≥ 6 GiB** (and Swap: ≥ 2 GiB) via **Docker Desktop Settings → Resources → Advanced** to avoid OOM kills (`Exit 137`).
+#### Empirically Measured Container Resource Specifications
+
+Measured directly via `docker stats` during active runtime, document extraction (Tika), and PDF rendering (Gotenberg):
+
+| Service | Image | Idle RAM (MB / GB) | Active & Peak RAM (MB / GB) | CPU (Idle / Load) | Notes |
+|---------|-------|--------------------|-----------------------------|-------------------|-------|
+| `backend` | `diligence-backend:local` | ~815–840 MB (0.84 GB) | **~875–895 MB (0.90 GB)** | 0.5% / 15–25% | Spring Boot 4 modular monolith JVM |
+| `frontend` | `diligence-frontend:local` | ~79–84 MB (0.08 GB) | **~100 MB (0.10 GB)** | 0.0% / 1–5% | Next.js 16 standalone server & BFF session handler |
+| `keycloak` | `quay.io/keycloak/keycloak:26.8` | ~470 MB (0.47 GB) | **~498 MB (0.50 GB)** | 0.7% / 5–10% | Quarkus runtime, realm auth & token issuance |
+| `clamav` | `clamav/clamav-debian:1.5` | ~333–438 MB (0.44 GB) | **~1,028 MB (1.03 GB)** | 0.0% / 5–15% | Peaks during signature update and active upload scans |
+| `gotenberg` | `gotenberg/gotenberg:8` | ~13–19 MB (0.02 GB) | **~472 MB (0.47 GB)** | 0.0% / 10–30% | Headless Chromium process allocates ~472 MB on active rendition |
+| `tika` | `apache/tika:4.2.0-1-full` | ~65–68 MB (0.07 GB) | **~372 MB (0.37 GB)** | 0.2% / 10–20% | Java JVM jumps during active full-text / OCR extraction |
+| `object-storage` | `chrislusf/seaweedfs:4.53` | ~68–83 MB (0.08 GB) | **~84 MB (0.08 GB)** | 0.4% / 2–5% | SeaweedFS S3 gateway |
+| `postgres` | `postgres:17-alpine` | ~50–60 MB (0.06 GB) | **~63 MB (0.06 GB)** | 0.0% / 2–5% | PostgreSQL 17 with RLS, FTS, and transactional job queue |
+| `mailpit` | `axllent/mailpit:v1.33` | ~16–25 MB (0.03 GB) | **~26 MB (0.03 GB)** | 0.0% / 0.5% | Local SMTP and web UI |
+| `redis` | `redis:8-alpine` | ~8–14 MB (0.01 GB) | **~16 MB (0.02 GB)** | 0.2% / 1–2% | Session and rate-limit cache |
+| `prometheus` *(opt)* | `prom/prometheus:v3.16.0` | ~126 MB (0.13 GB) | **~157 MB (0.16 GB)** | 0.2% / 1–2% | Observability profile |
+| `grafana` *(opt)* | `grafana/grafana:13.3.0` | ~105 MB (0.11 GB) | **~126 MB (0.13 GB)** | 0.0% / 1–2% | Observability profile |
+| **Total Stack** | — | **~1.9–2.1 GB** | **~3.0–3.6 GB** | — | Peaks up to ~3.9 GB with observability; allocate ≥ 5.4–6.4 GB (5–6 GiB) VM RAM to prevent OOM (`Exit 137`) |
+
+> **Note:** On macOS hosts with default 4.0 GiB (4.3 GB) Docker Desktop VM memory, `make up` runs comfortably alongside host-run backend and frontend processes. If running `make up-all` or high-throughput bulk ingestion alongside `clamd`, allocate **≥ 6.0 GiB (~6.4 GB)** (and Swap: ≥ 2 GB) via **Docker Desktop Settings → Resources → Advanced** to avoid OOM kills (`Exit 137`).
 
 ## Quick start
 
