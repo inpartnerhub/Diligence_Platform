@@ -64,7 +64,7 @@ services:
   # ---------------------------------------------------------------- processing & integration
   tika:
     # Bundles Tesseract OCR. For Indonesian OCR (PRD DOC-06), see infrastructure/docker/tika.
-    image: apache/tika:4.2.0-1-full
+    image: apache/tika:4.2.0-2-full
     ports: ["127.0.0.1:9998:9998"]
 
   clamav:
