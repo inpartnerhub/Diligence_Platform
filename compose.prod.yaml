@@ -252,7 +252,7 @@ services:
 
   object-storage-init:
     profiles: [local-storage]
-    image: amazon/aws-cli:2.39.7
+    image: amazon/aws-cli:2.42.2
     depends_on:
       object-storage: { condition: service_healthy }
     environment:
