@@ -85,7 +85,8 @@ image-signature enforcement, a tested restore) plus two defense-in-depth code ch
   left as a documented, opt-in tunable (hard caps risk throttling the lean box and need load testing).
 - **BE-02 — DB timeouts.** Hikari `connection-init-sql` sets `statement_timeout` (30s) and
   `idle_in_transaction_session_timeout` (60s), both env-tunable. Flyway uses its own datasource, so migrations are
-  unaffected; long jobs raise the limit locally.
+  unaffected; long jobs (search reindex, report render, bulk export) stay under the cap by processing in bounded
+  batches rather than one long statement, and `DB_STATEMENT_TIMEOUT` can be raised if a legitimate statement is cancelled.
 - **BE-03 — readiness gates on DB.** `management.endpoint.health.group.readiness.include: readinessState, db`.
   Liveness stays lifecycle-only; AV/sidecar health deliberately excluded from readiness.
 - **BE-06 — webhook retries.** A 4xx (except 408/429) now breaks the retry loop immediately.

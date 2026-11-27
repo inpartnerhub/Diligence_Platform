@@ -19,8 +19,11 @@ spring:
       connection-timeout: 5000
       # Server-side guardrails on every pooled connection: a runaway query or a transaction left idle must not pin a
       # pooled connection indefinitely and exhaust the small pool (a handful of such events otherwise downs the
-      # backend). Long jobs (report render, search reindex, bulk export) raise statement_timeout locally within their
-      # own transaction. Flyway uses its own datasource, so migrations are unaffected.
+      # backend). Long jobs (report render, search reindex, bulk export) stay under this cap by design — they process
+      # in bounded batches, each its own short transaction (e.g. SearchReindexService's keyset-paginated batches),
+      # never a single long-running statement. If a legitimate single statement is ever cancelled, raise
+      # DB_STATEMENT_TIMEOUT rather than removing the cap. Flyway has its own datasource (spring.flyway.user/password is
+      # set, so Spring Boot does not reuse this Hikari pool for migrations), so migrations are unaffected.
       connection-init-sql: "SET statement_timeout = '${DB_STATEMENT_TIMEOUT:30s}'; SET idle_in_transaction_session_timeout = '${DB_IDLE_IN_TX_TIMEOUT:60s}'"
   jpa:
     open-in-view: false
