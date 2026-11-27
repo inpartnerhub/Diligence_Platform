@@ -1,5 +1,6 @@
 package com.inpartnerhub.diligence.dataroom.internal;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,7 +44,8 @@ class DocumentAnnotationService {
         if (!context.isInternal()) {
             throw new AccessDeniedException("Annotations are internal working papers and not visible to target users");
         }
-        verifyDocumentExists(projectId, documentId);
+        var doc = verifyDocumentExists(projectId, documentId);
+        access.folder(context, doc.getFolderId());
         return annotations.findByProjectIdAndDocumentIdOrderByPageNumberAscCreatedAtAsc(projectId, documentId);
     }
 
@@ -53,7 +55,17 @@ class DocumentAnnotationService {
         if (!context.isInternal()) {
             throw new AccessDeniedException("Annotations are internal working papers and not visible to target users");
         }
-        return annotations.findByProjectIdAndFindingIdOrderByCreatedAtAsc(projectId, findingId);
+        // Workstream scope: an analyst limited to a subset of workstreams must not see annotations on documents
+        // outside those workstreams. Silently drop annotations whose document is not in a folder the caller covers.
+        var visibleFolderIds = access.visibleFolders(context).stream().map(Folder::getId).toList();
+        if (visibleFolderIds.isEmpty()) {
+            return List.of();
+        }
+        var documentFolders = new HashMap<UUID, UUID>();
+        documents.findByProjectId(projectId).forEach(d -> documentFolders.put(d.getId(), d.getFolderId()));
+        return annotations.findByProjectIdAndFindingIdOrderByCreatedAtAsc(projectId, findingId).stream()
+                .filter(a -> visibleFolderIds.contains(documentFolders.get(a.getDocumentId())))
+                .toList();
     }
 
     DocumentAnnotation create(UUID projectId, UUID documentId, int pageNumber, double xPct, double yPct,
@@ -63,7 +75,8 @@ class DocumentAnnotationService {
                 || !context.hasAnyRole(ProjectRole.PARTNER, ProjectRole.PROJECT_MANAGER, ProjectRole.ANALYST)) {
             throw new AccessDeniedException("Only analysts and managers can create annotations");
         }
-        verifyDocumentExists(projectId, documentId);
+        var doc = verifyDocumentExists(projectId, documentId);
+        access.folder(context, doc.getFolderId());
         verifyFinding(projectId, findingId);
         validateCoordinates(xPct, yPct, widthPct, heightPct);
         if (pageNumber < 1) {
@@ -84,6 +97,8 @@ class DocumentAnnotationService {
                 || !context.hasAnyRole(ProjectRole.PARTNER, ProjectRole.PROJECT_MANAGER, ProjectRole.ANALYST)) {
             throw new AccessDeniedException("Only analysts and managers can update annotations");
         }
+        var doc = verifyDocumentExists(projectId, documentId);
+        access.folder(context, doc.getFolderId());
         var annotation = annotations.findById(annotationId)
                 .filter(a -> a.getProjectId().equals(projectId) && a.getDocumentId().equals(documentId))
                 .orElseThrow(() -> new ResourceNotFoundException("Annotation", annotationId));
@@ -105,14 +120,16 @@ class DocumentAnnotationService {
                 || !context.hasAnyRole(ProjectRole.PARTNER, ProjectRole.PROJECT_MANAGER, ProjectRole.ANALYST)) {
             throw new AccessDeniedException("Only analysts and managers can delete annotations");
         }
+        var doc = verifyDocumentExists(projectId, documentId);
+        access.folder(context, doc.getFolderId());
         var annotation = annotations.findById(annotationId)
                 .filter(a -> a.getProjectId().equals(projectId) && a.getDocumentId().equals(documentId))
                 .orElseThrow(() -> new ResourceNotFoundException("Annotation", annotationId));
         annotations.delete(annotation);
     }
 
-    private void verifyDocumentExists(UUID projectId, UUID documentId) {
-        documents.findById(documentId)
+    private Document verifyDocumentExists(UUID projectId, UUID documentId) {
+        return documents.findById(documentId)
                 .filter(d -> d.getProjectId().equals(projectId))
                 .orElseThrow(() -> new ResourceNotFoundException("Document", documentId));
     }
