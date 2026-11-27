@@ -41,7 +41,7 @@ networks:
 services:
   caddy:
     <<: *hardening
-    image: caddy:2.10-alpine
+    image: caddy:2.11-alpine
     mem_limit: ${CADDY_MEM_LIMIT:-96m}
     ports:
       - "80:80"
