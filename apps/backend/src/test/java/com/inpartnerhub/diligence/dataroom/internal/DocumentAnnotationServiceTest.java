@@ -5,6 +5,7 @@ import static com.inpartnerhub.diligence.dataroom.internal.DataRoomTestData.cont
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -25,6 +26,7 @@ import com.inpartnerhub.diligence.security.AuthenticatedUser;
 import com.inpartnerhub.diligence.security.CurrentUserProvider;
 import com.inpartnerhub.diligence.security.Role;
 import com.inpartnerhub.diligence.shared.web.InvalidRequestException;
+import com.inpartnerhub.diligence.shared.web.ResourceNotFoundException;
 
 class DocumentAnnotationServiceTest {
 
@@ -37,7 +39,9 @@ class DocumentAnnotationServiceTest {
             currentUser, findings);
 
     private final UUID docId = UUID.randomUUID();
-    private final Document doc = new Document(PROJECT, UUID.randomUUID(), "contract.pdf", UUID.randomUUID());
+    private final UUID folderId = UUID.randomUUID();
+    private final Document doc = mock(Document.class);
+    private final Folder folder = mock(Folder.class);
     private final AuthenticatedUser analyst = new AuthenticatedUser(UUID.randomUUID(), "analyst", "analyst@test.com",
             "Analyst User", Set.of(Role.ANALYST));
 
@@ -46,7 +50,15 @@ class DocumentAnnotationServiceTest {
         when(access.project(PROJECT)).thenReturn(context(ProjectRole.ANALYST));
         when(access.writableProject(PROJECT)).thenReturn(context(ProjectRole.ANALYST));
         when(currentUser.requireCurrentUser()).thenReturn(analyst);
+        when(doc.getId()).thenReturn(docId);
+        when(doc.getProjectId()).thenReturn(PROJECT);
+        when(doc.getFolderId()).thenReturn(folderId);
         when(documents.findById(docId)).thenReturn(Optional.of(doc));
+        when(documents.findByProjectId(PROJECT)).thenReturn(List.of(doc));
+        // The document's folder is within the caller's workstream scope by default.
+        when(folder.getId()).thenReturn(folderId);
+        when(access.visibleFolders(any())).thenReturn(List.of(folder));
+        when(access.folder(any(), any())).thenReturn(folder);
         when(annotations.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -99,17 +111,18 @@ class DocumentAnnotationServiceTest {
 
     @Test
     void listsAnnotationsForDocumentAndFinding() {
+        var findingId = UUID.randomUUID();
         var ann = new DocumentAnnotation(UUID.randomUUID(), PROJECT, docId, 1, 5.0, 5.0, 10.0, 10.0, "yellow", "test",
-                null, analyst.id(), analyst.displayName());
+                findingId, analyst.id(), analyst.displayName());
         when(annotations.findByProjectIdAndDocumentIdOrderByPageNumberAscCreatedAtAsc(PROJECT, docId))
                 .thenReturn(List.of(ann));
-        when(annotations.findByProjectIdAndFindingIdOrderByCreatedAtAsc(PROJECT, ann.getId()))
+        when(annotations.findByProjectIdAndFindingIdOrderByCreatedAtAsc(PROJECT, findingId))
                 .thenReturn(List.of(ann));
 
         var docAnns = service.list(PROJECT, docId);
         assertThat(docAnns).containsExactly(ann);
 
-        var findingAnns = service.listByFinding(PROJECT, ann.getId());
+        var findingAnns = service.listByFinding(PROJECT, findingId);
         assertThat(findingAnns).containsExactly(ann);
     }
 
@@ -140,5 +153,54 @@ class DocumentAnnotationServiceTest {
         assertThatThrownBy(() -> service.create(PROJECT, docId, 1, 10.0, 10.0, 10.0, 10.0, null, null,
                 otherProjectsFinding)).isInstanceOf(InvalidRequestException.class);
         verify(annotations, never()).save(any(DocumentAnnotation.class));
+    }
+
+    // Regression (security audit MEDIUM-1, dataroom.DocumentAnnotationService.read-missing-workstream-scope):
+    // annotation read/write paths must enforce the document's folder/workstream scope, not just project membership,
+    // so an internal analyst restricted to a subset of workstreams cannot reach annotations on documents in
+    // workstreams they are not assigned to.
+
+    @Test
+    void analystOutsideDocumentWorkstreamCannotListAnnotations() {
+        // DataRoomAccess.folder() rejects a folder the caller's workstreams do not cover.
+        when(access.folder(any(), eq(folderId))).thenThrow(new ResourceNotFoundException("Folder", folderId));
+
+        assertThatThrownBy(() -> service.list(PROJECT, docId)).isInstanceOf(ResourceNotFoundException.class);
+        verify(annotations, never())
+                .findByProjectIdAndDocumentIdOrderByPageNumberAscCreatedAtAsc(any(), any());
+    }
+
+    @Test
+    void listByFindingExcludesAnnotationsOnDocumentsOutsideVisibleFolders() {
+        var findingId = UUID.randomUUID();
+        var hiddenDocId = UUID.randomUUID();
+        var hiddenFolderId = UUID.randomUUID();
+        var hiddenDoc = mock(Document.class);
+        when(hiddenDoc.getId()).thenReturn(hiddenDocId);
+        when(hiddenDoc.getFolderId()).thenReturn(hiddenFolderId);
+        when(documents.findByProjectId(PROJECT)).thenReturn(List.of(doc, hiddenDoc));
+        // Caller covers only `folder` (folderId); hiddenFolderId is out of scope.
+        when(access.visibleFolders(any())).thenReturn(List.of(folder));
+
+        var visibleAnn = new DocumentAnnotation(UUID.randomUUID(), PROJECT, docId, 1, 5.0, 5.0, 10.0, 10.0, "y",
+                "visible note", findingId, analyst.id(), analyst.displayName());
+        var hiddenAnn = new DocumentAnnotation(UUID.randomUUID(), PROJECT, hiddenDocId, 1, 5.0, 5.0, 10.0, 10.0, "y",
+                "out-of-workstream note", findingId, analyst.id(), analyst.displayName());
+        when(annotations.findByProjectIdAndFindingIdOrderByCreatedAtAsc(PROJECT, findingId))
+                .thenReturn(List.of(visibleAnn, hiddenAnn));
+
+        assertThat(service.listByFinding(PROJECT, findingId)).containsExactly(visibleAnn);
+    }
+
+    @Test
+    void analystOutsideDocumentWorkstreamCannotModifyAnnotations() {
+        var annId = UUID.randomUUID();
+        when(access.folder(any(), eq(folderId))).thenThrow(new ResourceNotFoundException("Folder", folderId));
+
+        assertThatThrownBy(() -> service.update(PROJECT, docId, annId, 10.0, 10.0, 10.0, 10.0, null, null, null))
+                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> service.delete(PROJECT, docId, annId)).isInstanceOf(ResourceNotFoundException.class);
+        verify(annotations, never()).save(any());
+        verify(annotations, never()).delete(any());
     }
 }
